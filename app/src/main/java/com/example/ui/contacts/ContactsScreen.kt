@@ -184,7 +184,7 @@ fun ContactsScreen(
             Button(
               onClick = { showAddDialog = true },
               shape = RoundedCornerShape(12.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111111)),
               modifier = Modifier.testTag("empty_state_add_contact_button")
             ) {
               Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -379,7 +379,7 @@ fun AddContactDialog(
       Button(
         onClick = { onSave(name, phone) },
         enabled = name.isNotBlank() && phone.isNotBlank(),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111111)),
         shape = RoundedCornerShape(10.dp),
         modifier = Modifier.testTag("save_contact_button")
       ) {
