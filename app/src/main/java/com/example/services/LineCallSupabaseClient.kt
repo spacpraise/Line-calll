@@ -131,7 +131,7 @@ class LineCallSupabaseClient(context: Context) {
 
   suspend fun saveDisplayName(user: UserAccount, displayName: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
-      val payload = JSONObject().put("display_name", displayName).put("updated_at", java.time.Instant.now().toString())
+      val payload = JSONObject().put("display_name", displayName)
       execute(
         Request.Builder()
           .url("${BackendConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}")
@@ -188,7 +188,8 @@ class LineCallSupabaseClient(context: Context) {
     val rows = execute(
       Request.Builder().url(queryUrl).headers(userHeaders()).get().build()
     )
-    val row = if (rows is JSONArray && rows.length() > 0) rows.getJSONObject(0) else null
+    val profileRows = rows.optJSONArray("data")
+    val row = if (profileRows != null && profileRows.length() > 0) profileRows.getJSONObject(0) else null
     if (row == null) {
       val defaultName = email.substringBefore("@").replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
       execute(
