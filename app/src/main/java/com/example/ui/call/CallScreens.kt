@@ -76,7 +76,7 @@ fun IncomingCallScreen(
 
   Surface(
     modifier = modifier.fillMaxSize(),
-    color = Color(0xFF0A0F1D) // High-contrast telecommunications near-black
+    color = Color(0xFF090909) // High-contrast telecommunications near-black
   ) {
     Column(
       modifier = Modifier
@@ -93,7 +93,7 @@ fun IncomingCallScreen(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFF1E293B))
+            .background(Color(0xFF1D1D1D))
             .padding(horizontal = 14.dp, vertical = 6.dp)
         ) {
           Box(
@@ -117,7 +117,7 @@ fun IncomingCallScreen(
             letterSpacing = 2.sp,
             fontWeight = FontWeight.Bold
           ),
-          color = Color(0xFF94A3B8)
+          color = Color(0xFFAAAAAA)
         )
       }
 
@@ -149,10 +149,10 @@ fun IncomingCallScreen(
               .clip(CircleShape)
               .background(
                 Brush.linearGradient(
-                  colors = listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                  colors = listOf(Color(0xFF1D1D1D), Color(0xFF111111))
                 )
               )
-              .border(2.dp, Color(0xFF334155), CircleShape),
+              .border(2.dp, Color(0xFF333333), CircleShape),
             contentAlignment = Alignment.Center
           ) {
             Text(
@@ -178,7 +178,7 @@ fun IncomingCallScreen(
         Text(
           text = session.phoneNumber,
           style = MaterialTheme.typography.bodyLarge.copy(
-            color = Color(0xFF94A3B8),
+            color = Color(0xFFAAAAAA),
             fontWeight = FontWeight.Medium
           )
         )
@@ -215,7 +215,7 @@ fun IncomingCallScreen(
           Text(
             text = "Decline",
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = Color(0xFF94A3B8)
+            color = Color(0xFFAAAAAA)
           )
         }
 
@@ -272,7 +272,7 @@ fun ActiveCallScreen(
 
   Surface(
     modifier = modifier.fillMaxSize(),
-    color = Color(0xFF0A0F1D)
+    color = Color(0xFF090909)
   ) {
     Column(
       modifier = Modifier
@@ -292,7 +292,7 @@ fun ActiveCallScreen(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFF1E293B))
+            .background(Color(0xFF1D1D1D))
             .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
           Icon(
@@ -304,7 +304,7 @@ fun ActiveCallScreen(
           Text(
             text = "End-to-End Encrypted Voice",
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-            color = Color(0xFFCBD5E1)
+            color = Color(0xFFD4D4D4)
           )
         }
 
@@ -316,7 +316,7 @@ fun ActiveCallScreen(
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 1.sp
           ),
-          color = if (session.state == CallSessionState.CONNECTED) Color.White else Color(0xFF94A3B8),
+          color = if (session.state == CallSessionState.CONNECTED) Color.White else Color(0xFFAAAAAA),
           modifier = Modifier.testTag("call_duration_timer")
         )
       }
@@ -335,10 +335,10 @@ fun ActiveCallScreen(
             .clip(CircleShape)
             .background(
               Brush.linearGradient(
-                colors = listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                colors = listOf(Color(0xFF1D1D1D), Color(0xFF111111))
               )
             )
-            .border(2.dp, Color(0xFF334155), CircleShape),
+            .border(2.dp, Color(0xFF333333), CircleShape),
           contentAlignment = Alignment.Center
         ) {
           Text(
@@ -363,7 +363,7 @@ fun ActiveCallScreen(
         Text(
           text = session.phoneNumber,
           style = MaterialTheme.typography.bodyLarge.copy(
-            color = Color(0xFF94A3B8),
+            color = Color(0xFFAAAAAA),
             fontWeight = FontWeight.Medium
           )
         )
@@ -410,7 +410,7 @@ fun ActiveCallScreen(
             Surface(
               onClick = onMuteToggle,
               shape = CircleShape,
-              color = if (session.isMuted) Color.White else Color(0xFF1E293B),
+              color = if (session.isMuted) Color.White else Color(0xFF1D1D1D),
               modifier = Modifier
                 .size(60.dp)
                 .testTag("toggle_mute_button")
@@ -428,7 +428,7 @@ fun ActiveCallScreen(
             Text(
               text = if (session.isMuted) "Unmute" else "Mute",
               style = MaterialTheme.typography.labelSmall,
-              color = Color(0xFF94A3B8)
+              color = Color(0xFFAAAAAA)
             )
           }
 
@@ -437,7 +437,7 @@ fun ActiveCallScreen(
             Surface(
               onClick = onSpeakerToggle,
               shape = CircleShape,
-              color = if (session.isSpeakerOn) Color.White else Color(0xFF1E293B),
+              color = if (session.isSpeakerOn) Color.White else Color(0xFF1D1D1D),
               modifier = Modifier
                 .size(60.dp)
                 .testTag("toggle_speaker_button")
@@ -455,7 +455,7 @@ fun ActiveCallScreen(
             Text(
               text = if (session.isSpeakerOn) "Speaker" else "Earpiece",
               style = MaterialTheme.typography.labelSmall,
-              color = Color(0xFF94A3B8)
+              color = Color(0xFFAAAAAA)
             )
           }
         }
