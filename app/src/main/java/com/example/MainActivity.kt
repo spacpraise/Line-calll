@@ -1,9 +1,18 @@
 package com.example
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -11,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,19 +50,36 @@ import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
 
 class MainActivity : ComponentActivity() {
+  private var authCallbackUri by mutableStateOf<Uri?>(null)
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    authCallbackUri = intent?.data
     enableEdgeToEdge()
     setContent {
       LineCallTheme {
-        LineCallApp()
+        LineCallApp(
+          authCallbackUri = authCallbackUri,
+          onAuthCallbackHandled = { authCallbackUri = null }
+        )
       }
     }
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    authCallbackUri = intent.data
   }
 }
 
 @Composable
-fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
+fun LineCallApp(
+  viewModel: LineCallViewModel = viewModel(),
+  authCallbackUri: Uri? = null,
+  onAuthCallbackHandled: () -> Unit = {}
+) {
+  val context = LocalContext.current
   val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
   val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
   val enteredNumber by viewModel.enteredNumber.collectAsStateWithLifecycle()
@@ -70,6 +98,46 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
 
   var quickAddContactNumber by remember { mutableStateOf<String?>(null) }
+  var pendingMicrophoneAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+  val microphonePermissionLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.RequestPermission()
+  ) { granted ->
+    val action = pendingMicrophoneAction
+    pendingMicrophoneAction = null
+    if (granted) action?.invoke()
+    else Toast.makeText(context, "Microphone access is needed to make voice calls.", Toast.LENGTH_LONG).show()
+  }
+
+  val notificationPermissionLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.RequestPermission()
+  ) { }
+
+  fun runWithMicrophonePermission(action: () -> Unit) {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+      action()
+    } else {
+      pendingMicrophoneAction = action
+      microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+  }
+
+  LaunchedEffect(authCallbackUri) {
+    val uri = authCallbackUri
+    if (uri != null && uri.scheme == "linecall" && uri.host == "auth") {
+      viewModel.verifyMagicLinkCallback(uri.toString())
+      onAuthCallbackHandled()
+    }
+  }
+
+  LaunchedEffect(currentScreen) {
+    if (currentScreen == ScreenState.MAIN_APP &&
+      Build.VERSION.SDK_INT >= 33 &&
+      ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    ) {
+      notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+  }
 
   // Predictive Back handling across all screens and active calls
   BackHandler(enabled = activeCall != null) {
@@ -141,11 +209,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       ScreenState.SETTINGS -> {
         SettingsScreen(
           currentUser = currentUser,
-          onUpdateDisplayName = { viewModel.updateDisplayNameInput(it) },
-          onTriggerIncomingCallTest = { viewModel.triggerIncomingCallSimulation() },
-          onTriggerActiveCallTest = {
-            viewModel.startTestCallPreview("+14155550198", "Sarah Jenkins")
-          },
+          onUpdateDisplayName = { viewModel.saveDisplayName(it) },
           onSignOut = { viewModel.signOut() },
           onBack = { viewModel.navigateTo(ScreenState.MAIN_APP) }
         )
@@ -180,7 +244,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
                   onAppendChar = { viewModel.appendKeypadChar(it) },
                   onBackspace = { viewModel.backspaceKeypad() },
                   onClear = { viewModel.clearKeypad() },
-                  onCall = { viewModel.onCallButtonPressed() },
+                  onCall = { runWithMicrophonePermission { viewModel.onCallButtonPressed() } },
                   onSaveContact = { quickAddContactNumber = it }
                 )
               }
@@ -237,7 +301,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       if (session.isIncoming && session.state == CallSessionState.RINGING) {
         IncomingCallScreen(
           session = session,
-          onAccept = { viewModel.acceptIncomingCall() },
+          onAccept = { runWithMicrophonePermission { viewModel.acceptIncomingCall() } },
           onDecline = { viewModel.declineIncomingCall() }
         )
       } else {
