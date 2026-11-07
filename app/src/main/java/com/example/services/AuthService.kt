@@ -51,10 +51,17 @@ class LineCallAuthService(
   }
 
   override suspend fun restoreSession(): UserAccount? {
-    val user = supabase.restoreSession()
-    currentUser = user
-    _authState.value = if (user == null) AuthState.Unauthenticated else AuthState.Authenticated(user)
-    return user
+    val restoredUser = supabase.restoreSession()
+    // A magic-link callback can finish while session restoration is still in flight.
+    // Never let a late restore result overwrite the newly authenticated callback user.
+    val resolvedUser = currentUser ?: restoredUser
+    if (currentUser == null) currentUser = restoredUser
+    _authState.value = if (resolvedUser == null) {
+      AuthState.Unauthenticated
+    } else {
+      AuthState.Authenticated(resolvedUser)
+    }
+    return resolvedUser
   }
 
   fun updateCurrentUser(updatedUser: UserAccount) {
