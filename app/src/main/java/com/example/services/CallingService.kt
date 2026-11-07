@@ -239,6 +239,7 @@ class CallingService(
 
     room.connect(serverUrl, participantToken)
     room.localParticipant.setMicrophoneEnabled(true)
+    LineCallOngoingCallService.start(application)
 
     if (_activeCall.value?.callId == callId) {
       _activeCall.value = session.copy(state = CallSessionState.CONNECTED)
@@ -353,6 +354,7 @@ class CallingService(
     incomingWatchJob?.cancel()
     incomingWatchJob = null
     coroutineScope.launch { runCatching { liveKitRoom?.disconnect() }; liveKitRoom = null }
+    LineCallOngoingCallService.stop(application)
     _activeCall.value = null
     audioManager.isSpeakerphoneOn = false
     audioManager.mode = AudioManager.MODE_NORMAL
