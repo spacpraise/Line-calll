@@ -406,7 +406,7 @@ fun PhoneNumberSetupScreen(
       Spacer(modifier = Modifier.height(8.dp))
 
       Text(
-        text = "Line Call uses your phone number as your calling address so other users can call you over the internet.",
+        text = "Your number becomes your Line Call address. Phone ownership is not verified yet, so only enter a number you control.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.secondary
       )
