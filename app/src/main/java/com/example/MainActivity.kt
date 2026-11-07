@@ -288,10 +288,7 @@ fun LineCallApp(
     backendNotice?.let { notice ->
       BackendNoticeDialog(
         notice = notice,
-        onDismiss = { viewModel.dismissBackendNotice() },
-        onPreviewCall = { e164, name ->
-          viewModel.startTestCallPreview(e164, name)
-        }
+        onDismiss = { viewModel.dismissBackendNotice() }
       )
     }
 
