@@ -39,7 +39,7 @@ class LineCallMessagingService : FirebaseMessagingService() {
     createCallChannel(manager)
 
     val openApp = Intent(this, MainActivity::class.java).apply {
-      flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
       putExtra("incoming_call_id", callId)
     }
     val pendingIntent = PendingIntent.getActivity(
