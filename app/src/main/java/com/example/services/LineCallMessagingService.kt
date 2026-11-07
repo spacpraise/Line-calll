@@ -61,7 +61,7 @@ class LineCallMessagingService : FirebaseMessagingService() {
       .setContentIntent(pendingIntent)
       .build()
 
-    NotificationManagerCompat.from(this).notify(callId.hashCode(), notification)
+    runCatching { NotificationManagerCompat.from(this).notify(callId.hashCode(), notification) }
   }
 
   private fun createCallChannel(manager: NotificationManager) {
