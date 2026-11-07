@@ -99,7 +99,7 @@ fun WelcomeScreen(
           modifier = Modifier
             .size(80.dp)
             .clip(CircleShape)
-            .background(Color(0xFF0F172A)),
+            .background(Color(0xFF111111)),
           contentAlignment = Alignment.Center
         ) {
           Icon(
@@ -151,7 +151,7 @@ fun WelcomeScreen(
             .testTag("get_started_button"),
           shape = RoundedCornerShape(14.dp),
           colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF0F172A),
+            containerColor = Color(0xFF111111),
             contentColor = Color.White
           )
         ) {
@@ -278,7 +278,7 @@ fun RegistrationScreen(
             .testTag("email_continue_button"),
           shape = RoundedCornerShape(14.dp),
           colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF0F172A),
+            containerColor = Color(0xFF111111),
             contentColor = Color.White
           ),
           enabled = email.contains("@") && email.contains(".")
@@ -346,32 +346,13 @@ fun RegistrationScreen(
             modifier = Modifier.fillMaxWidth()
           ) {
             Text(
-              text = "Prepared for Supabase Magic Link authentication. In production, clicking the email link redirects here with a session token.",
+              text = "Tap the sign-in link in your email. Line Call will open automatically and finish signing you in.",
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.padding(14.dp),
               textAlign = TextAlign.Center
             )
           }
-        }
-
-        // Action to handle callback & proceed
-        Button(
-          onClick = onVerifyCallback,
-          modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .testTag("verify_magic_link_button"),
-          shape = RoundedCornerShape(14.dp),
-          colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF0F172A),
-            contentColor = Color.White
-          )
-        ) {
-          Text(
-            text = "Open Link & Continue",
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
-          )
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -562,7 +543,7 @@ fun PhoneNumberSetupScreen(
           .testTag("phone_continue_button"),
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
-          containerColor = Color(0xFF0F172A),
+          containerColor = Color(0xFF111111),
           contentColor = Color.White
         ),
         enabled = phoneNumber.trim().length >= 5
@@ -771,7 +752,7 @@ fun ProfileSetupScreen(
           .testTag("complete_profile_button"),
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
-          containerColor = Color(0xFF0F172A),
+          containerColor = Color(0xFF111111),
           contentColor = Color.White
         )
       ) {
