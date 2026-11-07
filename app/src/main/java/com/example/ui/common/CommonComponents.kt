@@ -83,7 +83,7 @@ fun LineCallTopBar(
           modifier = Modifier
             .size(34.dp)
             .clip(CircleShape)
-            .background(Color(0xFF0F172A)),
+            .background(Color(0xFF111111)),
           contentAlignment = Alignment.Center
         ) {
           Icon(
@@ -266,7 +266,7 @@ fun BackendNoticeDialog(
           modifier = Modifier
             .size(10.dp)
             .clip(CircleShape)
-            .background(Color(0xFFF59E0B)) // Amber status indicator
+            .background(Color(0xFF737373)) // Amber status indicator
         )
         Text(
           text = notice.title,
