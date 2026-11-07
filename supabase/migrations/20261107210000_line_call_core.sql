@@ -36,7 +36,9 @@ create index if not exists calls_caller_created_idx
 
 alter table public.profiles enable row level security;
 alter table public.calls enable row level security;
-grant select, insert, update on public.profiles to authenticated;
+grant select on public.profiles to authenticated;
+grant insert (id, email, phone_number, display_name, avatar_url) on public.profiles to authenticated;
+grant update (phone_number, display_name, avatar_url, updated_at) on public.profiles to authenticated;
 grant select on public.calls to authenticated;
 
 drop policy if exists "Users can read their own profile" on public.profiles;
