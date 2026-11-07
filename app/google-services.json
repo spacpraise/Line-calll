@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "606999657504",
+    "project_id": "line-call-eb381",
+    "storage_bucket": "line-call-eb381.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:606999657504:android:3b2cd6ebd6ea5d87551045",
+        "android_client_info": {
+          "package_name": "com.aistudio.linecall.vczr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAK61GG9WL7BT3Ui4gujCxGRG9b-sQkh1U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
