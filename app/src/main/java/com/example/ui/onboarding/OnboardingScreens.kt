@@ -191,7 +191,6 @@ fun RegistrationScreen(
   authError: String?,
   onEmailChanged: (String) -> Unit,
   onSubmitEmail: () -> Unit,
-  onVerifyCallback: () -> Unit,
   onBack: () -> Unit
 ) {
   Surface(
