@@ -10,7 +10,10 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint profiles_phone_e164_check check (
-    phone_number is null or phone_number ~ '^\+[1-9][0-9]{6,14}
+    phone_number is null or (
+      left(phone_number, 1) = '+'
+      and substring(phone_number from 2) ~ '^[1-9][0-9]{6,14}$'
+    )
   )
 );
 create unique index if not exists profiles_phone_number_unique
