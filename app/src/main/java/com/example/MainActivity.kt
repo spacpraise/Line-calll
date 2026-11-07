@@ -48,6 +48,8 @@ import com.example.ui.onboarding.WelcomeScreen
 import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
+import com.google.firebase.FirebaseApp
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
   private var authCallbackUri by mutableStateOf<Uri?>(null)
@@ -136,6 +138,14 @@ fun LineCallApp(
       ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
     ) {
       notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+  }
+
+  LaunchedEffect(currentUser?.id) {
+    if (currentUser != null && FirebaseApp.getApps(context).isNotEmpty()) {
+      FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+        viewModel.saveFcmToken(token)
+      }
     }
   }
 
