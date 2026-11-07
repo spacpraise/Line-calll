@@ -4,6 +4,7 @@ import com.example.data.model.UserAccount
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONObject
 
 sealed class RegistrationStatus {
   data object NotChecked : RegistrationStatus()
@@ -12,7 +13,10 @@ sealed class RegistrationStatus {
   data class BackendUnavailable(val e164: String, val message: String) : RegistrationStatus()
 }
 
-class UserProfileService(private val authService: LineCallAuthService) {
+class UserProfileService(
+  private val authService: LineCallAuthService,
+  private val supabase: LineCallSupabaseClient
+) {
   private val _currentUser = MutableStateFlow<UserAccount?>(null)
   val currentUser: StateFlow<UserAccount?> = _currentUser.asStateFlow()
 
@@ -21,78 +25,61 @@ class UserProfileService(private val authService: LineCallAuthService) {
     authService.updateCurrentUser(user)
   }
 
-  /**
-   * Formats national number with dial code to E.164 standard.
-   * Strips all non-digit characters except leading '+'.
-   */
   fun formatToE164(dialCode: String, nationalNumber: String): String {
+    val raw = nationalNumber.trim()
+    if (raw.startsWith("+")) return raw.replace(Regex("[^0-9+]"), "")
     val cleanDialCode = if (dialCode.startsWith("+")) dialCode else "+$dialCode"
-    val digitsOnly = nationalNumber.replace(Regex("[^0-9]"), "").trimStart('0')
+    val digitsOnly = raw.replace(Regex("[^0-9]"), "").trimStart('0')
     return "$cleanDialCode$digitsOnly"
   }
 
-  fun validateE164(e164: String): Boolean {
-    // E.164 format: + followed by 7 to 15 digits
-    return e164.matches(Regex("^\\+[1-9][0-9]{6,14}$"))
-  }
+  fun validateE164(e164: String): Boolean =
+    e164.matches(Regex("^\\+[1-9][0-9]{6,14}$"))
 
-  /**
-   * Registers user's phone number as unverified.
-   * Phone-number ownership verification is kept as a separate future capability.
-   */
-  fun registerPhoneNumber(e164PhoneNumber: String): Result<UserAccount> {
+  /** Saves the number without claiming that its owner has been verified. */
+  suspend fun registerPhoneNumber(e164PhoneNumber: String): Result<UserAccount> {
     if (!validateE164(e164PhoneNumber)) {
-      return Result.failure(IllegalArgumentException("Please enter a valid international phone number in E.164 format (e.g. +14155552671)."))
-    }
-
-    val current = _currentUser.value ?: UserAccount(
-      id = "temp_${System.currentTimeMillis()}",
-      email = "user@linecall.app",
-      phoneNumber = e164PhoneNumber,
-      isPhoneVerified = false,
-      displayName = "Line Call User"
-    )
-
-    val updated = current.copy(
-      phoneNumber = e164PhoneNumber,
-      isPhoneVerified = false // Explicitly stored as unverified
-    )
-    _currentUser.value = updated
-    authService.updateCurrentUser(updated)
-
-    // When Supabase is configured:
-    // TODO: supabaseClient.from("users").upsert(mapOf("phone_number" to e164PhoneNumber, "phone_verified" to false))
-    return Result.success(updated)
-  }
-
-  fun updateProfile(displayName: String, avatarUrl: String?): UserAccount? {
-    val current = _currentUser.value ?: return null
-    val updated = current.copy(
-      displayName = displayName.ifBlank { current.displayName },
-      avatarUrl = avatarUrl ?: current.avatarUrl
-    )
-    _currentUser.value = updated
-    authService.updateCurrentUser(updated)
-    return updated
-  }
-
-  /**
-   * Checks whether the target phone number belongs to a registered Line Call user.
-   * In production, this queries Supabase: `SELECT id FROM users WHERE phone_number = :e164`.
-   */
-  suspend fun checkTargetUserRegistration(e164PhoneNumber: String): RegistrationStatus {
-    if (!validateE164(e164PhoneNumber)) {
-      return RegistrationStatus.NotRegistered(e164PhoneNumber)
-    }
-
-    if (!BackendConfig.isSupabaseConfigured) {
-      return RegistrationStatus.BackendUnavailable(
-        e164 = e164PhoneNumber,
-        message = "Live Supabase backend is not yet connected. Configure SUPABASE_URL in build settings to enable real-time user lookup."
+      return Result.failure(
+        IllegalArgumentException("Enter a valid international phone number, including its country code.")
       )
     }
+    val current = _currentUser.value
+      ?: return Result.failure(IllegalStateException("Sign in with your email before adding a phone number."))
+    val result = supabase.savePhoneNumber(current, e164PhoneNumber)
+    result.onSuccess(::setUser)
+    return result
+  }
 
-    // TODO: val result = supabaseClient.from("users").select().eq("phone_number", e164PhoneNumber).single()
-    return RegistrationStatus.NotRegistered(e164PhoneNumber)
+  suspend fun updateProfile(displayName: String, avatarUrl: String? = null): Result<UserAccount> {
+    val current = _currentUser.value
+      ?: return Result.failure(IllegalStateException("No signed-in account was found."))
+    val cleanName = displayName.trim().ifBlank { current.displayName }
+    val result = supabase.saveDisplayName(current.copy(avatarUrl = avatarUrl ?: current.avatarUrl), cleanName)
+    result.onSuccess(::setUser)
+    return result
+  }
+
+  suspend fun checkTargetUserRegistration(e164PhoneNumber: String): RegistrationStatus {
+    if (!validateE164(e164PhoneNumber)) return RegistrationStatus.NotRegistered(e164PhoneNumber)
+    return try {
+      val response = supabase.callFunction(
+        JSONObject().put("action", "lookup").put("phone_number", e164PhoneNumber)
+      )
+      val user = response.optJSONObject("user")
+      if (response.optBoolean("registered") && user != null) {
+        RegistrationStatus.Registered(e164PhoneNumber, user.optString("display_name").takeIf { it.isNotBlank() })
+      } else {
+        RegistrationStatus.NotRegistered(e164PhoneNumber)
+      }
+    } catch (error: Exception) {
+      if (error.message.orEmpty().contains("not registered", ignoreCase = true)) {
+        RegistrationStatus.NotRegistered(e164PhoneNumber)
+      } else {
+        RegistrationStatus.BackendUnavailable(
+          e164PhoneNumber,
+          error.message ?: "Unable to check this number right now."
+        )
+      }
+    }
   }
 }
