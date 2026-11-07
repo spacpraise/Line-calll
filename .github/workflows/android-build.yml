@@ -12,6 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -20,6 +21,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install required Android SDK packages
+        run: sdkmanager "platforms;android-36" "platforms;android-36-ext1" "build-tools;36.0.0"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -36,4 +41,4 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
       - name: Compile Android app
-        run: gradle :app:assembleDebug --stacktrace
+        run: gradle --no-daemon --console=plain :app:assembleDebug --stacktrace
