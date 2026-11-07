@@ -9,7 +9,6 @@ import com.example.data.model.CallRecord
 import com.example.data.model.Contact
 import com.example.data.model.Country
 import com.example.data.model.CountryList
-import com.example.data.model.UserAccount
 import com.example.services.CallInitiationResult
 import com.example.services.CallingService
 import com.example.services.LineCallAuthService
@@ -342,7 +341,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     viewModelScope.launch {
       callingService.stopIncomingCallPolling()
       authService.signOut()
-      userProfileService.setUser(nullUserPlaceholder())
+      userProfileService.clearUser()
       _currentScreen.value = ScreenState.WELCOME
       _emailInput.value = ""
       _phoneInput.value = ""
@@ -353,8 +352,4 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }
 
-  private fun nullUserPlaceholder(): UserAccount {
-    // UserProfileService has no separate clear method yet; the auth state is cleared on sign out.
-    return UserAccount("", "", "", false, "", null, false)
-  }
 }
