@@ -110,19 +110,12 @@ class LineCallSupabaseClient(context: Context) {
 
   suspend fun savePhoneNumber(user: UserAccount, phoneNumber: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
-      val payload = JSONObject()
-        .put("id", user.id)
-        .put("email", user.email)
-        .put("phone_number", phoneNumber)
-        .put("phone_verified", false)
-        .put("display_name", user.displayName)
-        .put("avatar_url", user.avatarUrl ?: JSONObject.NULL)
+      val payload = JSONObject().put("phone_number", phoneNumber)
       execute(
         Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/rest/v1/profiles?on_conflict=id")
+          .url("${BackendConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}")
           .headers(userHeaders())
-          .header("Prefer", "resolution=merge-duplicates,return=representation")
-          .post(payload.toString().toRequestBody(jsonType))
+          .patch(payload.toString().toRequestBody(jsonType))
           .build()
       )
       user.copy(phoneNumber = phoneNumber, isPhoneVerified = false, isRegisteredOnBackend = true)
@@ -201,7 +194,6 @@ class LineCallSupabaseClient(context: Context) {
             JSONObject()
               .put("id", id)
               .put("email", email)
-              .put("phone_verified", false)
               .put("display_name", defaultName)
               .toString().toRequestBody(jsonType)
           )
