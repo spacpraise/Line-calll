@@ -6,6 +6,7 @@ create table if not exists public.profiles (
   phone_verified boolean not null default false,
   display_name text,
   avatar_url text,
+  fcm_token text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint profiles_phone_e164_check check (
@@ -38,7 +39,7 @@ alter table public.profiles enable row level security;
 alter table public.calls enable row level security;
 grant select on public.profiles to authenticated;
 grant insert (id, email, phone_number, display_name, avatar_url) on public.profiles to authenticated;
-grant update (phone_number, display_name, avatar_url, updated_at) on public.profiles to authenticated;
+grant update (phone_number, display_name, avatar_url, updated_at, fcm_token) on public.profiles to authenticated;
 grant select on public.calls to authenticated;
 
 drop policy if exists "Users can read their own profile" on public.profiles;
