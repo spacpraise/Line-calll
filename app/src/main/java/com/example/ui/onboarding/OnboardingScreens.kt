@@ -515,7 +515,7 @@ fun PhoneNumberSetupScreen(
               modifier = Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF64748B))
+                .background(Color(0xFF737373))
             )
             Text(
               text = "Status: Unverified",
