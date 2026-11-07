@@ -1,5 +1,6 @@
 package com.example.services
 
+import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -29,6 +30,7 @@ class LineCallMessagingService : FirebaseMessagingService() {
   override fun onMessageReceived(message: RemoteMessage) {
     super.onMessageReceived(message)
     if (message.data["type"] != "incoming_call") return
+    if (isAppForeground()) return
 
     val callId = message.data["call_id"] ?: return
     val callerName = message.data["caller_name"]?.takeIf { it.isNotBlank() }
@@ -62,6 +64,14 @@ class LineCallMessagingService : FirebaseMessagingService() {
       .build()
 
     runCatching { NotificationManagerCompat.from(this).notify(callId.hashCode(), notification) }
+  }
+
+  private fun isAppForeground(): Boolean {
+    val activityManager = getSystemService(ActivityManager::class.java)
+    return activityManager.runningAppProcesses?.any { process ->
+      process.processName == packageName &&
+        process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+    } == true
   }
 
   private fun createCallChannel(manager: NotificationManager) {
