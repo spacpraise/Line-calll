@@ -180,7 +180,6 @@ fun LineCallApp(
           authError = authError,
           onEmailChanged = { viewModel.updateEmailInput(it) },
           onSubmitEmail = { viewModel.submitEmail() },
-          onVerifyCallback = { viewModel.verifyMagicLinkCallback() },
           onBack = { viewModel.navigateTo(ScreenState.WELCOME) }
         )
       }
