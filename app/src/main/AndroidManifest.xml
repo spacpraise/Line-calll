@@ -40,6 +40,10 @@
             </intent-filter>
         </activity>
         <service
+            android:name=".services.LineCallOngoingCallService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+        <service
             android:name=".services.LineCallMessagingService"
             android:exported="false">
             <intent-filter>
