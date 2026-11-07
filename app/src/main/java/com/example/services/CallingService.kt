@@ -1,10 +1,14 @@
 package com.example.services
 
+import android.app.Application
+import android.media.AudioManager
 import com.example.data.local.CallRecordDao
 import com.example.data.model.ActiveCallSession
 import com.example.data.model.CallRecord
 import com.example.data.model.CallSessionState
 import com.example.data.model.CallType
+import io.livekit.android.LiveKit
+import io.livekit.android.room.Room
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,6 +21,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.util.UUID
 
 sealed class CallInitiationResult {
@@ -33,18 +38,14 @@ sealed class CallEvent {
 }
 
 /**
- * Dedicated Voice Calling Service architecture.
- *
- * Prepared for real-time LiveKit Cloud WebRTC voice integration.
- * In production:
- * 1. Client requests room token from Supabase Edge Function (`/functions/v1/call-token`)
- * 2. LiveKit Android SDK connects to `wss://your-project.livekit.cloud`
- * 3. Audio tracks are published/subscribed over WebRTC with opus codec
- * 4. Microphones and speaker output are routed through AudioManager
+ * Real one-to-one voice calls. Supabase coordinates call state and issues short-lived
+ * LiveKit participant tokens; LiveKit carries the encrypted WebRTC audio.
  */
 class CallingService(
+  private val application: Application,
   private val callRecordDao: CallRecordDao,
   private val userProfileService: UserProfileService,
+  private val supabase: LineCallSupabaseClient,
   private val coroutineScope: CoroutineScope
 ) {
   private val _activeCall = MutableStateFlow<ActiveCallSession?>(null)
@@ -53,77 +54,144 @@ class CallingService(
   private val _callEvents = MutableSharedFlow<CallEvent>()
   val callEvents: SharedFlow<CallEvent> = _callEvents.asSharedFlow()
 
+  private val audioManager = application.getSystemService(AudioManager::class.java)
+  private var liveKitRoom: Room? = null
   private var timerJob: Job? = null
+  private var incomingPollJob: Job? = null
+  private var outgoingPollJob: Job? = null
 
-  fun validateNumber(e164: String): Boolean {
-    return userProfileService.validateE164(e164)
+  fun validateNumber(e164: String): Boolean = userProfileService.validateE164(e164)
+
+  fun startIncomingCallPolling() {
+    if (incomingPollJob?.isActive == true) return
+    incomingPollJob = coroutineScope.launch(Dispatchers.IO) {
+      while (isActive) {
+        if (_activeCall.value == null) {
+          runCatching {
+            val response = supabase.callFunction(JSONObject().put("action", "poll"))
+            val incoming = response.optJSONObject("incoming_call")
+            if (incoming != null && _activeCall.value == null) {
+              val session = ActiveCallSession(
+                callId = incoming.getString("call_id"),
+                contactName = incoming.optString("display_name").takeIf { it.isNotBlank() && it != "null" },
+                phoneNumber = incoming.optString("phone_number"),
+                state = CallSessionState.RINGING,
+                isIncoming = true
+              )
+              _activeCall.value = session
+              _callEvents.emit(CallEvent.CallStarted(session))
+            }
+          }
+        }
+        delay(2500)
+      }
+    }
   }
 
-  /**
-   * Attempts to initiate an internet voice call to [e164PhoneNumber].
-   * If backend is not connected, honestly returns [CallInitiationResult.BackendNotConnected]
-   * to avoid pretending a real call succeeded.
-   */
+  fun stopIncomingCallPolling() {
+    incomingPollJob?.cancel()
+    incomingPollJob = null
+  }
+
   suspend fun initiateCall(
     e164PhoneNumber: String,
     contactName: String?,
     forceDevelopmentTestMode: Boolean = false
   ): CallInitiationResult {
     if (!validateNumber(e164PhoneNumber)) {
-      return CallInitiationResult.InvalidNumber("Invalid phone number format. Must start with '+' followed by country code and digits (e.g. +14155552671).")
-    }
-
-    if (!BackendConfig.isLiveKitConfigured && !forceDevelopmentTestMode) {
-      return CallInitiationResult.BackendNotConnected(
-        e164 = e164PhoneNumber,
-        message = "Calling backend is not connected. Line Call requires LiveKit Cloud and Supabase Edge Functions for real-time voice signaling."
+      return CallInitiationResult.InvalidNumber(
+        "Enter a valid international phone number including its country code."
       )
     }
+    if (forceDevelopmentTestMode) {
+      return CallInitiationResult.BackendNotConnected(
+        e164PhoneNumber,
+        "Test calls have been disabled. Line Call only displays calls that are connected through the real calling service."
+      )
+    }
+    if (_activeCall.value != null) {
+      return CallInitiationResult.BackendNotConnected(e164PhoneNumber, "Finish your current call before starting another.")
+    }
 
-    val callId = UUID.randomUUID().toString()
-    val session = ActiveCallSession(
-      callId = callId,
-      contactName = contactName,
-      phoneNumber = e164PhoneNumber,
-      state = CallSessionState.DIALING,
-      isIncoming = false
-    )
-    _activeCall.value = session
-
-    startCallLifecycle(session)
-    _callEvents.emit(CallEvent.CallStarted(session))
-    return CallInitiationResult.Started(session)
+    return try {
+      val response = supabase.callFunction(
+        JSONObject().put("action", "initiate").put("phone_number", e164PhoneNumber)
+      )
+      val session = ActiveCallSession(
+        callId = response.getString("call_id"),
+        contactName = response.optString("display_name").takeIf { it.isNotBlank() && it != "null" } ?: contactName,
+        phoneNumber = response.optString("phone_number", e164PhoneNumber),
+        state = CallSessionState.DIALING,
+        isIncoming = false
+      )
+      _activeCall.value = session
+      outgoingPollJob?.cancel()
+      outgoingPollJob = coroutineScope.launch(Dispatchers.IO) { monitorOutgoingCall(session) }
+      _callEvents.emit(CallEvent.CallStarted(session))
+      CallInitiationResult.Started(session)
+    } catch (error: Exception) {
+      val message = error.message ?: "Unable to start the call."
+      if (message.contains("not registered", ignoreCase = true)) {
+        CallInitiationResult.UserNotRegistered(e164PhoneNumber)
+      } else {
+        CallInitiationResult.BackendNotConnected(e164PhoneNumber, message)
+      }
+    }
   }
 
-  /**
-   * Allows initiating an incoming call preview for testing and verifying the
-   * IncomingCallScreen UI and ring controls.
-   */
-  fun triggerIncomingCallPreview(
-    callerName: String = "Sarah Jenkins",
-    callerPhone: String = "+1 (415) 555-0198"
-  ) {
-    val callId = UUID.randomUUID().toString()
-    val session = ActiveCallSession(
-      callId = callId,
-      contactName = callerName,
-      phoneNumber = callerPhone,
-      state = CallSessionState.RINGING,
-      isIncoming = true
-    )
-    _activeCall.value = session
+  private suspend fun monitorOutgoingCall(session: ActiveCallSession) {
+    while (coroutineScope.isActive && _activeCall.value?.callId == session.callId) {
+      try {
+        val response = supabase.callFunction(
+          JSONObject().put("action", "status").put("call_id", session.callId)
+        )
+        val status = response.optJSONObject("call")?.optString("status").orEmpty()
+        when (status) {
+          "accepted" -> {
+            connectToLiveKit(session.callId, session)
+            return
+          }
+          "declined", "missed", "ended", "failed" -> {
+            _callEvents.emit(CallEvent.Error(
+              when (status) {
+                "declined" -> "The person declined your call."
+                "missed" -> "The person did not answer."
+                else -> "The call has ended."
+              }
+            ))
+            stopCallSession()
+            return
+          }
+        }
+      } catch (error: Exception) {
+        _callEvents.emit(CallEvent.Error(error.message ?: "Connection lost while waiting for an answer."))
+        stopCallSession()
+        return
+      }
+      delay(1800)
+    }
   }
 
   fun acceptIncomingCall() {
     val current = _activeCall.value ?: return
-    val updated = current.copy(state = CallSessionState.CONNECTED)
-    _activeCall.value = updated
-    startDurationTimer()
+    if (!current.isIncoming || current.state != CallSessionState.RINGING) return
+    coroutineScope.launch(Dispatchers.IO) {
+      try {
+        supabase.callFunction(JSONObject().put("action", "accept").put("call_id", current.callId))
+        connectToLiveKit(current.callId, current)
+      } catch (error: Exception) {
+        _callEvents.emit(CallEvent.Error(error.message ?: "Could not accept this call."))
+        stopCallSession()
+      }
+    }
   }
 
   fun declineIncomingCall() {
     val current = _activeCall.value ?: return
     coroutineScope.launch(Dispatchers.IO) {
+      runCatching {
+        supabase.callFunction(JSONObject().put("action", "decline").put("call_id", current.callId))
+      }
       callRecordDao.insertCallRecord(
         CallRecord(
           phoneNumber = current.phoneNumber,
@@ -132,58 +200,73 @@ class CallingService(
           durationSeconds = 0
         )
       )
-    }
-    stopCallSession()
-  }
-
-  fun toggleMute() {
-    val current = _activeCall.value ?: return
-    _activeCall.value = current.copy(isMuted = !current.isMuted)
-    // TODO: LiveKit localAudioTrack?.setEnabled(!isMuted)
-  }
-
-  fun toggleSpeaker() {
-    val current = _activeCall.value ?: return
-    _activeCall.value = current.copy(isSpeakerOn = !current.isSpeakerOn)
-    // TODO: audioManager.isSpeakerphoneOn = isSpeakerOn
-  }
-
-  fun endCall() {
-    val current = _activeCall.value ?: return
-    val finalDuration = current.durationSeconds
-    val callType = if (current.isIncoming) CallType.INCOMING else CallType.OUTGOING
-
-    coroutineScope.launch(Dispatchers.IO) {
-      callRecordDao.insertCallRecord(
-        CallRecord(
-          phoneNumber = current.phoneNumber,
-          contactName = current.contactName,
-          type = callType,
-          durationSeconds = finalDuration
-        )
-      )
-    }
-
-    _activeCall.value = current.copy(state = CallSessionState.ENDED)
-    coroutineScope.launch {
-      _callEvents.emit(CallEvent.CallEnded(finalDuration))
-      delay(400)
       stopCallSession()
     }
   }
 
-  private fun startCallLifecycle(session: ActiveCallSession) {
+  private suspend fun connectToLiveKit(callId: String, session: ActiveCallSession) {
+    val credentials = supabase.callFunction(
+      JSONObject()
+        .put("action", "token")
+        .put("call_id", callId)
+        .put("participant_name", userProfileService.currentUser.value?.displayName.orEmpty())
+    )
+    val serverUrl = credentials.getString("livekit_url")
+    val participantToken = credentials.getString("token")
+
+    val room = LiveKit.create(application.applicationContext)
+    liveKitRoom = room
+    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+    audioManager.isSpeakerphoneOn = false
+
+    room.connect(serverUrl, participantToken)
+    room.localParticipant.setMicrophoneEnabled(true)
+
+    if (_activeCall.value?.callId == callId) {
+      _activeCall.value = session.copy(state = CallSessionState.CONNECTED)
+      startDurationTimer()
+    }
+  }
+
+  fun toggleMute() {
+    val current = _activeCall.value ?: return
+    val muted = !current.isMuted
+    _activeCall.value = current.copy(isMuted = muted)
     coroutineScope.launch {
-      // Simulate connection signaling lifecycle for UI verification
-      delay(1200)
-      if (_activeCall.value?.callId == session.callId) {
-        _activeCall.value = _activeCall.value?.copy(state = CallSessionState.RINGING)
+      runCatching { liveKitRoom?.localParticipant?.setMicrophoneEnabled(!muted) }
+        .onFailure { _callEvents.emit(CallEvent.Error("Could not change microphone state.")) }
+    }
+  }
+
+  fun toggleSpeaker() {
+    val current = _activeCall.value ?: return
+    val speakerOn = !current.isSpeakerOn
+    _activeCall.value = current.copy(isSpeakerOn = speakerOn)
+    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+    audioManager.isSpeakerphoneOn = speakerOn
+  }
+
+  fun endCall() {
+    val current = _activeCall.value ?: return
+    coroutineScope.launch(Dispatchers.IO) {
+      val duration = current.durationSeconds
+      runCatching {
+        supabase.callFunction(JSONObject().put("action", "end").put("call_id", current.callId))
       }
-      delay(1800)
-      if (_activeCall.value?.callId == session.callId) {
-        _activeCall.value = _activeCall.value?.copy(state = CallSessionState.CONNECTED)
-        startDurationTimer()
-      }
+      runCatching { liveKitRoom?.disconnect() }
+      liveKitRoom = null
+      audioManager.isSpeakerphoneOn = false
+      audioManager.mode = AudioManager.MODE_NORMAL
+      callRecordDao.insertCallRecord(
+        CallRecord(
+          phoneNumber = current.phoneNumber,
+          contactName = current.contactName,
+          type = if (current.isIncoming) CallType.INCOMING else CallType.OUTGOING,
+          durationSeconds = duration
+        )
+      )
+      _callEvents.emit(CallEvent.CallEnded(duration))
+      stopCallSession()
     }
   }
 
@@ -204,6 +287,10 @@ class CallingService(
   private fun stopCallSession() {
     timerJob?.cancel()
     timerJob = null
+    outgoingPollJob?.cancel()
+    outgoingPollJob = null
     _activeCall.value = null
+    audioManager.isSpeakerphoneOn = false
+    audioManager.mode = AudioManager.MODE_NORMAL
   }
 }
