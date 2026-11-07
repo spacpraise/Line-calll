@@ -10,6 +10,7 @@ import com.example.data.model.Contact
 import com.example.data.model.Country
 import com.example.data.model.CountryList
 import com.example.data.model.UserAccount
+import com.example.services.CallEvent
 import com.example.services.CallInitiationResult
 import com.example.services.CallingService
 import com.example.services.LineCallAuthService
@@ -104,6 +105,13 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val currentUser: StateFlow<UserAccount?> = userProfileService.currentUser
 
   init {
+    viewModelScope.launch {
+      callingService.callEvents.collect { event ->
+        if (event is CallEvent.Error) {
+          showNotice("Call error", event.message, _enteredNumber.value)
+        }
+      }
+    }
     viewModelScope.launch {
       val restoredUser = authService.restoreSession()
       if (restoredUser != null) {
