@@ -1,18 +1,12 @@
 package com.example
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -20,8 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,8 +40,6 @@ import com.example.ui.onboarding.WelcomeScreen
 import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
-import com.google.firebase.FirebaseApp
-import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
   private var authCallbackUri by mutableStateOf<Uri?>(null)
@@ -81,7 +71,6 @@ fun LineCallApp(
   authCallbackUri: Uri? = null,
   onAuthCallbackHandled: () -> Unit = {}
 ) {
-  val context = LocalContext.current
   val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
   val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
   val enteredNumber by viewModel.enteredNumber.collectAsStateWithLifecycle()
@@ -111,10 +100,6 @@ fun LineCallApp(
     else Toast.makeText(context, "Microphone access is needed to make voice calls.", Toast.LENGTH_LONG).show()
   }
 
-  val notificationPermissionLauncher = rememberLauncherForActivityResult(
-    ActivityResultContracts.RequestPermission()
-  ) { }
-
   fun runWithMicrophonePermission(action: () -> Unit) {
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
       action()
@@ -138,14 +123,6 @@ fun LineCallApp(
       ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
     ) {
       notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-    }
-  }
-
-  LaunchedEffect(currentUser?.id) {
-    if (currentUser != null && FirebaseApp.getApps(context).isNotEmpty()) {
-      FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-        viewModel.saveFcmToken(token)
-      }
     }
   }
 
