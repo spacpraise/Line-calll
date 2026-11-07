@@ -62,6 +62,7 @@ class CallingService(
   private var timerJob: Job? = null
   private var incomingPollJob: Job? = null
   private var outgoingPollJob: Job? = null
+  private var incomingWatchJob: Job? = null
 
   fun validateNumber(e164: String): Boolean = userProfileService.validateE164(e164)
 
@@ -83,6 +84,7 @@ class CallingService(
               )
               _activeCall.value = session
               startIncomingRingtone()
+              watchIncomingCall(session)
               _callEvents.emit(CallEvent.CallStarted(session))
             }
           }
@@ -156,6 +158,14 @@ class CallingService(
             return
           }
           "declined", "missed", "ended", "failed" -> {
+            callRecordDao.insertCallRecord(
+              CallRecord(
+                phoneNumber = session.phoneNumber,
+                contactName = session.contactName,
+                type = CallType.OUTGOING,
+                durationSeconds = 0
+              )
+            )
             _callEvents.emit(CallEvent.Error(
               when (status) {
                 "declined" -> "The person declined your call."
@@ -180,6 +190,7 @@ class CallingService(
     val current = _activeCall.value ?: return
     if (!current.isIncoming || current.state != CallSessionState.RINGING) return
     stopIncomingRingtone()
+    incomingWatchJob?.cancel()
     coroutineScope.launch(Dispatchers.IO) {
       try {
         supabase.callFunction(JSONObject().put("action", "accept").put("call_id", current.callId))
@@ -194,6 +205,7 @@ class CallingService(
   fun declineIncomingCall() {
     val current = _activeCall.value ?: return
     stopIncomingRingtone()
+    incomingWatchJob?.cancel()
     coroutineScope.launch(Dispatchers.IO) {
       runCatching {
         supabase.callFunction(JSONObject().put("action", "decline").put("call_id", current.callId))
@@ -277,6 +289,34 @@ class CallingService(
     }
   }
 
+  private fun watchIncomingCall(session: ActiveCallSession) {
+    incomingWatchJob?.cancel()
+    incomingWatchJob = coroutineScope.launch(Dispatchers.IO) {
+      while (isActive && _activeCall.value?.callId == session.callId &&
+        _activeCall.value?.state == CallSessionState.RINGING
+      ) {
+        delay(1800)
+        val status = runCatching {
+          supabase.callFunction(JSONObject().put("action", "status").put("call_id", session.callId))
+            .optJSONObject("call")?.optString("status").orEmpty()
+        }.getOrDefault("")
+        if (status == "accepted") return@launch
+        if (status in listOf("declined", "missed", "ended", "failed")) {
+          callRecordDao.insertCallRecord(
+            CallRecord(
+              phoneNumber = session.phoneNumber,
+              contactName = session.contactName,
+              type = CallType.MISSED,
+              durationSeconds = 0
+            )
+          )
+          stopCallSession()
+          return@launch
+        }
+      }
+    }
+  }
+
   private fun startIncomingRingtone() {
     runCatching {
       val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
@@ -310,6 +350,8 @@ class CallingService(
     timerJob = null
     outgoingPollJob?.cancel()
     outgoingPollJob = null
+    incomingWatchJob?.cancel()
+    incomingWatchJob = null
     coroutineScope.launch { runCatching { liveKitRoom?.disconnect() }; liveKitRoom = null }
     _activeCall.value = null
     audioManager.isSpeakerphoneOn = false
