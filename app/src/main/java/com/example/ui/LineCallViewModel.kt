@@ -346,6 +346,10 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     viewModelScope.launch { callRecordDao.clearAllCallRecords() }
   }
 
+  fun saveFcmToken(token: String) {
+    viewModelScope.launch { supabase.saveFcmToken(token) }
+  }
+
   fun signOut() {
     viewModelScope.launch {
       callingService.stopIncomingCallPolling()
