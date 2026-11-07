@@ -289,6 +289,7 @@ class CallingService(
     timerJob = null
     outgoingPollJob?.cancel()
     outgoingPollJob = null
+    coroutineScope.launch { runCatching { liveKitRoom?.disconnect() }; liveKitRoom = null }
     _activeCall.value = null
     audioManager.isSpeakerphoneOn = false
     audioManager.mode = AudioManager.MODE_NORMAL
