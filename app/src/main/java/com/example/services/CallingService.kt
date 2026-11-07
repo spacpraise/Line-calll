@@ -2,6 +2,8 @@ package com.example.services
 
 import android.app.Application
 import android.media.AudioManager
+import android.media.Ringtone
+import android.media.RingtoneManager
 import com.example.data.local.CallRecordDao
 import com.example.data.model.ActiveCallSession
 import com.example.data.model.CallRecord
@@ -56,6 +58,7 @@ class CallingService(
 
   private val audioManager = application.getSystemService(AudioManager::class.java)
   private var liveKitRoom: Room? = null
+  private var incomingRingtone: Ringtone? = null
   private var timerJob: Job? = null
   private var incomingPollJob: Job? = null
   private var outgoingPollJob: Job? = null
@@ -79,6 +82,7 @@ class CallingService(
                 isIncoming = true
               )
               _activeCall.value = session
+              startIncomingRingtone()
               _callEvents.emit(CallEvent.CallStarted(session))
             }
           }
@@ -175,6 +179,7 @@ class CallingService(
   fun acceptIncomingCall() {
     val current = _activeCall.value ?: return
     if (!current.isIncoming || current.state != CallSessionState.RINGING) return
+    stopIncomingRingtone()
     coroutineScope.launch(Dispatchers.IO) {
       try {
         supabase.callFunction(JSONObject().put("action", "accept").put("call_id", current.callId))
@@ -188,6 +193,7 @@ class CallingService(
 
   fun declineIncomingCall() {
     val current = _activeCall.value ?: return
+    stopIncomingRingtone()
     coroutineScope.launch(Dispatchers.IO) {
       runCatching {
         supabase.callFunction(JSONObject().put("action", "decline").put("call_id", current.callId))
@@ -248,6 +254,7 @@ class CallingService(
 
   fun endCall() {
     val current = _activeCall.value ?: return
+    stopIncomingRingtone()
     coroutineScope.launch(Dispatchers.IO) {
       val duration = current.durationSeconds
       runCatching {
@@ -270,6 +277,19 @@ class CallingService(
     }
   }
 
+  private fun startIncomingRingtone() {
+    runCatching {
+      val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+      incomingRingtone = RingtoneManager.getRingtone(application, ringtoneUri)
+      incomingRingtone?.play()
+    }
+  }
+
+  private fun stopIncomingRingtone() {
+    runCatching { incomingRingtone?.stop() }
+    incomingRingtone = null
+  }
+
   private fun startDurationTimer() {
     timerJob?.cancel()
     timerJob = coroutineScope.launch {
@@ -285,6 +305,7 @@ class CallingService(
   }
 
   private fun stopCallSession() {
+    stopIncomingRingtone()
     timerJob?.cancel()
     timerJob = null
     outgoingPollJob?.cancel()
