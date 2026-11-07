@@ -108,6 +108,7 @@ dependencies {
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
+  implementation("io.livekit:livekit-android:2.27.0")
   // Uncomment to use Firestore:
   // implementation(libs.firebase.firestore)
 
