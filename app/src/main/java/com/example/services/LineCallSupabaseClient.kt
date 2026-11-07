@@ -136,20 +136,6 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
-  suspend fun saveFcmToken(token: String): Result<Unit> = withContext(Dispatchers.IO) {
-    runCatching {
-      val user = getAuthenticatedUserBlocking()
-      execute(
-        Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.${user.getString("id")}")
-          .headers(userHeaders())
-          .patch(JSONObject().put("fcm_token", token).toString().toRequestBody(jsonType))
-          .build()
-      )
-      Unit
-    }
-  }
-
   suspend fun callFunction(payload: JSONObject): JSONObject = withContext(Dispatchers.IO) {
     val accessToken = freshAccessTokenBlocking()
     execute(
