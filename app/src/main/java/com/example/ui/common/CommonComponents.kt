@@ -250,77 +250,42 @@ fun LineCallBottomNavBar(
 @Composable
 fun BackendNoticeDialog(
   notice: BackendNoticeState,
-  onDismiss: () -> Unit,
-  onPreviewCall: (String, String?) -> Unit
+  onDismiss: () -> Unit
 ) {
   AlertDialog(
     onDismissRequest = onDismiss,
     shape = RoundedCornerShape(20.dp),
     containerColor = MaterialTheme.colorScheme.surface,
     title = {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-      ) {
-        Box(
-          modifier = Modifier
-            .size(10.dp)
-            .clip(CircleShape)
-            .background(Color(0xFF737373)) // Amber status indicator
-        )
-        Text(
-          text = notice.title,
-          style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-          color = MaterialTheme.colorScheme.onSurface
-        )
-      }
+      Text(
+        text = notice.title,
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.onSurface
+      )
     },
     text = {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
           text = notice.message,
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
-        Surface(
-          shape = RoundedCornerShape(12.dp),
-          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-              text = "Target Number: ${notice.targetNumber}",
-              style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-              color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-              text = "Production Architecture: Supabase Edge Functions signaling + LiveKit Cloud WebRTC voice audio.",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.secondary
-            )
-          }
+        if (notice.targetNumber.isNotBlank()) {
+          Text(
+            text = notice.targetNumber,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface
+          )
         }
       }
     },
     confirmButton = {
       Button(
-        onClick = { onPreviewCall(notice.targetNumber, notice.targetName) },
-        colors = ButtonDefaults.buttonColors(containerColor = CallGreen),
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.testTag("preview_call_button")
-      ) {
-        Text("Preview Call UI", color = Color.White, fontWeight = FontWeight.SemiBold)
-      }
-    },
-    dismissButton = {
-      OutlinedButton(
         onClick = onDismiss,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.testTag("dismiss_notice_button")
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111111)),
+        shape = RoundedCornerShape(10.dp)
       ) {
-        Text("Understood", color = MaterialTheme.colorScheme.onSurface)
+        Text("Okay", color = Color.White, fontWeight = FontWeight.SemiBold)
       }
     }
   )
