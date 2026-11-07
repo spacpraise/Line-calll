@@ -25,6 +25,10 @@ class UserProfileService(
     authService.updateCurrentUser(user)
   }
 
+  fun clearUser() {
+    _currentUser.value = null
+  }
+
   fun formatToE164(dialCode: String, nationalNumber: String): String {
     val raw = nationalNumber.trim()
     if (raw.startsWith("+")) return raw.replace(Regex("[^0-9+]"), "")
