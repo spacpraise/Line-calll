@@ -20,7 +20,7 @@ For the current registration flow, turn **Confirm email OFF** in Supabase Dashbo
 
 The app does not use magic links, PKCE email callbacks, or an email-verification screen. No redirect URL is required for email authentication. The login identifier accepts either the registered email address or the registered phone number in E.164 format (for example, `+2348012345678`). Phone login is handled by the `phone-login` Edge Function: it resolves the phone number privately on the server, then delegates password verification and session issuance to Supabase Auth. The function never returns the account email to the device.
 
-The deployed `call-control` Edge Function uses the Supabase service-role environment variable server-side. Never put a service-role key in the Android app.
+The deployed `call-control`, `phone-login`, and `password-recovery` Edge Functions use the Supabase service-role environment variable server-side. Never put a service-role key in the Android app. Password recovery requires an exact match of the registered email and E.164 phone number in `public.profiles`; only then does the function issue a short-lived Supabase recovery token. The app verifies that token and lets the user set a new password without sending an email or SMS. Attempts are rate-limited using hashed email/phone and IP identifiers in the RLS-protected `password_reset_attempts` table.
 
 ## LiveKit setup
 
