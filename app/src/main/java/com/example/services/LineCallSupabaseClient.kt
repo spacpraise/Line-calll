@@ -162,6 +162,50 @@ class LineCallSupabaseClient(context: Context) {
     )
   }
 
+  suspend fun requestPasswordRecovery(email: String, phoneNumber: String): Result<String> = withContext(Dispatchers.IO) {
+    runCatching {
+      check(isConfigured) { "Supabase is not configured." }
+      val response = execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/functions/v1/password-recovery")
+          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+          .post(
+            JSONObject().put("email", email.trim()).put("phone_number", phoneNumber.trim())
+              .toString().toRequestBody(jsonType)
+          )
+          .build()
+      )
+      response.optString("token_hash").takeIf { it.isNotBlank() }
+        ?: throw IllegalStateException("The email and phone number could not be matched.")
+    }
+  }
+
+  suspend fun completePasswordRecovery(tokenHash: String, newPassword: String): Result<Unit> = withContext(Dispatchers.IO) {
+    runCatching {
+      check(isConfigured) { "Supabase is not configured." }
+      require(newPassword.length >= 8) { "Use at least 8 characters for your new password." }
+      val session = execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/verify")
+          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+          .post(
+            JSONObject().put("type", "recovery").put("token_hash", tokenHash)
+              .toString().toRequestBody(jsonType)
+          )
+          .build()
+      )
+      storeSession(session)
+      execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
+          .headers(userHeaders())
+          .put(JSONObject().put("password", newPassword).toString().toRequestBody(jsonType))
+          .build()
+      )
+      secureStore.clear()
+    }
+  }
+
   suspend fun signOut() = withContext(Dispatchers.IO) {
     runCatching {
       val access = secureStore.get("access_token")
