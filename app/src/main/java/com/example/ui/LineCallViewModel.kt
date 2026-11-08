@@ -30,6 +30,8 @@ enum class ScreenState {
   EMAIL_REGISTRATION,
   PASSWORD_SETUP,
   LOGIN,
+  FORGOT_PASSWORD,
+  RESET_PASSWORD,
   PHONE_SETUP,
   PROFILE_SETUP,
   MAIN_APP,
@@ -85,6 +87,19 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   private val _isAuthBusy = MutableStateFlow(false)
   val isAuthBusy: StateFlow<Boolean> = _isAuthBusy.asStateFlow()
+
+  private val _recoveryEmail = MutableStateFlow("")
+  val recoveryEmail: StateFlow<String> = _recoveryEmail.asStateFlow()
+
+  private val _recoveryPhone = MutableStateFlow("")
+  val recoveryPhone: StateFlow<String> = _recoveryPhone.asStateFlow()
+
+  private val _recoveryTokenHash = MutableStateFlow("")
+  private val _newPassword = MutableStateFlow("")
+  val newPassword: StateFlow<String> = _newPassword.asStateFlow()
+
+  private val _confirmNewPassword = MutableStateFlow("")
+  val confirmNewPassword: StateFlow<String> = _confirmNewPassword.asStateFlow()
 
   private val _phoneInput = MutableStateFlow("")
   val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
@@ -244,6 +259,64 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         }
         _authError.value = null
       }.onFailure { _authError.value = it.message ?: "Could not sign in. Check your details." }
+      _isAuthBusy.value = false
+    }
+  }
+
+  fun updateRecoveryEmail(value: String) { _recoveryEmail.value = value; _authError.value = null }
+  fun updateRecoveryPhone(value: String) { _recoveryPhone.value = value; _authError.value = null }
+  fun updateNewPassword(value: String) { _newPassword.value = value; _authError.value = null }
+  fun updateConfirmNewPassword(value: String) { _confirmNewPassword.value = value; _authError.value = null }
+
+  fun requestPasswordRecovery() {
+    val email = _recoveryEmail.value.trim()
+    val phone = _recoveryPhone.value.trim()
+    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+      _authError.value = "Enter the email address registered to your account."
+      return
+    }
+    if (!phone.startsWith("+") || !phone.drop(1).matches(Regex("^[1-9][0-9]{6,14}$"))) {
+      _authError.value = "Enter your registered phone number with its country code, for example +2348012345678."
+      return
+    }
+    viewModelScope.launch {
+      _isAuthBusy.value = true
+      val result = supabase.requestPasswordRecovery(email, phone)
+      result.onSuccess { token ->
+        _recoveryTokenHash.value = token
+        _newPassword.value = ""
+        _confirmNewPassword.value = ""
+        _authError.value = null
+        _currentScreen.value = ScreenState.RESET_PASSWORD
+      }.onFailure { _authError.value = it.message ?: "The email and phone number could not be matched." }
+      _isAuthBusy.value = false
+    }
+  }
+
+  fun completePasswordRecovery() {
+    val password = _newPassword.value
+    if (password.length < 8) {
+      _authError.value = "Use at least 8 characters for your new password."
+      return
+    }
+    if (password != _confirmNewPassword.value) {
+      _authError.value = "The new passwords do not match."
+      return
+    }
+    viewModelScope.launch {
+      _isAuthBusy.value = true
+      val result = supabase.completePasswordRecovery(_recoveryTokenHash.value, password)
+      result.onSuccess {
+        _recoveryTokenHash.value = ""
+        _recoveryEmail.value = ""
+        _recoveryPhone.value = ""
+        _newPassword.value = ""
+        _confirmNewPassword.value = ""
+        _loginIdentifier.value = ""
+        _passwordInput.value = ""
+        _authError.value = null
+        _currentScreen.value = ScreenState.LOGIN
+      }.onFailure { _authError.value = it.message ?: "Could not reset your password. Please try again." }
       _isAuthBusy.value = false
     }
   }
