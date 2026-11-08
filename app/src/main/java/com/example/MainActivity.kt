@@ -43,6 +43,8 @@ import com.example.ui.contacts.ContactDetailScreen
 import com.example.ui.contacts.ContactsScreen
 import com.example.ui.dialer.KeypadScreen
 import com.example.ui.onboarding.PhoneNumberSetupScreen
+import com.example.ui.onboarding.EmailEntryScreen
+import com.example.ui.onboarding.PasswordSetupScreen
 import com.example.ui.onboarding.ProfileSetupScreen
 import com.example.ui.onboarding.RegistrationScreen
 import com.example.ui.onboarding.WelcomeScreen
