@@ -540,7 +540,7 @@ fun PhoneNumberSetupScreen(
         enabled = phoneNumber.trim().length >= 5
       ) {
         Text(
-          text = "Continue",
+          text = "Complete registration",
           style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
         )
       }
