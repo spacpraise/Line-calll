@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 enum class ScreenState {
   WELCOME,
   EMAIL_REGISTRATION,
+  PASSWORD_SETUP,
   LOGIN,
   PHONE_SETUP,
   PROFILE_SETUP,
@@ -167,6 +168,18 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   fun updateEmailInput(email: String) {
     _emailInput.value = email
     _authError.value = null
+  }
+
+  fun continueToPasswordSetup() {
+    val email = _emailInput.value.trim()
+    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+      _authError.value = "Enter a valid email address."
+      return
+    }
+    _authError.value = null
+    _passwordInput.value = ""
+    _confirmPasswordInput.value = ""
+    _currentScreen.value = ScreenState.PASSWORD_SETUP
   }
 
   fun registerAccount() {
