@@ -17,6 +17,7 @@ interface AuthService {
   suspend fun signIn(identifier: String, password: String): Result<UserAccount>
   suspend fun sendPasswordRecovery(email: String): Result<Unit>
   suspend fun updatePassword(password: String): Result<Unit>
+  fun pendingAuthFlow(): String?
   suspend fun handleAuthCallback(callbackUrl: String): Result<UserAccount>
   suspend fun restoreSession(): UserAccount?
   suspend fun signOut()
@@ -63,6 +64,8 @@ class LineCallAuthService(
 
   override suspend fun updatePassword(password: String): Result<Unit> =
     supabase.updatePassword(password)
+
+  override fun pendingAuthFlow(): String? = supabase.pendingAuthFlow()
 
   override suspend fun handleAuthCallback(callbackUrl: String): Result<UserAccount> {
     val result = supabase.completeMagicLink(callbackUrl)
