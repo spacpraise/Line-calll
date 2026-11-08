@@ -1,7 +1,6 @@
 package com.example
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -21,9 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -55,26 +52,10 @@ import com.example.ui.theme.LineCallTheme
 import com.example.ui.theme.OneUiDarkBackground
 
 class MainActivity : ComponentActivity() {
-  private var authCallbackUri by mutableStateOf<Uri?>(null)
-
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    authCallbackUri = intent?.data
     enableEdgeToEdge()
-    setContent {
-      LineCallTheme {
-        LineCallApp(
-          authCallbackUri = authCallbackUri,
-          onAuthCallbackHandled = { authCallbackUri = null }
-        )
-      }
-    }
-  }
-
-  override fun onNewIntent(intent: Intent) {
-    super.onNewIntent(intent)
-    setIntent(intent)
-    authCallbackUri = intent.data
+    setContent { LineCallTheme { LineCallApp() } }
   }
 }
 
