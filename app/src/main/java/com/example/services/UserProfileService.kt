@@ -29,16 +29,10 @@ class UserProfileService(
     _currentUser.value = null
   }
 
-  fun formatToE164(dialCode: String, nationalNumber: String): String {
-    val raw = nationalNumber.trim()
-    if (raw.startsWith("+")) return raw.replace(Regex("[^0-9+]"), "")
-    val cleanDialCode = if (dialCode.startsWith("+")) dialCode else "+$dialCode"
-    val digitsOnly = raw.replace(Regex("[^0-9]"), "").trimStart('0')
-    return "$cleanDialCode$digitsOnly"
-  }
+  fun formatToE164(dialCode: String, nationalNumber: String): String =
+    PhoneNumberFormatter.formatToE164(dialCode, nationalNumber)
 
-  fun validateE164(e164: String): Boolean =
-    e164.matches(Regex("^\\+[1-9][0-9]{6,14}$"))
+  fun validateE164(e164: String): Boolean = PhoneNumberFormatter.isValidE164(e164)
 
   /** Saves the number without claiming that its owner has been verified. */
   suspend fun registerPhoneNumber(e164PhoneNumber: String): Result<UserAccount> {
