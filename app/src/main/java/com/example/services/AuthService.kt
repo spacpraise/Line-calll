@@ -7,18 +7,13 @@ import kotlinx.coroutines.flow.asStateFlow
 
 sealed class AuthState {
   data object Unauthenticated : AuthState()
-  data class AwaitingMagicLink(val email: String) : AuthState()
   data class Authenticated(val user: UserAccount) : AuthState()
 }
 
 interface AuthService {
   val authState: StateFlow<AuthState>
-  suspend fun sendMagicLink(email: String): Result<Unit>
+  suspend fun register(email: String, password: String): Result<UserAccount>
   suspend fun signIn(identifier: String, password: String): Result<UserAccount>
-  suspend fun sendPasswordRecovery(email: String): Result<Unit>
-  suspend fun updatePassword(password: String): Result<Unit>
-  fun pendingAuthFlow(): String?
-  suspend fun handleAuthCallback(callbackUrl: String): Result<UserAccount>
   suspend fun restoreSession(): UserAccount?
   suspend fun signOut()
 }
@@ -35,18 +30,15 @@ class LineCallAuthService(
 
   private var currentUser: UserAccount? = null
 
-  override suspend fun sendMagicLink(email: String): Result<Unit> {
+  override suspend fun register(email: String, password: String): Result<UserAccount> {
     val cleanEmail = email.trim()
     if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
       return Result.failure(IllegalArgumentException("Please enter a valid email address."))
     }
-    val result = supabase.sendMagicLink(cleanEmail)
-    result.onSuccess { _authState.value = AuthState.AwaitingMagicLink(cleanEmail) }
-    return result
-  }
-
-  override suspend fun signIn(identifier: String, password: String): Result<UserAccount> {
-    val result = supabase.signInWithPassword(identifier, password)
+    if (password.length < 8) {
+      return Result.failure(IllegalArgumentException("Use at least 8 characters for your password."))
+    }
+    val result = supabase.signUpWithPassword(cleanEmail, password)
     result.onSuccess { user ->
       currentUser = user
       _authState.value = AuthState.Authenticated(user)
@@ -54,21 +46,8 @@ class LineCallAuthService(
     return result
   }
 
-  override suspend fun sendPasswordRecovery(email: String): Result<Unit> {
-    val cleanEmail = email.trim()
-    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
-      return Result.failure(IllegalArgumentException("Please enter a valid email address."))
-    }
-    return supabase.sendPasswordRecovery(cleanEmail)
-  }
-
-  override suspend fun updatePassword(password: String): Result<Unit> =
-    supabase.updatePassword(password)
-
-  override fun pendingAuthFlow(): String? = supabase.pendingAuthFlow()
-
-  override suspend fun handleAuthCallback(callbackUrl: String): Result<UserAccount> {
-    val result = supabase.completeMagicLink(callbackUrl)
+  override suspend fun signIn(identifier: String, password: String): Result<UserAccount> {
+    val result = supabase.signInWithPassword(identifier, password)
     result.onSuccess { user ->
       currentUser = user
       _authState.value = AuthState.Authenticated(user)
