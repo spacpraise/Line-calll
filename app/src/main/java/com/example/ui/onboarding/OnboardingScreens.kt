@@ -188,190 +188,41 @@ fun WelcomeScreen(
 @Composable
 fun RegistrationScreen(
   email: String,
-  magicLinkSent: Boolean,
+  password: String,
+  confirmPassword: String,
   authError: String?,
+  busy: Boolean,
   onEmailChanged: (String) -> Unit,
-  onSubmitEmail: () -> Unit,
+  onPasswordChanged: (String) -> Unit,
+  onConfirmPasswordChanged: (String) -> Unit,
+  onRegister: () -> Unit,
   onBack: () -> Unit
 ) {
   val focusManager = LocalFocusManager.current
-
-  Surface(
-    modifier = Modifier.fillMaxSize(),
-    color = MaterialTheme.colorScheme.background
-  ) {
-    Column(
-      modifier = Modifier
-        .fillMaxSize()
-        .windowInsetsPadding(WindowInsets.statusBars)
-        .padding(horizontal = 24.dp, vertical = 16.dp)
-    ) {
-      IconButton(
-        onClick = {
-          focusManager.clearFocus(force = true)
-          onBack()
-        },
-        modifier = Modifier.testTag("auth_back_button")
-      ) {
-        Icon(
-          imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-          contentDescription = "Back",
-          tint = MaterialTheme.colorScheme.onBackground
-        )
+  Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 24.dp, vertical = 16.dp).verticalScroll(rememberScrollState())) {
+      IconButton(onClick = { focusManager.clearFocus(force = true); onBack() }, modifier = Modifier.testTag("auth_back_button")) {
+        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
       }
-
-      Spacer(modifier = Modifier.height(16.dp))
-
-      if (!magicLinkSent) {
-        // Email Entry Stage
-        Text(
-          text = "Enter your email",
-          style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-          color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-          text = "We will send a verification link to confirm your email. You will create your password after opening the link.",
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.secondary
-        )
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        OutlinedTextField(
-          value = email,
-          onValueChange = onEmailChanged,
-          placeholder = { Text("name@example.com") },
-          label = { Text("Email address") },
-          leadingIcon = {
-            Icon(imageVector = Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-          },
-          singleLine = true,
-          keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Email,
-            imeAction = ImeAction.Done
-          ),
-          keyboardActions = KeyboardActions(onDone = {
-            focusManager.clearFocus(force = true)
-            onSubmitEmail()
-          }),
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("email_input"),
-          shape = RoundedCornerShape(12.dp),
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.onBackground,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline
-          )
-        )
-
-        if (authError != null) {
-          Spacer(modifier = Modifier.height(8.dp))
-          Text(
-            text = authError,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error
-          )
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Button(
-          onClick = {
-            focusManager.clearFocus(force = true)
-            onSubmitEmail()
-          },
-          modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .testTag("email_continue_button"),
-          shape = RoundedCornerShape(14.dp),
-          colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF111111),
-            contentColor = Color.White
-          ),
-          enabled = email.contains("@") && email.contains(".")
-        ) {
-          Text(
-            text = "Continue",
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
-          )
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-      } else {
-        // Confirmation Stage: Magic Link Sent
-        Column(
-          modifier = Modifier
-            .fillMaxWidth()
-            .weight(1f),
-          horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.Center
-        ) {
-          Box(
-            modifier = Modifier
-              .size(72.dp)
-              .clip(CircleShape)
-              .background(CallGreen.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-          ) {
-            Icon(
-              imageVector = Icons.Default.CheckCircle,
-              contentDescription = null,
-              tint = CallGreen,
-              modifier = Modifier.size(40.dp)
-            )
-          }
-
-          Spacer(modifier = Modifier.height(20.dp))
-
-          Text(
-            text = "Check your email",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onBackground
-          )
-
-          Spacer(modifier = Modifier.height(8.dp))
-
-          Text(
-            text = "A verification link has been sent to:",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.secondary
-          )
-
-          Spacer(modifier = Modifier.height(4.dp))
-
-          Text(
-            text = email,
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onBackground
-          )
-
-          Spacer(modifier = Modifier.height(16.dp))
-
-          Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-          ) {
-            Text(
-              text = "Open the verification link on this device. Line Call will take you to the password setup screen.",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.secondary,
-              modifier = Modifier.padding(14.dp),
-              textAlign = TextAlign.Center
-            )
-          }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
+      Spacer(Modifier.height(20.dp))
+      Text("Create your account", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onBackground)
+      Spacer(Modifier.height(8.dp))
+      Text("Enter your email and choose a password. No verification link is required.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+      Spacer(Modifier.height(24.dp))
+      OutlinedTextField(value = email, onValueChange = onEmailChanged, modifier = Modifier.fillMaxWidth().testTag("email_input"), label = { Text("Email address") }, placeholder = { Text("name@example.com") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) }, shape = RoundedCornerShape(12.dp))
+      Spacer(Modifier.height(14.dp))
+      OutlinedTextField(value = password, onValueChange = onPasswordChanged, modifier = Modifier.fillMaxWidth().testTag("register_password_input"), label = { Text("Create password (min 8 characters)") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next), shape = RoundedCornerShape(12.dp))
+      Spacer(Modifier.height(14.dp))
+      OutlinedTextField(value = confirmPassword, onValueChange = onConfirmPasswordChanged, modifier = Modifier.fillMaxWidth().testTag("register_confirm_password_input"), label = { Text("Confirm password") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); onRegister() }), shape = RoundedCornerShape(12.dp))
+      if (authError != null) { Spacer(Modifier.height(10.dp)); Text(authError, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+      Spacer(Modifier.height(24.dp))
+      Button(onClick = { focusManager.clearFocus(force = true); onRegister() }, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("email_continue_button"), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111111), contentColor = Color.White), enabled = !busy && email.contains("@") && password.length >= 8 && confirmPassword.isNotEmpty()) {
+        if (busy) androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp) else Text("Create account", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
       }
+      Spacer(Modifier.height(20.dp))
     }
   }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PhoneNumberSetupScreen(
