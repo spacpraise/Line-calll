@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -76,7 +77,8 @@ fun LoginScreen(
   onIdentifierChanged: (String) -> Unit,
   onPasswordChanged: (String) -> Unit,
   onLogin: () -> Unit,
-  onRegister: () -> Unit
+  onRegister: () -> Unit,
+  onForgotPassword: () -> Unit
 ) {
   val focusManager = LocalFocusManager.current
   var passwordVisible by remember { mutableStateOf(false) }
@@ -257,6 +259,16 @@ fun LoginScreen(
       TextButton(
         onClick = {
           focusManager.clearFocus(force = true)
+          onForgotPassword()
+        },
+        modifier = Modifier.fillMaxWidth().testTag("forgot_password_button")
+      ) {
+        Text("Forgot password?", color = CallGreen, fontWeight = FontWeight.SemiBold)
+      }
+
+      TextButton(
+        onClick = {
+          focusManager.clearFocus(force = true)
           onRegister()
         },
         modifier = Modifier
@@ -274,3 +286,109 @@ fun LoginScreen(
 }
 
 
+
+
+@Composable
+fun ForgotPasswordScreen(
+  email: String,
+  phoneNumber: String,
+  error: String?,
+  busy: Boolean,
+  onEmailChanged: (String) -> Unit,
+  onPhoneChanged: (String) -> Unit,
+  onSubmit: () -> Unit,
+  onBack: () -> Unit
+) {
+  val focusManager = LocalFocusManager.current
+  Surface(modifier = Modifier.fillMaxSize(), color = OneUiDarkBackground) {
+    Column(
+      modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
+        .padding(horizontal = 24.dp, vertical = 16.dp).verticalScroll(rememberScrollState()),
+      verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+      IconButton(onClick = onBack, modifier = Modifier.testTag("forgot_password_back")) {
+        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OneUiTextPrimary)
+      }
+      Text("Reset your password", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = OneUiTextPrimary)
+      Text(
+        "Enter both the email address and phone number registered to your Line Call account. Both must match before you can choose a new password.",
+        style = MaterialTheme.typography.bodyMedium, color = OneUiTextSecondary
+      )
+      OutlinedTextField(
+        value = email, onValueChange = onEmailChanged, modifier = Modifier.fillMaxWidth().testTag("recovery_email_input"),
+        label = { Text("Registered email address") }, placeholder = { Text("name@example.com") },
+        singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) }, shape = RoundedCornerShape(14.dp)
+      )
+      OutlinedTextField(
+        value = phoneNumber, onValueChange = onPhoneChanged, modifier = Modifier.fillMaxWidth().testTag("recovery_phone_input"),
+        label = { Text("Registered phone number") }, placeholder = { Text("+2348012345678") },
+        singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) }, shape = RoundedCornerShape(14.dp),
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); if (!busy) onSubmit() })
+      )
+      if (error != null) Text(error, color = CallRed, style = MaterialTheme.typography.bodySmall)
+      Button(
+        onClick = { focusManager.clearFocus(force = true); onSubmit() },
+        enabled = !busy && email.contains("@") && phoneNumber.trim().startsWith("+"),
+        modifier = Modifier.fillMaxWidth().height(52.dp).testTag("recovery_continue_button"),
+        shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = CallGreen)
+      ) {
+        if (busy) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        else Text("Verify details", fontWeight = FontWeight.Bold)
+      }
+    }
+  }
+}
+
+@Composable
+fun NewPasswordScreen(
+  password: String,
+  confirmPassword: String,
+  error: String?,
+  busy: Boolean,
+  onPasswordChanged: (String) -> Unit,
+  onConfirmPasswordChanged: (String) -> Unit,
+  onSubmit: () -> Unit
+) {
+  val focusManager = LocalFocusManager.current
+  var passwordVisible by remember { mutableStateOf(false) }
+  Surface(modifier = Modifier.fillMaxSize(), color = OneUiDarkBackground) {
+    Column(
+      modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
+        .padding(horizontal = 24.dp, vertical = 16.dp).verticalScroll(rememberScrollState()),
+      verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+      Text("Create a new password", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = OneUiTextPrimary)
+      Text("Your email and phone number matched. Choose a new password to finish resetting your account.", color = OneUiTextSecondary)
+      OutlinedTextField(
+        value = password, onValueChange = onPasswordChanged, modifier = Modifier.fillMaxWidth().testTag("new_password_input"),
+        label = { Text("New password (at least 8 characters)") }, singleLine = true,
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = { IconButton(onClick = { passwordVisible = !passwordVisible }) {
+          Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = "Toggle password visibility")
+        } },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+        shape = RoundedCornerShape(14.dp)
+      )
+      OutlinedTextField(
+        value = confirmPassword, onValueChange = onConfirmPasswordChanged, modifier = Modifier.fillMaxWidth().testTag("confirm_new_password_input"),
+        label = { Text("Confirm new password") }, singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); if (!busy) onSubmit() }),
+        shape = RoundedCornerShape(14.dp)
+      )
+      if (error != null) Text(error, color = CallRed, style = MaterialTheme.typography.bodySmall)
+      Button(
+        onClick = { focusManager.clearFocus(force = true); onSubmit() },
+        enabled = !busy && password.length >= 8 && confirmPassword.isNotEmpty(),
+        modifier = Modifier.fillMaxWidth().height(52.dp).testTag("save_new_password_button"),
+        shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = CallGreen)
+      ) {
+        if (busy) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        else Text("Save new password", fontWeight = FontWeight.Bold)
+      }
+    }
+  }
+}
