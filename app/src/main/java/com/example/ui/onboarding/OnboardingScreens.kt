@@ -64,6 +64,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,6 +72,121 @@ import com.example.data.model.Country
 import com.example.data.model.CountryList
 import com.example.ui.ScreenState
 import com.example.ui.theme.CallGreen
+
+@Composable
+fun EmailEntryScreen(
+  email: String,
+  error: String?,
+  onEmailChanged: (String) -> Unit,
+  onContinue: () -> Unit,
+  onBack: () -> Unit
+) {
+  val focusManager = LocalFocusManager.current
+  Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Column(
+      modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
+        .padding(horizontal = 24.dp, vertical = 16.dp),
+      verticalArrangement = Arrangement.SpaceBetween
+    ) {
+      Column {
+        IconButton(onClick = onBack, modifier = Modifier.testTag("auth_back_button")) {
+          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+        }
+        Spacer(Modifier.height(28.dp))
+        Text("Create your account", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+        Spacer(Modifier.height(8.dp))
+        Text("First, enter your email address.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+        Spacer(Modifier.height(24.dp))
+        OutlinedTextField(
+          value = email,
+          onValueChange = onEmailChanged,
+          modifier = Modifier.fillMaxWidth().testTag("email_input"),
+          label = { Text("Email address") },
+          placeholder = { Text("name@example.com") },
+          singleLine = true,
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+          keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); onContinue() }),
+          leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+          shape = RoundedCornerShape(12.dp)
+        )
+        if (error != null) {
+          Spacer(Modifier.height(10.dp))
+          Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+      }
+      Button(
+        onClick = { focusManager.clearFocus(force = true); onContinue() },
+        modifier = Modifier.fillMaxWidth().height(52.dp).testTag("email_continue_button"),
+        shape = RoundedCornerShape(14.dp),
+        enabled = email.contains("@")
+      ) { Text("Continue", fontWeight = FontWeight.SemiBold) }
+    }
+  }
+}
+
+@Composable
+fun PasswordSetupScreen(
+  email: String,
+  password: String,
+  confirmPassword: String,
+  error: String?,
+  busy: Boolean,
+  onPasswordChanged: (String) -> Unit,
+  onConfirmPasswordChanged: (String) -> Unit,
+  onCreateAccount: () -> Unit,
+  onBack: () -> Unit
+) {
+  val focusManager = LocalFocusManager.current
+  Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Column(
+      modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
+        .padding(horizontal = 24.dp, vertical = 16.dp).verticalScroll(rememberScrollState())
+    ) {
+      IconButton(onClick = onBack, modifier = Modifier.testTag("password_setup_back")) {
+        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+      }
+      Spacer(Modifier.height(24.dp))
+      Text("Create a password", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+      Spacer(Modifier.height(8.dp))
+      Text(email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+      Spacer(Modifier.height(8.dp))
+      Text("Choose a password with at least 8 characters. No email link or verification screen is used.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+      Spacer(Modifier.height(24.dp))
+      OutlinedTextField(
+        value = password, onValueChange = onPasswordChanged,
+        modifier = Modifier.fillMaxWidth().testTag("register_password_input"),
+        label = { Text("Password") }, singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+        shape = RoundedCornerShape(12.dp)
+      )
+      Spacer(Modifier.height(14.dp))
+      OutlinedTextField(
+        value = confirmPassword, onValueChange = onConfirmPasswordChanged,
+        modifier = Modifier.fillMaxWidth().testTag("register_confirm_password_input"),
+        label = { Text("Confirm password") }, singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); onCreateAccount() }),
+        shape = RoundedCornerShape(12.dp)
+      )
+      if (error != null) {
+        Spacer(Modifier.height(10.dp))
+        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+      }
+      Spacer(Modifier.height(24.dp))
+      Button(
+        onClick = { focusManager.clearFocus(force = true); onCreateAccount() },
+        modifier = Modifier.fillMaxWidth().height(52.dp).testTag("create_account_button"),
+        shape = RoundedCornerShape(14.dp),
+        enabled = !busy && password.length >= 8 && confirmPassword.isNotEmpty()
+      ) {
+        if (busy) androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        else Text("Create account", fontWeight = FontWeight.SemiBold)
+      }
+    }
+  }
+}
 
 @Composable
 fun WelcomeScreen(
