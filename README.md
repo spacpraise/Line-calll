@@ -6,7 +6,7 @@ Line Call is a native Android internet voice-calling app built with Kotlin and J
 
 - Android UI: Kotlin, Jetpack Compose, Room
 - Authentication and user profiles: Supabase Auth + PostgREST
-- Email sign-in: Supabase Magic Link using PKCE and Android deep links
+- Authentication: Supabase email-and-password sign-up and sign-in
 - Call invitations and call state: Supabase Edge Function `call-control`
 - Voice media: LiveKit Android SDK (WebRTC)
 - Incoming-call detection: Supabase polling while the app is open
@@ -14,11 +14,11 @@ Line Call is a native Android internet voice-calling app built with Kotlin and J
 
 ## Supabase setup
 
-The app is configured for the existing Supabase project. In **Authentication → URL Configuration → Redirect URLs**, add:
+Use the existing Supabase project configured in the Android app.
 
-```text
-linecall://auth/callback
-```
+For the current registration flow, turn **Confirm email OFF** in Supabase Dashboard → Authentication → Providers → Email. The app expects password sign-up to return an authenticated session immediately. If email confirmation remains enabled, registration will not complete through the current in-app flow.
+
+The app does not use magic links, PKCE email callbacks, or an email-verification screen. No redirect URL is required for email authentication.
 
 The deployed `call-control` Edge Function uses the Supabase service-role environment variable server-side. Never put a service-role key in the Android app.
 
@@ -39,8 +39,8 @@ Incoming calls are detected through Supabase polling while Line Call is open. Th
 ## User flow
 
 1. User enters an email address.
-2. Supabase sends a magic link.
-3. The link opens `linecall://auth/callback` and completes PKCE sign-in in the app.
+2. User creates and confirms a password in the app.
+3. Supabase creates the account and returns an authenticated session (with email confirmation disabled).
 4. User adds an international phone number. No SMS verification is performed; the profile is marked unverified.
 5. Users call other registered Line Call numbers.
 6. The recipient accepts or declines; accepted calls join a private LiveKit room.
