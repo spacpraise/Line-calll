@@ -65,7 +65,7 @@ class LineCallSupabaseClient(context: Context) {
             .build()
         )
       } else {
-        require(clean.matches(Regex("^\\\\+[1-9][0-9]{6,14}$"))) {
+        require(clean.startsWith("+") && clean.drop(1).matches(Regex("^[1-9][0-9]{6,14}$"))) {
           "Enter your phone number with its international country code, for example +2348012345678."
         }
         execute(
