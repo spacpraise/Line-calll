@@ -65,6 +65,73 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
+  suspend fun signInWithPassword(identifier: String, password: String): Result<UserAccount> = withContext(Dispatchers.IO) {
+    runCatching {
+      check(isConfigured) { "Supabase is not configured." }
+      val clean = identifier.trim()
+      val response = if (clean.contains("@")) {
+        execute(
+          Request.Builder()
+            .url("${BackendConfig.SUPABASE_URL}/auth/v1/token?grant_type=password")
+            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+            .post(JSONObject().put("email", clean).put("password", password).toString().toRequestBody(jsonType))
+            .build()
+        )
+      } else {
+        execute(
+          Request.Builder()
+            .url("${BackendConfig.SUPABASE_URL}/functions/v1/phone-login")
+            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+            .post(JSONObject().put("phone_number", clean).put("password", password).toString().toRequestBody(jsonType))
+            .build()
+        )
+      }
+      storeSession(response)
+      val authUser = getAuthenticatedUserBlocking()
+      getOrCreateProfileBlocking(authUser)
+    }
+  }
+
+  suspend fun updatePassword(password: String): Result<Unit> = withContext(Dispatchers.IO) {
+    runCatching {
+      require(password.length >= 8) { "Use at least 8 characters for your password." }
+      execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
+          .headers(userHeaders())
+          .put(JSONObject().put("password", password).toString().toRequestBody(jsonType))
+          .build()
+      )
+      Unit
+    }
+  }
+
+  suspend fun sendPasswordRecovery(email: String): Result<Unit> = withContext(Dispatchers.IO) {
+    runCatching {
+      check(isConfigured) { "Supabase is not configured." }
+      val verifierBytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
+      val verifier = Base64.encodeToString(verifierBytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+      val challenge = Base64.encodeToString(
+        MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)),
+        Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+      )
+      secureStore.put("pkce_verifier", verifier)
+      val redirect = URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")
+      val body = JSONObject()
+        .put("email", email.trim())
+        .put("code_challenge", challenge)
+        .put("code_challenge_method", "s256")
+      execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/recover?redirect_to=$redirect")
+          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+          .post(body.toString().toRequestBody(jsonType))
+          .build()
+      )
+      Unit
+    }
+  }
+
   suspend fun completeMagicLink(callbackUrl: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
       val uri = Uri.parse(callbackUrl)
