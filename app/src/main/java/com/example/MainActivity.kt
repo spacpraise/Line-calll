@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -183,17 +184,26 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       }
 
       ScreenState.EMAIL_REGISTRATION -> {
-        RegistrationScreen(
+        EmailEntryScreen(
+          email = emailInput,
+          error = authError,
+          onEmailChanged = { viewModel.updateEmailInput(it) },
+          onContinue = { viewModel.continueToPasswordSetup() },
+          onBack = { viewModel.navigateTo(ScreenState.WELCOME) }
+        )
+      }
+
+      ScreenState.PASSWORD_SETUP -> {
+        PasswordSetupScreen(
           email = emailInput,
           password = passwordInput,
           confirmPassword = confirmPasswordInput,
-          authError = authError,
+          error = authError,
           busy = isAuthBusy,
-          onEmailChanged = { viewModel.updateEmailInput(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
           onConfirmPasswordChanged = { viewModel.updateConfirmPasswordInput(it) },
-          onRegister = { viewModel.registerAccount() },
-          onBack = { viewModel.navigateTo(ScreenState.WELCOME) }
+          onCreateAccount = { viewModel.registerAccount() },
+          onBack = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) }
         )
       }
 
