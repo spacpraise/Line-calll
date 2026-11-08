@@ -122,7 +122,7 @@ fun LoginScreen(
       Spacer(Modifier.height(8.dp))
 
       Text(
-        text = "Log in with your registered email address and password to start internet voice calling.",
+        text = "Log in with your registered email address or international phone number and password.",
         style = MaterialTheme.typography.bodyMedium,
         color = OneUiTextSecondary
       )
@@ -138,7 +138,7 @@ fun LoginScreen(
           modifier = Modifier.padding(18.dp),
           verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-          // Email field
+          // Email or phone number field
           OutlinedTextField(
             value = identifier,
             onValueChange = onIdentifierChanged,
@@ -146,12 +146,13 @@ fun LoginScreen(
               .fillMaxWidth()
               .testTag("login_email_input"),
             singleLine = true,
-            label = { Text("Email address", color = OneUiTextSecondary) },
+            label = { Text("Email or phone number", color = OneUiTextSecondary) },
+            placeholder = { Text("name@example.com or +2348012345678", color = OneUiTextMuted) },
             leadingIcon = {
               Icon(imageVector = Icons.Default.Email, contentDescription = null, tint = OneUiTextSecondary)
             },
             keyboardOptions = KeyboardOptions(
-              keyboardType = KeyboardType.Email,
+              keyboardType = KeyboardType.Text,
               imeAction = ImeAction.Next
             ),
             shape = RoundedCornerShape(14.dp),
