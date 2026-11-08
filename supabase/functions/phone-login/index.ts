@@ -74,7 +74,13 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Invalid phone number or password." }, 401);
     }
 
-    return json(session);
+    return json({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_in: session.expires_in,
+      expires_at: session.expires_at,
+      token_type: session.token_type,
+    });
   } catch (error) {
     console.error("phone-login failed", error instanceof Error ? error.message : "unknown");
     return json({ error: "Unable to sign in right now. Please try again." }, 503);
