@@ -47,6 +47,7 @@ class LineCallSupabaseClient(context: Context) {
         Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
       )
       secureStore.put("pkce_verifier", verifier)
+      secureStore.put("auth_flow", "register")
 
       val redirect = URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")
       val body = JSONObject()
@@ -102,6 +103,7 @@ class LineCallSupabaseClient(context: Context) {
           .put(JSONObject().put("password", password).toString().toRequestBody(jsonType))
           .build()
       )
+      secureStore.remove("auth_flow")
       Unit
     }
   }
@@ -116,6 +118,7 @@ class LineCallSupabaseClient(context: Context) {
         Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
       )
       secureStore.put("pkce_verifier", verifier)
+      secureStore.put("auth_flow", "recovery")
       val redirect = URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")
       val body = JSONObject()
         .put("email", email.trim())
@@ -155,6 +158,8 @@ class LineCallSupabaseClient(context: Context) {
       getOrCreateProfileBlocking(authUser)
     }
   }
+
+  fun pendingAuthFlow(): String? = secureStore.get("auth_flow")
 
   suspend fun restoreSession(): UserAccount? = withContext(Dispatchers.IO) {
     runCatching {
