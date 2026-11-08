@@ -18,10 +18,7 @@ interface AuthService {
   suspend fun signOut()
 }
 
-/**
- * Supabase passwordless email authentication using a PKCE magic link.
- * The callback deep link exchanges the one-time authorization code for a session.
- */
+/** Supabase email-and-password authentication. No email-link callback is used. */
 class LineCallAuthService(
   private val supabase: LineCallSupabaseClient
 ) : AuthService {
@@ -57,8 +54,7 @@ class LineCallAuthService(
 
   override suspend fun restoreSession(): UserAccount? {
     val restoredUser = supabase.restoreSession()
-    // A magic-link callback can finish while session restoration is still in flight.
-    // Never let a late restore result overwrite the newly authenticated callback user.
+    // Keep an already authenticated in-memory user if restoration completes later.
     val resolvedUser = currentUser ?: restoredUser
     if (currentUser == null) currentUser = restoredUser
     _authState.value = if (resolvedUser == null) {
