@@ -180,6 +180,8 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   }
 
   fun submitEmail() {
+    _magicLinkSent.value = false
+    _authError.value = null
     viewModelScope.launch {
       val result = authService.sendMagicLink(_emailInput.value)
       if (result.isSuccess) {
@@ -208,7 +210,8 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         }
         if (_currentScreen.value == ScreenState.MAIN_APP) callingService.startIncomingCallPolling()
       }.onFailure {
-        _authError.value = it.message ?: "The sign-in link could not be verified. Request a new link."
+        _magicLinkSent.value = false
+        _authError.value = it.message ?: "The verification link could not be verified. Request a new link."
         _currentScreen.value = ScreenState.EMAIL_REGISTRATION
       }
     }
@@ -246,6 +249,8 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   }
 
   fun sendPasswordRecovery() {
+    _magicLinkSent.value = false
+    _authError.value = null
     viewModelScope.launch {
       _isAuthBusy.value = true
       val result = authService.sendPasswordRecovery(_emailInput.value)
