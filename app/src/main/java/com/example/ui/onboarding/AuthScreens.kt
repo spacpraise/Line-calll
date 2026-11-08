@@ -39,12 +39,12 @@ fun LoginScreen(
   ) {
     Text("Welcome back", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(8.dp))
-    Text("Log in with your email address or Line Call phone number.", color = MaterialTheme.colorScheme.secondary)
+    Text("Log in with your registered email address and password.", color = MaterialTheme.colorScheme.secondary)
     Spacer(Modifier.height(24.dp))
     OutlinedTextField(
       value = identifier, onValueChange = onIdentifierChanged,
       modifier = Modifier.fillMaxWidth(), singleLine = true,
-      label = { Text("Email or phone number") },
+      label = { Text("Email address") },
       keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
     )
     Spacer(Modifier.height(12.dp))
