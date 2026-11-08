@@ -227,7 +227,7 @@ fun RegistrationScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-          text = "We will send a passwordless magic link to your email address to authenticate your Line Call account.",
+          text = "We will send a verification link to confirm your email. You will create your password after opening the link.",
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.secondary
         )
@@ -324,7 +324,7 @@ fun RegistrationScreen(
           Spacer(modifier = Modifier.height(8.dp))
 
           Text(
-            text = "A sign-in link has been sent to:",
+            text = "A verification link has been sent to:",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.secondary
           )
@@ -345,7 +345,7 @@ fun RegistrationScreen(
             modifier = Modifier.fillMaxWidth()
           ) {
             Text(
-              text = "Tap the sign-in link in your email. Line Call will open automatically and finish signing you in.",
+              text = "Open the verification link on this device. Line Call will take you to the password setup screen.",
               style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.padding(14.dp),
