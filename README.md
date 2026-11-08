@@ -6,7 +6,7 @@ Line Call is a native Android internet voice-calling app built with Kotlin and J
 
 - Android UI: Kotlin, Jetpack Compose, Room
 - Authentication and user profiles: Supabase Auth + PostgREST
-- Authentication: Supabase email-and-password sign-up and sign-in
+- Authentication: Supabase email-and-password sign-up and sign-in, plus server-mediated phone-number-and-password sign-in
 - Call invitations and call state: Supabase Edge Function `call-control`
 - Voice media: LiveKit Android SDK (WebRTC)
 - Incoming-call detection: Supabase polling while the app is open
@@ -16,9 +16,9 @@ Line Call is a native Android internet voice-calling app built with Kotlin and J
 
 Use the existing Supabase project configured in the Android app.
 
-For the current registration flow, turn **Confirm email OFF** in Supabase Dashboard → Authentication → Providers → Email. The app expects password sign-up to return an authenticated session immediately. If email confirmation remains enabled, registration will not complete through the current in-app flow.
+For the current registration flow, turn **Confirm email OFF** in Supabase Dashboard → Authentication → Providers → Email. The app expects password sign-up to return an authenticated session immediately. Keep **Confirm email OFF** in Supabase Dashboard → Authentication → Providers → Email. If Supabase returns no session, the app will show a configuration error rather than pretending registration succeeded.
 
-The app does not use magic links, PKCE email callbacks, or an email-verification screen. No redirect URL is required for email authentication.
+The app does not use magic links, PKCE email callbacks, or an email-verification screen. No redirect URL is required for email authentication. The login identifier accepts either the registered email address or the registered phone number in E.164 format (for example, `+2348012345678`). Phone login is handled by the `phone-login` Edge Function: it resolves the phone number privately on the server, then delegates password verification and session issuance to Supabase Auth. The function never returns the account email to the device.
 
 The deployed `call-control` Edge Function uses the Supabase service-role environment variable server-side. Never put a service-role key in the Android app.
 
@@ -42,7 +42,8 @@ Incoming calls are detected through Supabase polling while Line Call is open. Th
 2. User creates and confirms a password in the app.
 3. Supabase creates the account and returns an authenticated session (with email confirmation disabled).
 4. User adds an international phone number. No SMS verification is performed; the profile is marked unverified.
-5. Users call other registered Line Call numbers.
+5. Users can sign in using either their email address or registered international phone number and password.
+6. Users call other registered Line Call numbers.
 6. The recipient accepts or declines; accepted calls join a private LiveKit room.
 
 ## Build
