@@ -3,7 +3,6 @@ package com.example
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -82,11 +81,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LineCallApp(
-  viewModel: LineCallViewModel = viewModel(),
-  authCallbackUri: Uri? = null,
-  onAuthCallbackHandled: () -> Unit = {}
-) {
+fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   val context = LocalContext.current
   val focusManager = LocalFocusManager.current
   val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
@@ -96,7 +91,6 @@ fun LineCallApp(
   val emailInput by viewModel.emailInput.collectAsStateWithLifecycle()
   val phoneInput by viewModel.phoneInput.collectAsStateWithLifecycle()
   val displayNameInput by viewModel.displayNameInput.collectAsStateWithLifecycle()
-  val magicLinkSent by viewModel.magicLinkSent.collectAsStateWithLifecycle()
   val loginIdentifier by viewModel.loginIdentifier.collectAsStateWithLifecycle()
   val passwordInput by viewModel.passwordInput.collectAsStateWithLifecycle()
   val confirmPasswordInput by viewModel.confirmPasswordInput.collectAsStateWithLifecycle()
@@ -198,16 +192,6 @@ fun LineCallApp(
     viewModel.navigateTo(ScreenState.WELCOME)
   }
 
-  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.FORGOT_PASSWORD) {
-    focusManager.clearFocus(force = true)
-    viewModel.navigateTo(ScreenState.LOGIN)
-  }
-
-  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PASSWORD_RESET) {
-    focusManager.clearFocus(force = true)
-    viewModel.navigateTo(ScreenState.LOGIN)
-  }
-
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.MAIN_APP && selectedTab != MainTab.KEYPAD) {
     focusManager.clearFocus(force = true)
     viewModel.selectTab(MainTab.KEYPAD)
@@ -229,10 +213,14 @@ fun LineCallApp(
       ScreenState.EMAIL_REGISTRATION -> {
         RegistrationScreen(
           email = emailInput,
-          magicLinkSent = magicLinkSent,
+          password = passwordInput,
+          confirmPassword = confirmPasswordInput,
           authError = authError,
+          busy = isAuthBusy,
           onEmailChanged = { viewModel.updateEmailInput(it) },
-          onSubmitEmail = { viewModel.submitEmail() },
+          onPasswordChanged = { viewModel.updatePasswordInput(it) },
+          onConfirmPasswordChanged = { viewModel.updateConfirmPasswordInput(it) },
+          onRegister = { viewModel.registerAccount() },
           onBack = { viewModel.navigateTo(ScreenState.WELCOME) }
         )
       }
@@ -248,32 +236,6 @@ fun LineCallApp(
           onLogin = { viewModel.signIn() },
           onForgotPassword = { viewModel.navigateTo(ScreenState.FORGOT_PASSWORD) },
           onRegister = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) }
-        )
-      }
-
-      ScreenState.FORGOT_PASSWORD -> {
-        ForgotPasswordScreen(
-          email = emailInput,
-          sent = magicLinkSent,
-          error = authError,
-          busy = isAuthBusy,
-          onEmailChanged = { viewModel.updateEmailInput(it) },
-          onSend = { viewModel.sendPasswordRecovery() },
-          onBack = { viewModel.navigateTo(ScreenState.LOGIN) }
-        )
-      }
-
-      ScreenState.PASSWORD_SETUP, ScreenState.PASSWORD_RESET -> {
-        PasswordSetupScreen(
-          title = if (currentScreen == ScreenState.PASSWORD_RESET) "Choose a new password" else "Create your password",
-          subtitle = if (currentScreen == ScreenState.PASSWORD_RESET) "Your email is verified. Set a new password to secure your account." else "Your email is verified. Create a password to finish registering.",
-          password = passwordInput,
-          confirmPassword = confirmPasswordInput,
-          error = authError,
-          busy = isAuthBusy,
-          onPasswordChanged = { viewModel.updatePasswordInput(it) },
-          onConfirmPasswordChanged = { viewModel.updateConfirmPasswordInput(it) },
-          onSave = { viewModel.saveNewPassword() }
         )
       }
 
