@@ -14,6 +14,9 @@ sealed class AuthState {
 interface AuthService {
   val authState: StateFlow<AuthState>
   suspend fun sendMagicLink(email: String): Result<Unit>
+  suspend fun signIn(identifier: String, password: String): Result<UserAccount>
+  suspend fun sendPasswordRecovery(email: String): Result<Unit>
+  suspend fun updatePassword(password: String): Result<Unit>
   suspend fun handleAuthCallback(callbackUrl: String): Result<UserAccount>
   suspend fun restoreSession(): UserAccount?
   suspend fun signOut()
@@ -40,6 +43,26 @@ class LineCallAuthService(
     result.onSuccess { _authState.value = AuthState.AwaitingMagicLink(cleanEmail) }
     return result
   }
+
+  override suspend fun signIn(identifier: String, password: String): Result<UserAccount> {
+    val result = supabase.signInWithPassword(identifier, password)
+    result.onSuccess { user ->
+      currentUser = user
+      _authState.value = AuthState.Authenticated(user)
+    }
+    return result
+  }
+
+  override suspend fun sendPasswordRecovery(email: String): Result<Unit> {
+    val cleanEmail = email.trim()
+    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+      return Result.failure(IllegalArgumentException("Please enter a valid email address."))
+    }
+    return supabase.sendPasswordRecovery(cleanEmail)
+  }
+
+  override suspend fun updatePassword(password: String): Result<Unit> =
+    supabase.updatePassword(password)
 
   override suspend fun handleAuthCallback(callbackUrl: String): Result<UserAccount> {
     val result = supabase.completeMagicLink(callbackUrl)
