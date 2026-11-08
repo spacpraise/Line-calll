@@ -48,6 +48,9 @@ import com.example.ui.onboarding.PhoneNumberSetupScreen
 import com.example.ui.onboarding.ProfileSetupScreen
 import com.example.ui.onboarding.RegistrationScreen
 import com.example.ui.onboarding.WelcomeScreen
+import com.example.ui.onboarding.LoginScreen
+import com.example.ui.onboarding.PasswordSetupScreen
+import com.example.ui.onboarding.ForgotPasswordScreen
 import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
@@ -92,6 +95,10 @@ fun LineCallApp(
   val phoneInput by viewModel.phoneInput.collectAsStateWithLifecycle()
   val displayNameInput by viewModel.displayNameInput.collectAsStateWithLifecycle()
   val magicLinkSent by viewModel.magicLinkSent.collectAsStateWithLifecycle()
+  val loginIdentifier by viewModel.loginIdentifier.collectAsStateWithLifecycle()
+  val passwordInput by viewModel.passwordInput.collectAsStateWithLifecycle()
+  val confirmPasswordInput by viewModel.confirmPasswordInput.collectAsStateWithLifecycle()
+  val isAuthBusy by viewModel.isAuthBusy.collectAsStateWithLifecycle()
   val authError by viewModel.authError.collectAsStateWithLifecycle()
 
   val contacts by viewModel.contacts.collectAsStateWithLifecycle()
@@ -185,7 +192,7 @@ fun LineCallApp(
       ScreenState.WELCOME -> {
         WelcomeScreen(
           onGetStarted = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) },
-          onLogIn = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) }
+          onLogIn = { viewModel.navigateTo(ScreenState.LOGIN) }
         )
       }
 
@@ -197,6 +204,46 @@ fun LineCallApp(
           onEmailChanged = { viewModel.updateEmailInput(it) },
           onSubmitEmail = { viewModel.submitEmail() },
           onBack = { viewModel.navigateTo(ScreenState.WELCOME) }
+        )
+      }
+
+      ScreenState.LOGIN -> {
+        LoginScreen(
+          identifier = loginIdentifier,
+          password = passwordInput,
+          error = authError,
+          busy = isAuthBusy,
+          onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
+          onPasswordChanged = { viewModel.updatePasswordInput(it) },
+          onLogin = { viewModel.signIn() },
+          onForgotPassword = { viewModel.navigateTo(ScreenState.FORGOT_PASSWORD) },
+          onRegister = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) }
+        )
+      }
+
+      ScreenState.FORGOT_PASSWORD -> {
+        ForgotPasswordScreen(
+          email = emailInput,
+          sent = magicLinkSent,
+          error = authError,
+          busy = isAuthBusy,
+          onEmailChanged = { viewModel.updateEmailInput(it) },
+          onSend = { viewModel.sendPasswordRecovery() },
+          onBack = { viewModel.navigateTo(ScreenState.LOGIN) }
+        )
+      }
+
+      ScreenState.PASSWORD_SETUP, ScreenState.PASSWORD_RESET -> {
+        PasswordSetupScreen(
+          title = if (currentScreen == ScreenState.PASSWORD_RESET) "Choose a new password" else "Create your password",
+          subtitle = if (currentScreen == ScreenState.PASSWORD_RESET) "Your email is verified. Set a new password to secure your account." else "Your email is verified. Create a password to finish registering.",
+          password = passwordInput,
+          confirmPassword = confirmPasswordInput,
+          error = authError,
+          busy = isAuthBusy,
+          onPasswordChanged = { viewModel.updatePasswordInput(it) },
+          onConfirmPasswordChanged = { viewModel.updateConfirmPasswordInput(it) },
+          onSave = { viewModel.saveNewPassword() }
         )
       }
 
