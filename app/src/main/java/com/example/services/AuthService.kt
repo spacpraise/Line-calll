@@ -12,7 +12,7 @@ sealed class AuthState {
 
 interface AuthService {
   val authState: StateFlow<AuthState>
-  suspend fun register(email: String, password: String): Result<UserAccount>
+  suspend fun register(email: String, password: String, phoneNumber: String): Result<UserAccount>
   suspend fun signIn(identifier: String, password: String): Result<UserAccount>
   suspend fun restoreSession(): UserAccount?
   suspend fun signOut()
@@ -27,7 +27,7 @@ class LineCallAuthService(
 
   private var currentUser: UserAccount? = null
 
-  override suspend fun register(email: String, password: String): Result<UserAccount> {
+  override suspend fun register(email: String, password: String, phoneNumber: String): Result<UserAccount> {
     val cleanEmail = email.trim()
     if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
       return Result.failure(IllegalArgumentException("Please enter a valid email address."))
@@ -35,7 +35,7 @@ class LineCallAuthService(
     if (password.length < 8) {
       return Result.failure(IllegalArgumentException("Use at least 8 characters for your password."))
     }
-    val result = supabase.signUpWithPassword(cleanEmail, password)
+    val result = supabase.signUpWithPassword(cleanEmail, password, phoneNumber)
     result.onSuccess { user ->
       currentUser = user
       _authState.value = AuthState.Authenticated(user)
