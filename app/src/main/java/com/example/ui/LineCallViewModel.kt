@@ -101,6 +101,8 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   private val _confirmNewPassword = MutableStateFlow("")
   val confirmNewPassword: StateFlow<String> = _confirmNewPassword.asStateFlow()
 
+  private var isCompletingRegistration = false
+
   private val _phoneInput = MutableStateFlow("")
   val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
 
@@ -212,24 +214,11 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
       _authError.value = "The passwords do not match."
       return
     }
-    viewModelScope.launch {
-      _isAuthBusy.value = true
-      val result = authService.register(email, password)
-      result.onSuccess { user ->
-        userProfileService.setUser(user)
-        _emailInput.value = user.email
-        _phoneInput.value = user.phoneNumber
-        _displayNameInput.value = user.displayName
-        _passwordInput.value = ""
-        _confirmPasswordInput.value = ""
-        _authError.value = null
-        _currentScreen.value = if (user.phoneNumber.isBlank()) ScreenState.PHONE_SETUP else ScreenState.MAIN_APP
-        if (_currentScreen.value == ScreenState.MAIN_APP) callingService.startIncomingCallPolling()
-      }.onFailure {
-        _authError.value = it.message ?: "Could not create your account."
-      }
-      _isAuthBusy.value = false
-    }
+    // Keep registration details locally. No Auth user exists until phone is supplied.
+    isCompletingRegistration = true
+    _phoneInput.value = ""
+    _authError.value = null
+    _currentScreen.value = ScreenState.PHONE_SETUP
   }
 
   fun updateLoginIdentifier(value: String) { _loginIdentifier.value = value; _authError.value = null }
@@ -332,17 +321,34 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   fun submitPhoneNumber() {
     val e164 = userProfileService.formatToE164(_selectedCountry.value.dialCode, _phoneInput.value)
+    if (!userProfileService.validateE164(e164)) { _authError.value = "Enter a valid international phone number."; return }
     viewModelScope.launch {
-      val result = userProfileService.registerPhoneNumber(e164)
-      result.onSuccess { user ->
-        userProfileService.setUser(user)
-        _phoneInput.value = user.phoneNumber
-        _authError.value = null
-        enterMainApp()
-      }.onFailure {
-        _authError.value = it.message ?: "Could not save this phone number."
+      _isAuthBusy.value = true
+      if (isCompletingRegistration) {
+        val result = authService.register(_emailInput.value.trim(), _passwordInput.value, e164)
+        result.onSuccess { user ->
+          isCompletingRegistration = false
+          userProfileService.setUser(user)
+          _emailInput.value = user.email
+          _phoneInput.value = user.phoneNumber
+          _displayNameInput.value = user.displayName
+          _passwordInput.value = ""
+          _confirmPasswordInput.value = ""
+          _authError.value = null
+          enterMainApp()
+        }.onFailure { _authError.value = it.message ?: "Could not create your account. No account was created." }
+      } else {
+        val result = userProfileService.registerPhoneNumber(e164)
+        result.onSuccess { user -> userProfileService.setUser(user); _phoneInput.value = user.phoneNumber; _authError.value = null; enterMainApp() }
+          .onFailure { _authError.value = it.message ?: "Could not save this phone number." }
       }
+      _isAuthBusy.value = false
     }
+  }
+
+  fun backFromPhoneSetup() {
+    _currentScreen.value = if (isCompletingRegistration) ScreenState.PASSWORD_SETUP else ScreenState.WELCOME
+    _authError.value = null
   }
 
   fun updateDisplayNameInput(name: String) {
