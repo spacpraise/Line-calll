@@ -21,8 +21,10 @@ class ExampleRobolectricTest {
 
   @Test
   fun `verify e164 formatting`() {
-    val authService = com.example.services.LineCallAuthService()
-    val profileService = com.example.services.UserProfileService(authService)
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val supabase = com.example.services.LineCallSupabaseClient(context)
+    val authService = com.example.services.LineCallAuthService(supabase)
+    val profileService = com.example.services.UserProfileService(authService, supabase)
     val formatted = profileService.formatToE164("+1", "(415) 555-0198")
     assertEquals("+14155550198", formatted)
   }

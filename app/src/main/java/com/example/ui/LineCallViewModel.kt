@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.LineCallDatabase
 import com.example.data.model.ActiveCallSession
 import com.example.data.model.CallRecord
+import com.example.data.model.CallType
 import com.example.data.model.Contact
 import com.example.data.model.Country
 import com.example.data.model.CountryList
@@ -104,6 +105,21 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   val currentUser: StateFlow<UserAccount?> = userProfileService.currentUser
 
+  private val _selectedContactDetail = MutableStateFlow<Contact?>(null)
+  val selectedContactDetail: StateFlow<Contact?> = _selectedContactDetail.asStateFlow()
+
+  private val _showAddContactScreen = MutableStateFlow(false)
+  val showAddContactScreen: StateFlow<Boolean> = _showAddContactScreen.asStateFlow()
+
+  private val _missedCallBannerDismissed = MutableStateFlow(false)
+  val missedCallBannerDismissed: StateFlow<Boolean> = _missedCallBannerDismissed.asStateFlow()
+
+  private val _recentsFilterType = MutableStateFlow<CallType?>(null)
+  val recentsFilterType: StateFlow<CallType?> = _recentsFilterType.asStateFlow()
+
+  private val _favoritesViewAsList = MutableStateFlow(false)
+  val favoritesViewAsList: StateFlow<Boolean> = _favoritesViewAsList.asStateFlow()
+
   init {
     viewModelScope.launch {
       callingService.callEvents.collect { event ->
@@ -125,6 +141,42 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           _currentScreen.value = ScreenState.MAIN_APP
           callingService.startIncomingCallPolling()
         }
+      }
+    }
+
+    // Seed realistic One UI contacts & call history if local database is empty
+    viewModelScope.launch {
+      val currentList = contactDao.getContactByPhone("+2347082495224")
+      if (currentList == null) {
+        val seedContacts = listOf(
+          Contact(name = "Abdul Lfc", phoneNumber = "+2348031234567", avatarInitials = "A", isFavorite = true, gradientIndex = 0),
+          Contact(name = "Boda Pata", phoneNumber = "+2348029876543", avatarInitials = "B", isFavorite = true, gradientIndex = 1),
+          Contact(name = "Ilesanmi Ademola", phoneNumber = "+2348051112233", avatarInitials = "I", isFavorite = true, gradientIndex = 2),
+          Contact(name = "Mama Soji", phoneNumber = "+2348094445566", avatarInitials = "M", isFavorite = true, gradientIndex = 0),
+          Contact(name = "Mom 💕", phoneNumber = "+2348073334455", avatarInitials = "M", isFavorite = true, gradientIndex = 3),
+          Contact(name = "Mr. Johnson Edache", phoneNumber = "+2348012223344", avatarInitials = "M", isFavorite = true, gradientIndex = 4),
+          Contact(name = "Obi", phoneNumber = "+2348035556677", avatarInitials = "O", isFavorite = true, gradientIndex = 5),
+          Contact(name = "Sgt Emmanuel", phoneNumber = "+2348067778899", avatarInitials = "S", isFavorite = true, gradientIndex = 2),
+          Contact(name = "Sir Joshua", phoneNumber = "+2348028889900", avatarInitials = "S", isFavorite = true, gradientIndex = 0),
+          Contact(name = "Tosin Baba 'Semilore", phoneNumber = "+2348056667788", avatarInitials = "T", isFavorite = true, gradientIndex = 3),
+          Contact(name = "(C H L F) Petals_Effects", phoneNumber = "+2347082495224", avatarInitials = "PE", isFavorite = false, gradientIndex = 2),
+          Contact(name = "~Comr 😎 Lincoln", phoneNumber = "+2348039990011", avatarInitials = "CL", isFavorite = false, gradientIndex = 1),
+          Contact(name = "Uncle Ola Phone Man 📱", phoneNumber = "+2348034441122", avatarInitials = "UO", isFavorite = false, gradientIndex = 0),
+          Contact(name = "Dad 🤍", phoneNumber = "+2348023332211", avatarInitials = "D", isFavorite = false, gradientIndex = 4),
+          Contact(name = "Praise 🤍", phoneNumber = "+2348091119988", avatarInitials = "P", isFavorite = false, gradientIndex = 5)
+        )
+        seedContacts.forEach { contactDao.insertContact(it) }
+
+        // Also seed initial call records matching recents screenshot
+        val now = System.currentTimeMillis()
+        val seedCalls = listOf(
+          CallRecord(phoneNumber = "+2348031112233", contactName = "Sunny Wife", type = CallType.MISSED, timestamp = now - 1000 * 60 * 15, durationSeconds = 0),
+          CallRecord(phoneNumber = "+2348034441122", contactName = "Uncle Ola Phone Man 📱", type = CallType.OUTGOING, timestamp = now - 1000 * 60 * 30, durationSeconds = 142),
+          CallRecord(phoneNumber = "+2348023332211", contactName = "Dad 🤍", type = CallType.INCOMING, timestamp = now - 1000 * 60 * 120, durationSeconds = 88),
+          CallRecord(phoneNumber = "+2348091119988", contactName = "Praise 🤍", type = CallType.OUTGOING, timestamp = now - 1000 * 60 * 150, durationSeconds = 310),
+          CallRecord(phoneNumber = "+2348023332211", contactName = "Dad 🤍", type = CallType.OUTGOING, timestamp = now - 1000 * 60 * 200, durationSeconds = 62)
+        )
+        seedCalls.forEach { callRecordDao.insertCallRecord(it) }
       }
     }
   }
@@ -295,6 +347,36 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   private fun showNotice(title: String, message: String, number: String, name: String? = null) {
     _backendNotice.value = BackendNoticeState(title, message, number, name)
+  }
+
+  fun selectContactDetail(contact: Contact?) {
+    _selectedContactDetail.value = contact
+  }
+
+  fun setShowAddContactScreen(show: Boolean) {
+    _showAddContactScreen.value = show
+  }
+
+  fun dismissMissedCallBanner() {
+    _missedCallBannerDismissed.value = true
+  }
+
+  fun setRecentsFilterType(type: CallType?) {
+    _recentsFilterType.value = type
+  }
+
+  fun toggleFavoritesViewAsList() {
+    _favoritesViewAsList.value = !_favoritesViewAsList.value
+  }
+
+  fun toggleFavorite(contact: Contact) {
+    viewModelScope.launch {
+      val updated = contact.copy(isFavorite = !contact.isFavorite)
+      contactDao.updateContact(updated)
+      if (_selectedContactDetail.value?.id == contact.id) {
+        _selectedContactDetail.value = updated
+      }
+    }
   }
 
   fun updateContactSearch(query: String) {

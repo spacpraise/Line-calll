@@ -9,11 +9,11 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,8 +25,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.model.CallSessionState
@@ -36,9 +38,10 @@ import com.example.ui.ScreenState
 import com.example.ui.call.ActiveCallScreen
 import com.example.ui.call.IncomingCallScreen
 import com.example.ui.common.BackendNoticeDialog
-import com.example.ui.common.LineCallBottomNavBar
-import com.example.ui.common.LineCallTopBar
-import com.example.ui.contacts.AddContactDialog
+import com.example.ui.common.OneUiFloatingBottomNav
+import com.example.ui.common.OneUiTopBar
+import com.example.ui.contacts.AddContactOneUiScreen
+import com.example.ui.contacts.ContactDetailScreen
 import com.example.ui.contacts.ContactsScreen
 import com.example.ui.dialer.KeypadScreen
 import com.example.ui.onboarding.PhoneNumberSetupScreen
@@ -48,6 +51,7 @@ import com.example.ui.onboarding.WelcomeScreen
 import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
+import com.example.ui.theme.OneUiDarkBackground
 
 class MainActivity : ComponentActivity() {
   private var authCallbackUri by mutableStateOf<Uri?>(null)
@@ -97,7 +101,11 @@ fun LineCallApp(
   val backendNotice by viewModel.backendNotice.collectAsStateWithLifecycle()
   val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
 
-  var quickAddContactNumber by remember { mutableStateOf<String?>(null) }
+  val selectedContactDetail by viewModel.selectedContactDetail.collectAsStateWithLifecycle()
+  val showAddContactScreen by viewModel.showAddContactScreen.collectAsStateWithLifecycle()
+  val missedCallBannerDismissed by viewModel.missedCallBannerDismissed.collectAsStateWithLifecycle()
+  val recentsFilterType by viewModel.recentsFilterType.collectAsStateWithLifecycle()
+
   var pendingMicrophoneAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
   val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -107,9 +115,7 @@ fun LineCallApp(
   val microphonePermissionLauncher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestPermission()
   ) { granted ->
-    val action = pendingMicrophoneAction
-    pendingMicrophoneAction = null
-    if (granted) action?.invoke()
+    if (granted) pendingMicrophoneAction?.invoke()
     else Toast.makeText(context, "Microphone access is needed to make voice calls.", Toast.LENGTH_LONG).show()
   }
 
@@ -122,49 +128,59 @@ fun LineCallApp(
     }
   }
 
+  LaunchedEffect(Unit) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+      }
+    }
+  }
+
   LaunchedEffect(authCallbackUri) {
-    val uri = authCallbackUri
-    if (uri != null && uri.scheme == "linecall" && uri.host == "auth") {
+    authCallbackUri?.let { uri ->
       viewModel.verifyMagicLinkCallback(uri.toString())
       onAuthCallbackHandled()
     }
   }
 
-  LaunchedEffect(currentScreen) {
-    if (currentScreen == ScreenState.MAIN_APP &&
-      Build.VERSION.SDK_INT >= 33 &&
-      ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-    ) {
-      notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-    }
-  }
-
-  // Predictive Back handling across all screens and active calls
+  // Predictive Back handling
   BackHandler(enabled = activeCall != null) {
     viewModel.endCall()
   }
 
-  BackHandler(enabled = activeCall == null && currentScreen == ScreenState.SETTINGS) {
+  BackHandler(enabled = activeCall == null && selectedContactDetail != null) {
+    viewModel.selectContactDetail(null)
+  }
+
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && showAddContactScreen) {
+    viewModel.setShowAddContactScreen(false)
+  }
+
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.SETTINGS) {
     viewModel.navigateTo(ScreenState.MAIN_APP)
   }
 
-  BackHandler(enabled = activeCall == null && currentScreen == ScreenState.PROFILE_SETUP) {
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PROFILE_SETUP) {
     viewModel.navigateTo(ScreenState.MAIN_APP)
   }
 
-  BackHandler(enabled = activeCall == null && currentScreen == ScreenState.PHONE_SETUP) {
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PHONE_SETUP) {
     viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION)
   }
 
-  BackHandler(enabled = activeCall == null && currentScreen == ScreenState.EMAIL_REGISTRATION) {
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.EMAIL_REGISTRATION) {
     viewModel.navigateTo(ScreenState.WELCOME)
   }
 
-  BackHandler(enabled = activeCall == null && currentScreen == ScreenState.MAIN_APP && selectedTab != MainTab.KEYPAD) {
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.MAIN_APP && selectedTab != MainTab.KEYPAD) {
     viewModel.selectTab(MainTab.KEYPAD)
   }
 
-  Box(modifier = Modifier.fillMaxSize()) {
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(OneUiDarkBackground)
+  ) {
     when (currentScreen) {
       ScreenState.WELCOME -> {
         WelcomeScreen(
@@ -216,17 +232,17 @@ fun LineCallApp(
 
       ScreenState.MAIN_APP -> {
         Scaffold(
+          containerColor = OneUiDarkBackground,
           contentWindowInsets = WindowInsets(0, 0, 0, 0),
           topBar = {
-            LineCallTopBar(
+            OneUiTopBar(
+              currentTab = selectedTab,
+              contactsCount = contacts.size,
               currentUser = currentUser,
+              onAddContactClick = { viewModel.setShowAddContactScreen(true) },
+              onSearchClick = { viewModel.updateContactSearch("") },
+              onFilterClick = { },
               onSettingsClick = { viewModel.navigateTo(ScreenState.SETTINGS) }
-            )
-          },
-          bottomBar = {
-            LineCallBottomNavBar(
-              selectedTab = selectedTab,
-              onTabSelected = { viewModel.selectTab(it) }
             )
           }
         ) { innerPadding ->
@@ -244,14 +260,18 @@ fun LineCallApp(
                   onBackspace = { viewModel.backspaceKeypad() },
                   onClear = { viewModel.clearKeypad() },
                   onCall = { runWithMicrophonePermission { viewModel.onCallButtonPressed() } },
-                  onSaveContact = { quickAddContactNumber = it }
+                  onSaveContact = { viewModel.setShowAddContactScreen(true) }
                 )
               }
 
               MainTab.RECENTS -> {
                 RecentsScreen(
                   callHistory = callHistory,
-                  onCallRecord = { viewModel.callRecent(it) },
+                  missedCallBannerDismissed = missedCallBannerDismissed,
+                  filterType = recentsFilterType,
+                  onDismissMissedBanner = { viewModel.dismissMissedCallBanner() },
+                  onFilterSelected = { viewModel.setRecentsFilterType(it) },
+                  onCallRecord = { runWithMicrophonePermission { viewModel.callRecent(it) } },
                   onClearHistory = { viewModel.clearCallHistory() }
                 )
               }
@@ -259,32 +279,51 @@ fun LineCallApp(
               MainTab.CONTACTS -> {
                 ContactsScreen(
                   contacts = contacts,
+                  currentUser = currentUser,
                   searchQuery = contactSearchQuery,
                   onSearchQueryChanged = { viewModel.updateContactSearch(it) },
-                  onCallContact = { viewModel.callContact(it) },
-                  onAddContact = { name, phone -> viewModel.addContact(name, phone) },
-                  onDeleteContact = { viewModel.deleteContact(it) }
+                  onContactClick = { viewModel.selectContactDetail(it) },
+                  onProfileClick = { viewModel.navigateTo(ScreenState.SETTINGS) }
                 )
               }
             }
+
+            // Floating Capsule Bottom Navigation Bar (Image 1, 2, 4, 6)
+            OneUiFloatingBottomNav(
+              selectedTab = selectedTab,
+              onTabSelected = { viewModel.selectTab(it) },
+              modifier = Modifier.align(Alignment.BottomCenter)
+            )
           }
         }
       }
     }
 
-    // Quick Add Contact Dialog from dialer
-    if (quickAddContactNumber != null) {
-      AddContactDialog(
-        initialPhone = quickAddContactNumber ?: "",
-        onDismiss = { quickAddContactNumber = null },
+    // Contact Details View Overlay (Image 7)
+    selectedContactDetail?.let { contact ->
+      ContactDetailScreen(
+        contact = contact,
+        onBack = { viewModel.selectContactDetail(null) },
+        onCall = { runWithMicrophonePermission { viewModel.callContact(it) } },
+        onToggleFavorite = { viewModel.toggleFavorite(it) },
+        onDelete = { viewModel.deleteContact(it) }
+      )
+    }
+
+    // Add Contact Screen Overlay (Image 3)
+    if (showAddContactScreen) {
+      AddContactOneUiScreen(
+        initialPhone = enteredNumber,
+        currentUser = currentUser,
+        onCancel = { viewModel.setShowAddContactScreen(false) },
         onSave = { name, phone ->
           viewModel.addContact(name, phone)
-          quickAddContactNumber = null
+          viewModel.setShowAddContactScreen(false)
         }
       )
     }
 
-    // Honest Backend Notice Dialog
+    // Backend Notice Dialog
     backendNotice?.let { notice ->
       BackendNoticeDialog(
         notice = notice,
@@ -292,7 +331,7 @@ fun LineCallApp(
       )
     }
 
-    // Call Overlays: Incoming Call or Active Call
+    // Active or Incoming Voice Call Overlays
     activeCall?.let { session ->
       if (session.isIncoming && session.state == CallSessionState.RINGING) {
         IncomingCallScreen(

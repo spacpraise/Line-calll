@@ -59,6 +59,9 @@ data class Contact(
   val name: String,
   val phoneNumber: String, // E.164 format
   val avatarInitials: String = name.take(2).uppercase(),
+  val isFavorite: Boolean = false,
+  val gradientIndex: Int = 0,
+  val note: String = "",
   val createdAt: Long = System.currentTimeMillis()
 )
 

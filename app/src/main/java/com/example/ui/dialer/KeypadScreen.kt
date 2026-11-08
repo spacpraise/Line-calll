@@ -2,9 +2,9 @@ package com.example.ui.dialer
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Country
 import com.example.ui.theme.CallGreen
+import com.example.ui.theme.OneUiDarkBackground
+import com.example.ui.theme.OneUiTextPrimary
+import com.example.ui.theme.OneUiTextSecondary
 
 data class KeypadKey(
   val main: String,
@@ -48,12 +52,19 @@ data class KeypadKey(
 )
 
 private val keypadRows = listOf(
-  listOf(KeypadKey("1", ""), KeypadKey("2", "A B C"), KeypadKey("3", "D E F")),
-  listOf(KeypadKey("4", "G H I"), KeypadKey("5", "J K L"), KeypadKey("6", "M N O")),
-  listOf(KeypadKey("7", "P Q R S"), KeypadKey("8", "T U V"), KeypadKey("9", "W X Y Z")),
+  listOf(KeypadKey("1", "➿"), KeypadKey("2", "ABC"), KeypadKey("3", "DEF")),
+  listOf(KeypadKey("4", "GHI"), KeypadKey("5", "JKL"), KeypadKey("6", "MNO")),
+  listOf(KeypadKey("7", "PQRS"), KeypadKey("8", "TUV"), KeypadKey("9", "WXYZ")),
   listOf(KeypadKey("*", ""), KeypadKey("0", "+"), KeypadKey("#", ""))
 )
 
+/**
+ * Keypad screen precisely following Samsung One UI Phone Dialer style (Image 2):
+ * - Pitch black background
+ * - Large clean typography for entered number
+ * - Borderless clean numeric keypad with subtle letter subtitles
+ * - Prominent circular green call button below
+ */
 @Composable
 fun KeypadScreen(
   enteredNumber: String,
@@ -70,7 +81,7 @@ fun KeypadScreen(
   Column(
     modifier = modifier
       .fillMaxSize()
-      .padding(horizontal = 24.dp, vertical = 8.dp),
+      .padding(horizontal = 24.dp, vertical = 4.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.SpaceBetween
   ) {
@@ -79,43 +90,59 @@ fun KeypadScreen(
       modifier = Modifier
         .fillMaxWidth()
         .weight(1f, fill = false)
-        .padding(top = 16.dp, bottom = 12.dp),
+        .padding(top = 18.dp, bottom = 8.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center
     ) {
       if (enteredNumber.isEmpty()) {
-        Text(
-          text = "Enter phone number",
-          style = MaterialTheme.typography.headlineSmall.copy(
-            fontWeight = FontWeight.Normal,
-            letterSpacing = 0.5.sp
-          ),
-          color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
-          textAlign = TextAlign.Center
-        )
+        Spacer(modifier = Modifier.height(36.dp))
       } else {
-        Text(
-          text = enteredNumber,
-          style = MaterialTheme.typography.headlineMedium.copy(
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-          ),
-          color = MaterialTheme.colorScheme.onBackground,
-          textAlign = TextAlign.Center,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("dialer_number_display")
-        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.Center
+        ) {
+          Text(
+            text = enteredNumber,
+            style = MaterialTheme.typography.headlineLarge.copy(
+              fontWeight = FontWeight.Normal,
+              fontSize = 32.sp,
+              letterSpacing = 1.sp
+            ),
+            color = OneUiTextPrimary,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.testTag("dialer_number_display")
+          )
 
-        Spacer(modifier = Modifier.height(4.dp))
+          Spacer(modifier = Modifier.width(12.dp))
 
-        // Quick add to contacts action when a number is typed
+          IconButton(
+            onClick = {
+              view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+              onBackspace()
+            },
+            modifier = Modifier
+              .size(36.dp)
+              .testTag("keypad_backspace")
+          ) {
+            Icon(
+              imageVector = Icons.AutoMirrored.Filled.Backspace,
+              contentDescription = "Backspace",
+              tint = OneUiTextSecondary,
+              modifier = Modifier.size(22.dp)
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // "Add to contacts" link under the number
         Surface(
           onClick = { onSaveContact(enteredNumber) },
           shape = RoundedCornerShape(16.dp),
-          color = MaterialTheme.colorScheme.surfaceVariant,
+          color = Color(0xFF1E2026),
           modifier = Modifier.testTag("add_to_contacts_quick_button")
         ) {
           Row(
@@ -130,30 +157,30 @@ fun KeypadScreen(
               modifier = Modifier.size(14.dp)
             )
             Text(
-              text = "Add to Contacts",
-              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-              color = MaterialTheme.colorScheme.onSurfaceVariant
+              text = "Add to contacts",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+              color = Color.White
             )
           }
         }
       }
     }
 
-    // Keypad Grid
+    // Keypad 3x4 Grid (Borderless, clean typography matching Image 2)
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 8.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+        .padding(horizontal = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(16.dp),
       horizontalAlignment = Alignment.CenterHorizontally
     ) {
       keypadRows.forEach { row ->
         Row(
           modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceEvenly
+          horizontalArrangement = Arrangement.SpaceBetween
         ) {
           row.forEach { key ->
-            KeypadButton(
+            OneUiKeypadButton(
               key = key,
               onClick = {
                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -171,43 +198,15 @@ fun KeypadScreen(
       }
     }
 
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(20.dp))
 
-    // Call Action Row
-    Row(
+    // Call Action Button (Vibrant Green Circle, matching Image 2)
+    Box(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(bottom = 12.dp),
-      horizontalArrangement = Arrangement.SpaceEvenly,
-      verticalAlignment = Alignment.CenterVertically
+        .padding(bottom = 76.dp), // Leaves room for floating bottom capsule nav
+      contentAlignment = Alignment.Center
     ) {
-      // Empty placeholder or clear button
-      Box(
-        modifier = Modifier.size(56.dp),
-        contentAlignment = Alignment.Center
-      ) {
-        if (enteredNumber.length > 3) {
-          Surface(
-            onClick = {
-              view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-              onClear()
-            },
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.size(44.dp)
-          ) {
-            Box(contentAlignment = Alignment.Center) {
-              Text(
-                text = "Clear",
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.secondary
-              )
-            }
-          }
-        }
-      }
-
-      // Main Call Button: Prominent Green Circular Button
       Surface(
         onClick = {
           view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -215,9 +214,9 @@ fun KeypadScreen(
         },
         shape = CircleShape,
         color = CallGreen,
-        shadowElevation = 2.dp,
+        shadowElevation = 4.dp,
         modifier = Modifier
-          .size(72.dp)
+          .size(68.dp)
           .testTag("call_action_button")
       ) {
         Box(contentAlignment = Alignment.Center) {
@@ -225,33 +224,8 @@ fun KeypadScreen(
             imageVector = Icons.Default.Phone,
             contentDescription = "Call",
             tint = Color.White,
-            modifier = Modifier.size(34.dp)
+            modifier = Modifier.size(32.dp)
           )
-        }
-      }
-
-      // Backspace Button
-      Box(
-        modifier = Modifier.size(56.dp),
-        contentAlignment = Alignment.Center
-      ) {
-        if (enteredNumber.isNotEmpty()) {
-          IconButton(
-            onClick = {
-              view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-              onBackspace()
-            },
-            modifier = Modifier
-              .size(52.dp)
-              .testTag("keypad_backspace")
-          ) {
-            Icon(
-              imageVector = Icons.AutoMirrored.Filled.Backspace,
-              contentDescription = "Backspace",
-              tint = MaterialTheme.colorScheme.onBackground,
-              modifier = Modifier.size(26.dp)
-            )
-          }
         }
       }
     }
@@ -260,7 +234,7 @@ fun KeypadScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun KeypadButton(
+private fun OneUiKeypadButton(
   key: KeypadKey,
   onClick: () -> Unit,
   onLongClick: (() -> Unit)? = null,
@@ -268,14 +242,8 @@ fun KeypadButton(
 ) {
   Box(
     modifier = modifier
-      .size(72.dp)
+      .size(width = 86.dp, height = 64.dp)
       .clip(CircleShape)
-      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-      .border(
-        width = 0.5.dp,
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-        shape = CircleShape
-      )
       .combinedClickable(
         onClick = onClick,
         onLongClick = onLongClick
@@ -290,21 +258,23 @@ fun KeypadButton(
       Text(
         text = key.main,
         style = MaterialTheme.typography.headlineMedium.copy(
-          fontWeight = FontWeight.Medium,
-          fontSize = if (key.main in listOf("*", "#")) 26.sp else 28.sp
+          fontWeight = FontWeight.Normal,
+          fontSize = if (key.main in listOf("*", "#")) 32.sp else 30.sp
         ),
-        color = MaterialTheme.colorScheme.onBackground
+        color = OneUiTextPrimary
       )
       if (key.sub.isNotEmpty()) {
         Text(
           text = key.sub,
           style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Medium,
             letterSpacing = 1.sp,
-            fontSize = 9.sp
+            fontSize = 10.sp
           ),
-          color = MaterialTheme.colorScheme.secondary
+          color = OneUiTextSecondary
         )
+      } else {
+        Spacer(modifier = Modifier.height(12.dp))
       }
     }
   }
