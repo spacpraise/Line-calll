@@ -29,9 +29,6 @@ enum class ScreenState {
   WELCOME,
   EMAIL_REGISTRATION,
   LOGIN,
-  FORGOT_PASSWORD,
-  PASSWORD_SETUP,
-  PASSWORD_RESET,
   PHONE_SETUP,
   PROFILE_SETUP,
   MAIN_APP,
@@ -94,9 +91,6 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   private val _displayNameInput = MutableStateFlow("")
   val displayNameInput: StateFlow<String> = _displayNameInput.asStateFlow()
 
-  private val _magicLinkSent = MutableStateFlow(false)
-  val magicLinkSent: StateFlow<Boolean> = _magicLinkSent.asStateFlow()
-
   private val _authError = MutableStateFlow<String?>(null)
   val authError: StateFlow<String?> = _authError.asStateFlow()
 
@@ -151,15 +145,11 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         _emailInput.value = restoredUser.email
         _phoneInput.value = restoredUser.phoneNumber
         _displayNameInput.value = restoredUser.displayName
-        when (authService.pendingAuthFlow()) {
-          "register" -> _currentScreen.value = ScreenState.PASSWORD_SETUP
-          "recovery" -> _currentScreen.value = ScreenState.PASSWORD_RESET
-          else -> if (restoredUser.phoneNumber.isBlank()) {
-            _currentScreen.value = ScreenState.PHONE_SETUP
-          } else {
-            _currentScreen.value = ScreenState.MAIN_APP
-            callingService.startIncomingCallPolling()
-          }
+        if (restoredUser.phoneNumber.isBlank()) {
+          _currentScreen.value = ScreenState.PHONE_SETUP
+        } else {
+          _currentScreen.value = ScreenState.MAIN_APP
+          callingService.startIncomingCallPolling()
         }
       }
     }
@@ -179,41 +169,38 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     _authError.value = null
   }
 
-  fun submitEmail() {
-    _magicLinkSent.value = false
-    _authError.value = null
-    viewModelScope.launch {
-      val result = authService.sendMagicLink(_emailInput.value)
-      if (result.isSuccess) {
-        _magicLinkSent.value = true
-        _authError.value = null
-      } else {
-        _authError.value = result.exceptionOrNull()?.message ?: "Could not send the sign-in link."
-      }
+  fun registerAccount() {
+    val email = _emailInput.value.trim()
+    val password = _passwordInput.value
+    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+      _authError.value = "Enter a valid email address."
+      return
     }
-  }
-
-  /** Called automatically when the Supabase email link opens linecall://auth/callback. */
-  fun verifyMagicLinkCallback(callbackUrl: String) {
+    if (password.length < 8) {
+      _authError.value = "Use at least 8 characters for your password."
+      return
+    }
+    if (password != _confirmPasswordInput.value) {
+      _authError.value = "The passwords do not match."
+      return
+    }
     viewModelScope.launch {
-      val result = authService.handleAuthCallback(callbackUrl)
+      _isAuthBusy.value = true
+      val result = authService.register(email, password)
       result.onSuccess { user ->
         userProfileService.setUser(user)
-        _magicLinkSent.value = false
-        _authError.value = null
+        _emailInput.value = user.email
         _phoneInput.value = user.phoneNumber
         _displayNameInput.value = user.displayName
-        _currentScreen.value = when (authService.pendingAuthFlow()) {
-          "recovery" -> ScreenState.PASSWORD_RESET
-          "register" -> ScreenState.PASSWORD_SETUP
-          else -> if (user.phoneNumber.isBlank()) ScreenState.PHONE_SETUP else ScreenState.MAIN_APP
-        }
+        _passwordInput.value = ""
+        _confirmPasswordInput.value = ""
+        _authError.value = null
+        _currentScreen.value = if (user.phoneNumber.isBlank()) ScreenState.PHONE_SETUP else ScreenState.MAIN_APP
         if (_currentScreen.value == ScreenState.MAIN_APP) callingService.startIncomingCallPolling()
       }.onFailure {
-        _magicLinkSent.value = false
-        _authError.value = it.message ?: "The verification link could not be verified. Request a new link."
-        _currentScreen.value = ScreenState.EMAIL_REGISTRATION
+        _authError.value = it.message ?: "Could not create your account."
       }
+      _isAuthBusy.value = false
     }
   }
 
@@ -244,45 +231,6 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         }
         _authError.value = null
       }.onFailure { _authError.value = it.message ?: "Could not sign in. Check your details." }
-      _isAuthBusy.value = false
-    }
-  }
-
-  fun sendPasswordRecovery() {
-    _magicLinkSent.value = false
-    _authError.value = null
-    viewModelScope.launch {
-      _isAuthBusy.value = true
-      val result = authService.sendPasswordRecovery(_emailInput.value)
-      result.onSuccess {
-        _authError.value = null
-        _magicLinkSent.value = true
-      }.onFailure { _authError.value = it.message ?: "Could not send the password reset link." }
-      _isAuthBusy.value = false
-    }
-  }
-
-  fun saveNewPassword() {
-    val password = _passwordInput.value
-    if (password.length < 8) { _authError.value = "Use at least 8 characters for your password."; return }
-    if (password != _confirmPasswordInput.value) { _authError.value = "The passwords do not match."; return }
-    val flow = authService.pendingAuthFlow()
-    viewModelScope.launch {
-      _isAuthBusy.value = true
-      val result = authService.updatePassword(password)
-      result.onSuccess {
-        _passwordInput.value = ""
-        _confirmPasswordInput.value = ""
-        _authError.value = null
-        val user = authService.restoreSession()
-        if (user != null) userProfileService.setUser(user)
-        if (flow == "register" || user?.phoneNumber.isNullOrBlank()) {
-          _currentScreen.value = ScreenState.PHONE_SETUP
-        } else {
-          _currentScreen.value = ScreenState.MAIN_APP
-          callingService.startIncomingCallPolling()
-        }
-      }.onFailure { _authError.value = it.message ?: "Could not save your password." }
       _isAuthBusy.value = false
     }
   }
@@ -495,7 +443,6 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
       _emailInput.value = ""
       _phoneInput.value = ""
       _displayNameInput.value = ""
-      _magicLinkSent.value = false
       _authError.value = null
       _enteredNumber.value = ""
     }
