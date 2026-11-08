@@ -16,7 +16,7 @@ Line Call is a native Android internet voice-calling app built with Kotlin and J
 
 Use the existing Supabase project configured in the Android app.
 
-For the current registration flow, turn **Confirm email OFF** in Supabase Dashboard → Authentication → Providers → Email. The app expects password sign-up to return an authenticated session immediately. If Supabase returns no session, the app will show a configuration error rather than pretending registration succeeded.
+Registration is performed by the server-side `register-account` Edge Function. Supabase creates the Auth user only after the user has entered a valid email, created and confirmed a password, supplied a valid international phone number, and pressed Complete registration. The function creates the Auth user and matching profile together, rolls back the Auth user if profile creation fails, and returns a signed-in session. Email confirmation is explicitly set at account creation; the app does not send a verification email.
 
 The app does not use magic links, PKCE email callbacks, or an email-verification screen. No redirect URL is required for email authentication. The login identifier accepts either the registered email address or the registered phone number in E.164 format (for example, `+2348012345678`). Phone login is handled by the `phone-login` Edge Function: it resolves the phone number privately on the server, then delegates password verification and session issuance to Supabase Auth. The function never returns the account email to the device.
 
