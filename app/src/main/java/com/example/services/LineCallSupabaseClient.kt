@@ -1,7 +1,6 @@
 package com.example.services
 
 import android.content.Context
-import android.net.Uri
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -15,10 +14,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import java.net.URLEncoder
 import java.security.KeyStore
-import java.security.MessageDigest
-import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -73,21 +69,6 @@ class LineCallSupabaseClient(context: Context) {
       storeSession(response)
       val authUser = getAuthenticatedUserBlocking()
       getOrCreateProfileBlocking(authUser)
-    }
-  }
-
-  suspend fun updatePassword(password: String): Result<Unit> = withContext(Dispatchers.IO) {
-    runCatching {
-      require(password.length >= 8) { "Use at least 8 characters for your password." }
-      execute(
-        Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
-          .headers(userHeaders())
-          .put(JSONObject().put("password", password).toString().toRequestBody(jsonType))
-          .build()
-      )
-      secureStore.remove("auth_flow")
-      Unit
     }
   }
 
