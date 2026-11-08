@@ -37,34 +37,15 @@ class LineCallSupabaseClient(context: Context) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
       require(password.length >= 8) { "Use at least 8 characters for your password." }
-      val response = try {
-        execute(
-          Request.Builder()
-            .url("${BackendConfig.SUPABASE_URL}/auth/v1/signup")
-            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-            .post(JSONObject().put("email", email.trim()).put("password", password).toString().toRequestBody(jsonType))
-            .build()
-        )
-      } catch (error: Exception) {
-        // If this email already has an account, let the user continue only when
-        // the password they entered successfully authenticates that same account.
-        val message = error.message.orEmpty()
-        if (!message.contains("already registered", ignoreCase = true) &&
-          !message.contains("user_already_exists", ignoreCase = true)) {
-          throw error
-        }
-        val existingSession = execute(
-          Request.Builder()
-            .url("${BackendConfig.SUPABASE_URL}/auth/v1/token?grant_type=password")
-            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-            .post(JSONObject().put("email", email.trim()).put("password", password).toString().toRequestBody(jsonType))
-            .build()
-        )
-        storeSession(existingSession)
-        return@runCatching getOrCreateProfileBlocking(getAuthenticatedUserBlocking())
-      }
+      val response = execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/functions/v1/register-account")
+          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+          .post(JSONObject().put("email", email.trim()).put("password", password).toString().toRequestBody(jsonType))
+          .build()
+      )
       if (response.optString("access_token").isBlank() || response.optString("refresh_token").isBlank()) {
-        throw IllegalStateException("Email confirmation is still enabled in Supabase. Disable it in Authentication → Providers → Email.")
+        throw IllegalStateException("Registration did not return a sign-in session. Please try again.")
       }
       storeSession(response)
       getOrCreateProfileBlocking(getAuthenticatedUserBlocking())
