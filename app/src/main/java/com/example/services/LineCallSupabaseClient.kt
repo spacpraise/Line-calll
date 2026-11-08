@@ -50,14 +50,18 @@ class LineCallSupabaseClient(context: Context) {
       secureStore.put("auth_flow", "register")
 
       val redirect = URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")
+      val temporaryPassword = Base64.encodeToString(
+        ByteArray(32).also { SecureRandom().nextBytes(it) },
+        Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+      )
       val body = JSONObject()
         .put("email", email.trim())
-        .put("create_user", true)
+        .put("password", temporaryPassword)
         .put("code_challenge", challenge)
         .put("code_challenge_method", "s256")
       execute(
         Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/otp?redirect_to=$redirect")
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/signup?redirect_to=$redirect")
           .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
           .post(body.toString().toRequestBody(jsonType))
           .build()
