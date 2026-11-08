@@ -46,8 +46,7 @@ class LineCallSupabaseClient(context: Context) {
         MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)),
         Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
       )
-      secureStore.put("pkce_verifier", verifier)
-      secureStore.put("auth_flow", "register")
+      rememberPkceVerifier(verifier, "register")
 
       val redirect = URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")
       val temporaryPassword = Base64.encodeToString(
@@ -121,8 +120,7 @@ class LineCallSupabaseClient(context: Context) {
         MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)),
         Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
       )
-      secureStore.put("pkce_verifier", verifier)
-      secureStore.put("auth_flow", "recovery")
+      rememberPkceVerifier(verifier, "recovery")
       val redirect = URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")
       val body = JSONObject()
         .put("email", email.trim())
@@ -146,21 +144,53 @@ class LineCallSupabaseClient(context: Context) {
       check(error.isNullOrBlank()) { error ?: "The sign-in link could not be verified." }
       val code = uri.getQueryParameter("code")
         ?: throw IllegalArgumentException("The sign-in link is incomplete or has expired. Request a new link.")
-      val verifier = secureStore.get("pkce_verifier")
-        ?: throw IllegalStateException("This sign-in link was opened on a different device or the sign-in request expired. Request a new link on this device.")
+      val pending = runCatching { JSONArray(secureStore.get("pkce_entries") ?: "[]") }.getOrElse { JSONArray() }
+      if (pending.length() == 0) {
+        throw IllegalStateException("This sign-in link was opened on a different device or the request expired. Request a new link on this device.")
+      }
 
-      val response = execute(
-        Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/token?grant_type=pkce")
-          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-          .post(JSONObject().put("auth_code", code).put("code_verifier", verifier).toString().toRequestBody(jsonType))
-          .build()
-      )
-      storeSession(response)
-      secureStore.remove("pkce_verifier")
+      var response: JSONObject? = null
+      var matchedIndex = -1
+      var matchedFlow = "register"
+      var lastFailure: Exception? = null
+      for (index in pending.length() - 1 downTo 0) {
+        val entry = pending.optJSONObject(index) ?: continue
+        val verifier = entry.optString("verifier")
+        if (verifier.isBlank()) continue
+        try {
+          response = execute(
+            Request.Builder()
+              .url("${BackendConfig.SUPABASE_URL}/auth/v1/token?grant_type=pkce")
+              .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+              .post(JSONObject().put("auth_code", code).put("code_verifier", verifier).toString().toRequestBody(jsonType))
+              .build()
+          )
+          matchedIndex = index
+          matchedFlow = entry.optString("flow", "register")
+          break
+        } catch (error: Exception) {
+          lastFailure = error
+        }
+      }
+      val session = response ?: throw (lastFailure ?: IllegalArgumentException("The verification link is invalid or expired. Request a new link."))
+      storeSession(session)
+      val remaining = JSONArray()
+      for (index in 0 until pending.length()) {
+        if (index != matchedIndex) remaining.put(pending.getJSONObject(index))
+      }
+      if (remaining.length() == 0) secureStore.remove("pkce_entries")
+      else secureStore.put("pkce_entries", remaining.toString())
+      secureStore.put("auth_flow", matchedFlow)
       val authUser = getAuthenticatedUserBlocking()
       getOrCreateProfileBlocking(authUser)
     }
+  }
+
+  private fun rememberPkceVerifier(verifier: String, flow: String) {
+    val entries = runCatching { JSONArray(secureStore.get("pkce_entries") ?: "[]") }.getOrElse { JSONArray() }
+    entries.put(JSONObject().put("verifier", verifier).put("flow", flow))
+    while (entries.length() > 8) entries.remove(0)
+    secureStore.put("pkce_entries", entries.toString())
   }
 
   fun pendingAuthFlow(): String? = secureStore.get("auth_flow")
