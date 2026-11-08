@@ -37,39 +37,22 @@ class LineCallSupabaseClient(context: Context) {
     get() = BackendConfig.SUPABASE_URL.isNotBlank() &&
       BackendConfig.SUPABASE_ANON_KEY.isNotBlank()
 
-  suspend fun sendMagicLink(email: String): Result<Unit> = withContext(Dispatchers.IO) {
+  suspend fun signUpWithPassword(email: String, password: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
-      val verifierBytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
-      val verifier = Base64.encodeToString(verifierBytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-      val challenge = Base64.encodeToString(
-        MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)),
-        Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
-      )
-      rememberPkceVerifier(verifier, "register")
-
-      val redirect = URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")
-      val temporaryPassword = Base64.encodeToString(
-        ByteArray(32).also { SecureRandom().nextBytes(it) },
-        Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
-      )
-      val body = JSONObject()
-        .put("email", email.trim())
-        .put("password", temporaryPassword)
-        .put("code_challenge", challenge)
-        .put("code_challenge_method", "s256")
-      val signup = execute(
+      require(password.length >= 8) { "Use at least 8 characters for your password." }
+      val response = execute(
         Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/signup?redirect_to=$redirect")
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/signup")
           .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-          .post(body.toString().toRequestBody(jsonType))
+          .post(JSONObject().put("email", email.trim()).put("password", password).toString().toRequestBody(jsonType))
           .build()
       )
-      val identities = signup.optJSONObject("user")?.optJSONArray("identities")
-      if (identities != null && identities.length() == 0) {
-        throw IllegalStateException("This email already has a Line Call account. Log in or use Forgot password.")
+      if (response.optString("access_token").isBlank() || response.optString("refresh_token").isBlank()) {
+        throw IllegalStateException("Email confirmation is still enabled in Supabase. Disable it in Authentication → Providers → Email.")
       }
-      Unit
+      storeSession(response)
+      getOrCreateProfileBlocking(getAuthenticatedUserBlocking())
     }
   }
 
