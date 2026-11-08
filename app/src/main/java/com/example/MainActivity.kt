@@ -161,7 +161,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PHONE_SETUP) {
     focusManager.clearFocus(force = true)
-    viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION)
+    viewModel.backFromPhoneSetup()
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PASSWORD_SETUP) {
@@ -278,7 +278,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           onCountrySelected = { viewModel.selectCountry(it) },
           onPhoneNumberChanged = { viewModel.updatePhoneInput(it) },
           onSubmit = { viewModel.submitPhoneNumber() },
-          onBack = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) }
+          onBack = { viewModel.backFromPhoneSetup() }
         )
       }
 
