@@ -19,7 +19,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
@@ -210,9 +214,14 @@ fun SettingsScreen(
     }
   }
 
+  val focusManager = LocalFocusManager.current
+
   if (showEditNameDialog) {
     AlertDialog(
-      onDismissRequest = { showEditNameDialog = false },
+      onDismissRequest = {
+        focusManager.clearFocus(force = true)
+        showEditNameDialog = false
+      },
       title = { Text("Edit display name") },
       text = {
         OutlinedTextField(
@@ -220,12 +229,19 @@ fun SettingsScreen(
           onValueChange = { newName = it },
           label = { Text("Display name") },
           singleLine = true,
+          keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+          keyboardActions = KeyboardActions(onDone = {
+            focusManager.clearFocus(force = true)
+            onUpdateDisplayName(newName.trim())
+            showEditNameDialog = false
+          }),
           modifier = Modifier.fillMaxWidth()
         )
       },
       confirmButton = {
         Button(
           onClick = {
+            focusManager.clearFocus(force = true)
             onUpdateDisplayName(newName.trim())
             showEditNameDialog = false
           },
@@ -233,7 +249,10 @@ fun SettingsScreen(
         ) { Text("Save", color = Color.White) }
       },
       dismissButton = {
-        TextButton(onClick = { showEditNameDialog = false }) { Text("Cancel") }
+        TextButton(onClick = {
+          focusManager.clearFocus(force = true)
+          showEditNameDialog = false
+        }) { Text("Cancel") }
       }
     )
   }

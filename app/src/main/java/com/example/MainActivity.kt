@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -87,6 +88,7 @@ fun LineCallApp(
   onAuthCallbackHandled: () -> Unit = {}
 ) {
   val context = LocalContext.current
+  val focusManager = LocalFocusManager.current
   val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
   val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
   val enteredNumber by viewModel.enteredNumber.collectAsStateWithLifecycle()
@@ -112,6 +114,11 @@ fun LineCallApp(
   val showAddContactScreen by viewModel.showAddContactScreen.collectAsStateWithLifecycle()
   val missedCallBannerDismissed by viewModel.missedCallBannerDismissed.collectAsStateWithLifecycle()
   val recentsFilterType by viewModel.recentsFilterType.collectAsStateWithLifecycle()
+
+  // Proactively dismiss any dangling FloatingActionMode (text selection toolbar) on transition
+  LaunchedEffect(currentScreen, selectedTab, selectedContactDetail, showAddContactScreen) {
+    focusManager.clearFocus(force = true)
+  }
 
   var pendingMicrophoneAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
@@ -152,46 +159,57 @@ fun LineCallApp(
 
   // Predictive Back handling
   BackHandler(enabled = activeCall != null) {
+    focusManager.clearFocus(force = true)
     viewModel.endCall()
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail != null) {
+    focusManager.clearFocus(force = true)
     viewModel.selectContactDetail(null)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && showAddContactScreen) {
+    focusManager.clearFocus(force = true)
     viewModel.setShowAddContactScreen(false)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.SETTINGS) {
+    focusManager.clearFocus(force = true)
     viewModel.navigateTo(ScreenState.MAIN_APP)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PROFILE_SETUP) {
+    focusManager.clearFocus(force = true)
     viewModel.navigateTo(ScreenState.MAIN_APP)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PHONE_SETUP) {
+    focusManager.clearFocus(force = true)
     viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.EMAIL_REGISTRATION) {
+    focusManager.clearFocus(force = true)
     viewModel.navigateTo(ScreenState.WELCOME)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.LOGIN) {
+    focusManager.clearFocus(force = true)
     viewModel.navigateTo(ScreenState.WELCOME)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.FORGOT_PASSWORD) {
+    focusManager.clearFocus(force = true)
     viewModel.navigateTo(ScreenState.LOGIN)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PASSWORD_RESET) {
+    focusManager.clearFocus(force = true)
     viewModel.navigateTo(ScreenState.LOGIN)
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.MAIN_APP && selectedTab != MainTab.KEYPAD) {
+    focusManager.clearFocus(force = true)
     viewModel.selectTab(MainTab.KEYPAD)
   }
 

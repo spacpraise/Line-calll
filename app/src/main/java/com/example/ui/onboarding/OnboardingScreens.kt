@@ -59,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -193,6 +194,8 @@ fun RegistrationScreen(
   onSubmitEmail: () -> Unit,
   onBack: () -> Unit
 ) {
+  val focusManager = LocalFocusManager.current
+
   Surface(
     modifier = Modifier.fillMaxSize(),
     color = MaterialTheme.colorScheme.background
@@ -204,7 +207,10 @@ fun RegistrationScreen(
         .padding(horizontal = 24.dp, vertical = 16.dp)
     ) {
       IconButton(
-        onClick = onBack,
+        onClick = {
+          focusManager.clearFocus(force = true)
+          onBack()
+        },
         modifier = Modifier.testTag("auth_back_button")
       ) {
         Icon(
@@ -247,7 +253,10 @@ fun RegistrationScreen(
             keyboardType = KeyboardType.Email,
             imeAction = ImeAction.Done
           ),
-          keyboardActions = KeyboardActions(onDone = { onSubmitEmail() }),
+          keyboardActions = KeyboardActions(onDone = {
+            focusManager.clearFocus(force = true)
+            onSubmitEmail()
+          }),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("email_input"),
@@ -270,7 +279,10 @@ fun RegistrationScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-          onClick = onSubmitEmail,
+          onClick = {
+            focusManager.clearFocus(force = true)
+            onSubmitEmail()
+          },
           modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
@@ -371,6 +383,7 @@ fun PhoneNumberSetupScreen(
   onSubmit: () -> Unit,
   onBack: () -> Unit
 ) {
+  val focusManager = LocalFocusManager.current
   var showCountryPicker by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
 
@@ -385,7 +398,10 @@ fun PhoneNumberSetupScreen(
         .padding(horizontal = 24.dp, vertical = 16.dp)
     ) {
       IconButton(
-        onClick = onBack,
+        onClick = {
+          focusManager.clearFocus(force = true)
+          onBack()
+        },
         modifier = Modifier.testTag("phone_setup_back")
       ) {
         Icon(
@@ -415,7 +431,10 @@ fun PhoneNumberSetupScreen(
 
       // Country selector pill
       Surface(
-        onClick = { showCountryPicker = true },
+        onClick = {
+          focusManager.clearFocus(force = true)
+          showCountryPicker = true
+        },
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier
@@ -476,7 +495,10 @@ fun PhoneNumberSetupScreen(
           keyboardType = KeyboardType.Phone,
           imeAction = ImeAction.Done
         ),
-        keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+        keyboardActions = KeyboardActions(onDone = {
+          focusManager.clearFocus(force = true)
+          onSubmit()
+        }),
         modifier = Modifier
           .fillMaxWidth()
           .testTag("phone_number_input"),
@@ -535,7 +557,10 @@ fun PhoneNumberSetupScreen(
       Spacer(modifier = Modifier.weight(1f))
 
       Button(
-        onClick = onSubmit,
+        onClick = {
+          focusManager.clearFocus(force = true)
+          onSubmit()
+        },
         modifier = Modifier
           .fillMaxWidth()
           .height(52.dp)
@@ -559,7 +584,10 @@ fun PhoneNumberSetupScreen(
     // Modal sheet for Country selection
     if (showCountryPicker) {
       ModalBottomSheet(
-        onDismissRequest = { showCountryPicker = false },
+        onDismissRequest = {
+          focusManager.clearFocus(force = true)
+          showCountryPicker = false
+        },
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface
       ) {
@@ -590,6 +618,10 @@ fun PhoneNumberSetupScreen(
             placeholder = { Text("Search country or code...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+              focusManager.clearFocus(force = true)
+            }),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
           )
@@ -602,6 +634,7 @@ fun PhoneNumberSetupScreen(
                 modifier = Modifier
                   .fillMaxWidth()
                   .clickable {
+                    focusManager.clearFocus(force = true)
                     onCountrySelected(country)
                     showCountryPicker = false
                   }
@@ -642,6 +675,8 @@ fun ProfileSetupScreen(
   onComplete: () -> Unit,
   onSkip: () -> Unit
 ) {
+  val focusManager = LocalFocusManager.current
+
   Surface(
     modifier = Modifier.fillMaxSize(),
     color = MaterialTheme.colorScheme.background
@@ -657,7 +692,10 @@ fun ProfileSetupScreen(
         horizontalArrangement = Arrangement.End
       ) {
         TextButton(
-          onClick = onSkip,
+          onClick = {
+            focusManager.clearFocus(force = true)
+            onSkip()
+          },
           modifier = Modifier.testTag("skip_profile_setup")
         ) {
           Text(
@@ -731,6 +769,11 @@ fun ProfileSetupScreen(
         placeholder = { Text("e.g. Alex Morgan") },
         label = { Text("Display Name") },
         singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = {
+          focusManager.clearFocus(force = true)
+          onComplete()
+        }),
         modifier = Modifier
           .fillMaxWidth()
           .testTag("display_name_input"),
@@ -744,7 +787,10 @@ fun ProfileSetupScreen(
       Spacer(modifier = Modifier.weight(1f))
 
       Button(
-        onClick = onComplete,
+        onClick = {
+          focusManager.clearFocus(force = true)
+          onComplete()
+        },
         modifier = Modifier
           .fillMaxWidth()
           .height(52.dp)

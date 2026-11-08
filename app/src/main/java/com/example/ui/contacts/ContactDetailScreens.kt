@@ -20,8 +20,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Business
@@ -408,6 +411,7 @@ fun AddContactOneUiScreen(
   onSave: (name: String, phone: String) -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val focusManager = LocalFocusManager.current
   var name by remember { mutableStateOf("") }
   var phone by remember { mutableStateOf(initialPhone) }
   var email by remember { mutableStateOf("") }
@@ -611,7 +615,10 @@ fun AddContactOneUiScreen(
               style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
               color = OneUiTextPrimary,
               modifier = Modifier
-                .clickable { onCancel() }
+                .clickable {
+                  focusManager.clearFocus(force = true)
+                  onCancel()
+                }
                 .padding(horizontal = 12.dp, vertical = 6.dp)
                 .testTag("cancel_add_contact_btn")
             )
@@ -631,6 +638,7 @@ fun AddContactOneUiScreen(
               ),
               modifier = Modifier
                 .clickable(enabled = name.isNotBlank() && phone.isNotBlank()) {
+                  focusManager.clearFocus(force = true)
                   onSave(name, phone)
                 }
                 .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -652,6 +660,8 @@ private fun OneUiFormField(
   keyboardType: KeyboardType = KeyboardType.Text,
   tag: String = ""
 ) {
+  val focusManager = LocalFocusManager.current
+
   Row(
     modifier = Modifier
       .fillMaxWidth()
@@ -670,7 +680,13 @@ private fun OneUiFormField(
       onValueChange = onValueChange,
       placeholder = { Text(placeholder, color = OneUiTextMuted) },
       singleLine = true,
-      keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+      keyboardOptions = KeyboardOptions(
+        keyboardType = keyboardType,
+        imeAction = ImeAction.Done
+      ),
+      keyboardActions = KeyboardActions(onDone = {
+        focusManager.clearFocus(force = true)
+      }),
       colors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = Color.Transparent,
         unfocusedBorderColor = Color.Transparent,
