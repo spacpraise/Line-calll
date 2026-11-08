@@ -77,23 +77,16 @@ class LineCallSupabaseClient(context: Context) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
       val clean = identifier.trim()
-      val response = if (clean.contains("@")) {
-        execute(
-          Request.Builder()
-            .url("${BackendConfig.SUPABASE_URL}/auth/v1/token?grant_type=password")
-            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-            .post(JSONObject().put("email", clean).put("password", password).toString().toRequestBody(jsonType))
-            .build()
-        )
-      } else {
-        execute(
-          Request.Builder()
-            .url("${BackendConfig.SUPABASE_URL}/functions/v1/phone-login")
-            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-            .post(JSONObject().put("phone_number", clean).put("password", password).toString().toRequestBody(jsonType))
-            .build()
-        )
+      if (!clean.contains("@")) {
+        throw IllegalStateException("Phone-number login is not enabled yet. Please use your email address for now.")
       }
+      val response = execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/token?grant_type=password")
+          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+          .post(JSONObject().put("email", clean).put("password", password).toString().toRequestBody(jsonType))
+          .build()
+      )
       storeSession(response)
       val authUser = getAuthenticatedUserBlocking()
       getOrCreateProfileBlocking(authUser)
