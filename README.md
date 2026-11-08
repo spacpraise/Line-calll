@@ -9,7 +9,7 @@ Line Call is a native Android internet voice-calling app built with Kotlin and J
 - Authentication: Supabase email-and-password sign-up and sign-in, plus server-mediated phone-number-and-password sign-in
 - Call invitations and call state: Supabase Edge Function `call-control`
 - Voice media: LiveKit Android SDK (WebRTC)
-- Incoming-call detection: Supabase polling while the app is open
+- Incoming-call detection: Supabase polling while the app is open (no push notifications yet)
 - Phone numbers: E.164 format; phone ownership is explicitly unverified in this release
 
 ## Supabase setup
@@ -34,16 +34,16 @@ These credentials must remain server-side. The Edge Function issues short-lived,
 
 ## Incoming calls
 
-Incoming calls are detected through Supabase polling while Line Call is open. The app checks for a new incoming call every 2.5 seconds and uses Supabase call status updates to manage ringing, acceptance, decline, and expiry. No Firebase project, Firebase SDK, or Firebase service-account key is required.
+Incoming calls are detected through Supabase polling while Line Call is open. The app checks for a new incoming call every 2.5 seconds and uses Supabase call status updates to manage ringing, acceptance, decline, and expiry. This does not guarantee ringing when Android suspends or kills the app. Production-grade background incoming calls require push notifications (for example FCM) and Android call-notification handling. No Firebase project, Firebase SDK, or Firebase service-account key is currently configured.
 
 ## User flow
 
-1. User enters an email address.
-2. User creates and confirms a password in the app.
-3. Supabase creates the account and returns an authenticated session (with email confirmation disabled).
-4. User adds an international phone number. No SMS verification is performed; the profile is marked unverified.
+1. User enters an email address (no account is created yet).
+2. User creates and confirms a password (still no account is created).
+3. User enters an international phone number and presses Complete.
+4. The server creates the Auth user and profile together, then returns a signed-in session. No email confirmation or SMS verification is used.
 5. Users can sign in using either their email address or registered international phone number and password.
-6. Users call other registered Line Call numbers.
+6. Users call other registered Line Call users. The recipient must have Line Call installed, be signed in, and have the app open to receive the current polling-based incoming call alert.
 7. The recipient accepts or declines; accepted calls join a private LiveKit room.
 
 ## Build
