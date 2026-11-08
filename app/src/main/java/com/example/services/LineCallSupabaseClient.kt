@@ -56,16 +56,29 @@ class LineCallSupabaseClient(context: Context) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
       val clean = identifier.trim()
-      if (!clean.contains("@")) {
-        throw IllegalStateException("Phone-number login is not enabled yet. Please use your email address for now.")
+      val response = if (clean.contains("@")) {
+        execute(
+          Request.Builder()
+            .url("${BackendConfig.SUPABASE_URL}/auth/v1/token?grant_type=password")
+            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+            .post(JSONObject().put("email", clean).put("password", password).toString().toRequestBody(jsonType))
+            .build()
+        )
+      } else {
+        require(clean.matches(Regex("^\\\\+[1-9][0-9]{6,14}$"))) {
+          "Enter your phone number with its international country code, for example +2348012345678."
+        }
+        execute(
+          Request.Builder()
+            .url("${BackendConfig.SUPABASE_URL}/functions/v1/phone-login")
+            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+            .post(
+              JSONObject().put("phone_number", clean).put("password", password)
+                .toString().toRequestBody(jsonType)
+            )
+            .build()
+        )
       }
-      val response = execute(
-        Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/token?grant_type=password")
-          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-          .post(JSONObject().put("email", clean).put("password", password).toString().toRequestBody(jsonType))
-          .build()
-      )
       storeSession(response)
       val authUser = getAuthenticatedUserBlocking()
       getOrCreateProfileBlocking(authUser)
@@ -238,7 +251,9 @@ class LineCallSupabaseClient(context: Context) {
         val message = runCatching {
           val json = JSONObject(raw)
           json.optString("message").ifBlank {
-            json.optString("msg").ifBlank { json.optString("error_description").ifBlank { raw } }
+            json.optString("msg").ifBlank {
+              json.optString("error").ifBlank { json.optString("error_description").ifBlank { raw } }
+            }
           }
         }.getOrDefault(raw)
         throw IOException(message.ifBlank { "Supabase request failed (${response.code})." })
