@@ -58,13 +58,17 @@ class LineCallSupabaseClient(context: Context) {
         .put("password", temporaryPassword)
         .put("code_challenge", challenge)
         .put("code_challenge_method", "s256")
-      execute(
+      val signup = execute(
         Request.Builder()
           .url("${BackendConfig.SUPABASE_URL}/auth/v1/signup?redirect_to=$redirect")
           .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
           .post(body.toString().toRequestBody(jsonType))
           .build()
       )
+      val identities = signup.optJSONObject("user")?.optJSONArray("identities")
+      if (identities != null && identities.length() == 0) {
+        throw IllegalStateException("This email already has a Line Call account. Log in or use Forgot password.")
+      }
       Unit
     }
   }
