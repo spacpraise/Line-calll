@@ -26,8 +26,9 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { return json({ error: "Invalid request." }, 400); }
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8 || password.length > 256) {
-    return json({ error: "Enter a valid email address and a password of at least 8 characters." }, 400);
+  const phone = typeof body.phone_number === "string" ? body.phone_number.trim() : "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 8 || password.length > 256 || !/^\+[1-9][0-9]{6,14}$/.test(phone)) {
+    return json({ error: "Enter a valid email, password of at least 8 characters, and international phone number." }, 400);
   }
 
   try {
@@ -60,6 +61,20 @@ Deno.serve(async (req: Request) => {
       if (/already|exists|registered/i.test(message)) return json({ error: "An account with this email already exists. Please log in." }, 409);
       console.error("register-account createUser failed:", message);
       return json({ error: "Could not create your account. Please try again." }, 400);
+    }
+
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: created.user.id,
+      email,
+      phone_number: phone,
+      phone_verified: false,
+      display_name: email.substring(0, email.indexOf("@")),
+    });
+    if (profileError) {
+      await admin.auth.admin.deleteUser(created.user.id);
+      if (profileError.code === "23505") return json({ error: "This phone number is already registered." }, 409);
+      console.error("register-account profile insert failed:", profileError.message);
+      return json({ error: "Could not finish creating your account. Please try again." }, 400);
     }
 
     const signIn = await fetch(`${url}/auth/v1/token?grant_type=password`, {
