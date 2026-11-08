@@ -33,7 +33,7 @@ class LineCallSupabaseClient(context: Context) {
     get() = BackendConfig.SUPABASE_URL.isNotBlank() &&
       BackendConfig.SUPABASE_ANON_KEY.isNotBlank()
 
-  suspend fun signUpWithPassword(email: String, password: String): Result<UserAccount> = withContext(Dispatchers.IO) {
+  suspend fun signUpWithPassword(email: String, password: String, phoneNumber: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
       require(password.length >= 8) { "Use at least 8 characters for your password." }
@@ -41,7 +41,7 @@ class LineCallSupabaseClient(context: Context) {
         Request.Builder()
           .url("${BackendConfig.SUPABASE_URL}/functions/v1/register-account")
           .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-          .post(JSONObject().put("email", email.trim()).put("password", password).toString().toRequestBody(jsonType))
+          .post(JSONObject().put("email", email.trim()).put("password", password).put("phone_number", phoneNumber).toString().toRequestBody(jsonType))
           .build()
       )
       if (response.optString("access_token").isBlank() || response.optString("refresh_token").isBlank()) {
