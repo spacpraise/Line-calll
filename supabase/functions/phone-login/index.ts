@@ -13,7 +13,7 @@ const json = (body: unknown, status = 200) =>
   });
 
 const isE164 = (value: unknown): value is string =>
-  typeof value === "string" && /^\\+[1-9][0-9]{6,14}$/.test(value);
+  typeof value === "string" && value.startsWith("+") && /^[1-9][0-9]{6,14}$/.test(value.slice(1));
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
