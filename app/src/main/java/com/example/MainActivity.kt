@@ -49,8 +49,6 @@ import com.example.ui.onboarding.ProfileSetupScreen
 import com.example.ui.onboarding.RegistrationScreen
 import com.example.ui.onboarding.WelcomeScreen
 import com.example.ui.onboarding.LoginScreen
-import com.example.ui.onboarding.PasswordSetupScreen
-import com.example.ui.onboarding.ForgotPasswordScreen
 import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
@@ -144,13 +142,6 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
     }
   }
 
-  LaunchedEffect(authCallbackUri) {
-    authCallbackUri?.let { uri ->
-      viewModel.verifyMagicLinkCallback(uri.toString())
-      onAuthCallbackHandled()
-    }
-  }
-
   // Predictive Back handling
   BackHandler(enabled = activeCall != null) {
     focusManager.clearFocus(force = true)
@@ -234,7 +225,6 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
           onLogin = { viewModel.signIn() },
-          onForgotPassword = { viewModel.navigateTo(ScreenState.FORGOT_PASSWORD) },
           onRegister = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) }
         )
       }
