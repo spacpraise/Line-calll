@@ -155,6 +155,11 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
     viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION)
   }
 
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PASSWORD_SETUP) {
+    focusManager.clearFocus(force = true)
+    viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION)
+  }
+
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.EMAIL_REGISTRATION) {
     focusManager.clearFocus(force = true)
     viewModel.navigateTo(ScreenState.WELCOME)
