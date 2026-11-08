@@ -28,6 +28,10 @@ import kotlinx.coroutines.launch
 enum class ScreenState {
   WELCOME,
   EMAIL_REGISTRATION,
+  LOGIN,
+  FORGOT_PASSWORD,
+  PASSWORD_SETUP,
+  PASSWORD_RESET,
   PHONE_SETUP,
   PROFILE_SETUP,
   MAIN_APP,
@@ -71,6 +75,18 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   private val _emailInput = MutableStateFlow("")
   val emailInput: StateFlow<String> = _emailInput.asStateFlow()
+
+  private val _loginIdentifier = MutableStateFlow("")
+  val loginIdentifier: StateFlow<String> = _loginIdentifier.asStateFlow()
+
+  private val _passwordInput = MutableStateFlow("")
+  val passwordInput: StateFlow<String> = _passwordInput.asStateFlow()
+
+  private val _confirmPasswordInput = MutableStateFlow("")
+  val confirmPasswordInput: StateFlow<String> = _confirmPasswordInput.asStateFlow()
+
+  private val _isAuthBusy = MutableStateFlow(false)
+  val isAuthBusy: StateFlow<Boolean> = _isAuthBusy.asStateFlow()
 
   private val _phoneInput = MutableStateFlow("")
   val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
@@ -135,50 +151,19 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         _emailInput.value = restoredUser.email
         _phoneInput.value = restoredUser.phoneNumber
         _displayNameInput.value = restoredUser.displayName
-        if (restoredUser.phoneNumber.isBlank()) {
-          _currentScreen.value = ScreenState.PHONE_SETUP
-        } else {
-          _currentScreen.value = ScreenState.MAIN_APP
-          callingService.startIncomingCallPolling()
+        when (authService.pendingAuthFlow()) {
+          "register" -> _currentScreen.value = ScreenState.PASSWORD_SETUP
+          "recovery" -> _currentScreen.value = ScreenState.PASSWORD_RESET
+          else -> if (restoredUser.phoneNumber.isBlank()) {
+            _currentScreen.value = ScreenState.PHONE_SETUP
+          } else {
+            _currentScreen.value = ScreenState.MAIN_APP
+            callingService.startIncomingCallPolling()
+          }
         }
       }
     }
 
-    // Seed realistic One UI contacts & call history if local database is empty
-    viewModelScope.launch {
-      val currentList = contactDao.getContactByPhone("+2347082495224")
-      if (currentList == null) {
-        val seedContacts = listOf(
-          Contact(name = "Abdul Lfc", phoneNumber = "+2348031234567", avatarInitials = "A", isFavorite = true, gradientIndex = 0),
-          Contact(name = "Boda Pata", phoneNumber = "+2348029876543", avatarInitials = "B", isFavorite = true, gradientIndex = 1),
-          Contact(name = "Ilesanmi Ademola", phoneNumber = "+2348051112233", avatarInitials = "I", isFavorite = true, gradientIndex = 2),
-          Contact(name = "Mama Soji", phoneNumber = "+2348094445566", avatarInitials = "M", isFavorite = true, gradientIndex = 0),
-          Contact(name = "Mom 💕", phoneNumber = "+2348073334455", avatarInitials = "M", isFavorite = true, gradientIndex = 3),
-          Contact(name = "Mr. Johnson Edache", phoneNumber = "+2348012223344", avatarInitials = "M", isFavorite = true, gradientIndex = 4),
-          Contact(name = "Obi", phoneNumber = "+2348035556677", avatarInitials = "O", isFavorite = true, gradientIndex = 5),
-          Contact(name = "Sgt Emmanuel", phoneNumber = "+2348067778899", avatarInitials = "S", isFavorite = true, gradientIndex = 2),
-          Contact(name = "Sir Joshua", phoneNumber = "+2348028889900", avatarInitials = "S", isFavorite = true, gradientIndex = 0),
-          Contact(name = "Tosin Baba 'Semilore", phoneNumber = "+2348056667788", avatarInitials = "T", isFavorite = true, gradientIndex = 3),
-          Contact(name = "(C H L F) Petals_Effects", phoneNumber = "+2347082495224", avatarInitials = "PE", isFavorite = false, gradientIndex = 2),
-          Contact(name = "~Comr 😎 Lincoln", phoneNumber = "+2348039990011", avatarInitials = "CL", isFavorite = false, gradientIndex = 1),
-          Contact(name = "Uncle Ola Phone Man 📱", phoneNumber = "+2348034441122", avatarInitials = "UO", isFavorite = false, gradientIndex = 0),
-          Contact(name = "Dad 🤍", phoneNumber = "+2348023332211", avatarInitials = "D", isFavorite = false, gradientIndex = 4),
-          Contact(name = "Praise 🤍", phoneNumber = "+2348091119988", avatarInitials = "P", isFavorite = false, gradientIndex = 5)
-        )
-        seedContacts.forEach { contactDao.insertContact(it) }
-
-        // Also seed initial call records matching recents screenshot
-        val now = System.currentTimeMillis()
-        val seedCalls = listOf(
-          CallRecord(phoneNumber = "+2348031112233", contactName = "Sunny Wife", type = CallType.MISSED, timestamp = now - 1000 * 60 * 15, durationSeconds = 0),
-          CallRecord(phoneNumber = "+2348034441122", contactName = "Uncle Ola Phone Man 📱", type = CallType.OUTGOING, timestamp = now - 1000 * 60 * 30, durationSeconds = 142),
-          CallRecord(phoneNumber = "+2348023332211", contactName = "Dad 🤍", type = CallType.INCOMING, timestamp = now - 1000 * 60 * 120, durationSeconds = 88),
-          CallRecord(phoneNumber = "+2348091119988", contactName = "Praise 🤍", type = CallType.OUTGOING, timestamp = now - 1000 * 60 * 150, durationSeconds = 310),
-          CallRecord(phoneNumber = "+2348023332211", contactName = "Dad 🤍", type = CallType.OUTGOING, timestamp = now - 1000 * 60 * 200, durationSeconds = 62)
-        )
-        seedCalls.forEach { callRecordDao.insertCallRecord(it) }
-      }
-    }
   }
 
   fun navigateTo(screen: ScreenState) {
@@ -216,16 +201,84 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         _authError.value = null
         _phoneInput.value = user.phoneNumber
         _displayNameInput.value = user.displayName
-        if (user.phoneNumber.isBlank()) {
+        _currentScreen.value = when (authService.pendingAuthFlow()) {
+          "recovery" -> ScreenState.PASSWORD_RESET
+          "register" -> ScreenState.PASSWORD_SETUP
+          else -> if (user.phoneNumber.isBlank()) ScreenState.PHONE_SETUP else ScreenState.MAIN_APP
+        }
+        if (_currentScreen.value == ScreenState.MAIN_APP) callingService.startIncomingCallPolling()
+      }.onFailure {
+        _authError.value = it.message ?: "The sign-in link could not be verified. Request a new link."
+        _currentScreen.value = ScreenState.EMAIL_REGISTRATION
+      }
+    }
+  }
+
+  fun updateLoginIdentifier(value: String) { _loginIdentifier.value = value; _authError.value = null }
+  fun updatePasswordInput(value: String) { _passwordInput.value = value; _authError.value = null }
+  fun updateConfirmPasswordInput(value: String) { _confirmPasswordInput.value = value; _authError.value = null }
+
+  fun signIn() {
+    val identifier = _loginIdentifier.value.trim()
+    val password = _passwordInput.value
+    if (identifier.isBlank() || password.isBlank()) {
+      _authError.value = "Enter your email or phone number and password."
+      return
+    }
+    viewModelScope.launch {
+      _isAuthBusy.value = true
+      val result = authService.signIn(identifier, password)
+      result.onSuccess { user ->
+        userProfileService.setUser(user)
+        _emailInput.value = user.email
+        _phoneInput.value = user.phoneNumber
+        _displayNameInput.value = user.displayName
+        _passwordInput.value = ""
+        if (user.phoneNumber.isBlank()) _currentScreen.value = ScreenState.PHONE_SETUP
+        else {
+          _currentScreen.value = ScreenState.MAIN_APP
+          callingService.startIncomingCallPolling()
+        }
+        _authError.value = null
+      }.onFailure { _authError.value = it.message ?: "Could not sign in. Check your details." }
+      _isAuthBusy.value = false
+    }
+  }
+
+  fun sendPasswordRecovery() {
+    viewModelScope.launch {
+      _isAuthBusy.value = true
+      val result = authService.sendPasswordRecovery(_emailInput.value)
+      result.onSuccess {
+        _authError.value = null
+        _magicLinkSent.value = true
+      }.onFailure { _authError.value = it.message ?: "Could not send the password reset link." }
+      _isAuthBusy.value = false
+    }
+  }
+
+  fun saveNewPassword() {
+    val password = _passwordInput.value
+    if (password.length < 8) { _authError.value = "Use at least 8 characters for your password."; return }
+    if (password != _confirmPasswordInput.value) { _authError.value = "The passwords do not match."; return }
+    val flow = authService.pendingAuthFlow()
+    viewModelScope.launch {
+      _isAuthBusy.value = true
+      val result = authService.updatePassword(password)
+      result.onSuccess {
+        _passwordInput.value = ""
+        _confirmPasswordInput.value = ""
+        _authError.value = null
+        val user = authService.restoreSession()
+        if (user != null) userProfileService.setUser(user)
+        if (flow == "register" || user?.phoneNumber.isNullOrBlank()) {
           _currentScreen.value = ScreenState.PHONE_SETUP
         } else {
           _currentScreen.value = ScreenState.MAIN_APP
           callingService.startIncomingCallPolling()
         }
-      }.onFailure {
-        _authError.value = it.message ?: "The sign-in link could not be verified. Request a new link."
-        _currentScreen.value = ScreenState.EMAIL_REGISTRATION
-      }
+      }.onFailure { _authError.value = it.message ?: "Could not save your password." }
+      _isAuthBusy.value = false
     }
   }
 
@@ -246,7 +299,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         userProfileService.setUser(user)
         _phoneInput.value = user.phoneNumber
         _authError.value = null
-        _currentScreen.value = ScreenState.PROFILE_SETUP
+        enterMainApp()
       }.onFailure {
         _authError.value = it.message ?: "Could not save this phone number."
       }
