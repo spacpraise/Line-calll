@@ -179,6 +179,18 @@ fun LineCallApp(
     viewModel.navigateTo(ScreenState.WELCOME)
   }
 
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.LOGIN) {
+    viewModel.navigateTo(ScreenState.WELCOME)
+  }
+
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.FORGOT_PASSWORD) {
+    viewModel.navigateTo(ScreenState.LOGIN)
+  }
+
+  BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.PASSWORD_RESET) {
+    viewModel.navigateTo(ScreenState.LOGIN)
+  }
+
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.MAIN_APP && selectedTab != MainTab.KEYPAD) {
     viewModel.selectTab(MainTab.KEYPAD)
   }
