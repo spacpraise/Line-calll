@@ -50,6 +50,8 @@ import com.example.ui.onboarding.ProfileSetupScreen
 import com.example.ui.onboarding.RegistrationScreen
 import com.example.ui.onboarding.WelcomeScreen
 import com.example.ui.onboarding.LoginScreen
+import com.example.ui.onboarding.ForgotPasswordScreen
+import com.example.ui.onboarding.NewPasswordScreen
 import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
@@ -79,6 +81,10 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   val confirmPasswordInput by viewModel.confirmPasswordInput.collectAsStateWithLifecycle()
   val isAuthBusy by viewModel.isAuthBusy.collectAsStateWithLifecycle()
   val authError by viewModel.authError.collectAsStateWithLifecycle()
+  val recoveryEmail by viewModel.recoveryEmail.collectAsStateWithLifecycle()
+  val recoveryPhone by viewModel.recoveryPhone.collectAsStateWithLifecycle()
+  val newPassword by viewModel.newPassword.collectAsStateWithLifecycle()
+  val confirmNewPassword by viewModel.confirmNewPassword.collectAsStateWithLifecycle()
 
   val contacts by viewModel.contacts.collectAsStateWithLifecycle()
   val contactSearchQuery by viewModel.contactSearchQuery.collectAsStateWithLifecycle()
@@ -173,6 +179,16 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
     viewModel.navigateTo(ScreenState.WELCOME)
   }
 
+  BackHandler(enabled = activeCall == null && currentScreen == ScreenState.RESET_PASSWORD) {
+    focusManager.clearFocus(force = true)
+    viewModel.navigateTo(ScreenState.FORGOT_PASSWORD)
+  }
+
+  BackHandler(enabled = activeCall == null && currentScreen == ScreenState.FORGOT_PASSWORD) {
+    focusManager.clearFocus(force = true)
+    viewModel.navigateTo(ScreenState.LOGIN)
+  }
+
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.MAIN_APP && selectedTab != MainTab.KEYPAD) {
     focusManager.clearFocus(force = true)
     viewModel.selectTab(MainTab.KEYPAD)
@@ -224,7 +240,33 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
           onLogin = { viewModel.signIn() },
-          onRegister = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) }
+          onRegister = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) },
+          onForgotPassword = { viewModel.navigateTo(ScreenState.FORGOT_PASSWORD) }
+        )
+      }
+
+      ScreenState.FORGOT_PASSWORD -> {
+        ForgotPasswordScreen(
+          email = recoveryEmail,
+          phoneNumber = recoveryPhone,
+          error = authError,
+          busy = isAuthBusy,
+          onEmailChanged = { viewModel.updateRecoveryEmail(it) },
+          onPhoneChanged = { viewModel.updateRecoveryPhone(it) },
+          onSubmit = { viewModel.requestPasswordRecovery() },
+          onBack = { viewModel.navigateTo(ScreenState.LOGIN) }
+        )
+      }
+
+      ScreenState.RESET_PASSWORD -> {
+        NewPasswordScreen(
+          password = newPassword,
+          confirmPassword = confirmNewPassword,
+          error = authError,
+          busy = isAuthBusy,
+          onPasswordChanged = { viewModel.updateNewPassword(it) },
+          onConfirmPasswordChanged = { viewModel.updateConfirmNewPassword(it) },
+          onSubmit = { viewModel.completePasswordRecovery() }
         )
       }
 
