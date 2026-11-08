@@ -1,31 +1,32 @@
 package com.example
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import com.example.services.PhoneNumberFormatter
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
-class ExampleRobolectricTest {
-
+class PhoneNumberFormatterTest {
   @Test
-  fun `read string from context`() {
-    val context = ApplicationProvider.getApplicationContext<Context>()
-    val appName = context.getString(R.string.app_name)
-    assertEquals("Line Call", appName)
+  fun formatsNationalNumberAsE164() {
+    assertEquals("+14155550198", PhoneNumberFormatter.formatToE164("+1", "(415) 555-0198"))
   }
 
   @Test
-  fun `verify e164 formatting`() {
-    val context = ApplicationProvider.getApplicationContext<Context>()
-    val supabase = com.example.services.LineCallSupabaseClient(context)
-    val authService = com.example.services.LineCallAuthService(supabase)
-    val profileService = com.example.services.UserProfileService(authService, supabase)
-    val formatted = profileService.formatToE164("+1", "(415) 555-0198")
-    assertEquals("+14155550198", formatted)
+  fun removesNationalTrunkZero() {
+    assertEquals("+2348031234567", PhoneNumberFormatter.formatToE164("+234", "08031234567"))
+  }
+
+  @Test
+  fun preservesAlreadyInternationalNumber() {
+    assertEquals("+2348031234567", PhoneNumberFormatter.formatToE164("+234", "+234 803 123 4567"))
+  }
+
+  @Test
+  fun validatesE164LengthAndPrefix() {
+    assertTrue(PhoneNumberFormatter.isValidE164("+2348031234567"))
+    assertFalse(PhoneNumberFormatter.isValidE164("08031234567"))
+    assertFalse(PhoneNumberFormatter.isValidE164("+0123456789"))
+    assertFalse(PhoneNumberFormatter.isValidE164("+123"))
   }
 }
