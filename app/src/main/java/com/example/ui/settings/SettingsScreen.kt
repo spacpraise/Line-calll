@@ -1,5 +1,7 @@
 package com.example.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,16 +21,17 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.ExitToApp
-import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.data.model.UserAccount
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
@@ -62,19 +66,27 @@ import com.example.ui.theme.CallRed
 fun SettingsScreen(
   currentUser: UserAccount?,
   onUpdateDisplayName: (String) -> Unit,
+  onUpdatePhoneNumber: (String) -> Unit,
+  onUpdateEmail: (String) -> Unit,
+  onAvatarSelected: (android.net.Uri) -> Unit,
   onSignOut: () -> Unit,
   onBack: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  var showEditNameDialog by remember { mutableStateOf(false) }
-  var newName by remember(currentUser?.displayName) { mutableStateOf(currentUser?.displayName.orEmpty()) }
+  var editField by remember { mutableStateOf<String?>(null) }
+  var editValue by remember { mutableStateOf("") }
+  val focusManager = LocalFocusManager.current
+  val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    uri?.let(onAvatarSelected)
+  }
+
+  fun openEditor(field: String, value: String) {
+    editField = field
+    editValue = value
+  }
 
   Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-    Column(
-      modifier = Modifier
-        .fillMaxSize()
-        .windowInsetsPadding(WindowInsets.statusBars)
-    ) {
+    Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
       Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -82,130 +94,102 @@ fun SettingsScreen(
         IconButton(onClick = onBack) {
           Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
         }
-        Text(
-          text = "Settings",
-          style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-          color = MaterialTheme.colorScheme.onBackground
-        )
+        Text("Settings", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+          color = MaterialTheme.colorScheme.onBackground)
       }
 
       Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .weight(1f)
-          .verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
           .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
       ) {
         Card(
           modifier = Modifier.fillMaxWidth(),
-          shape = RoundedCornerShape(18.dp),
+          shape = RoundedCornerShape(20.dp),
           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-          Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+          Column(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               Box(
-                modifier = Modifier.size(56.dp).clip(CircleShape).background(Color(0xFF171717)),
+                modifier = Modifier.size(76.dp).clip(CircleShape).background(Color(0xFF171717)),
                 contentAlignment = Alignment.Center
               ) {
-                val initials = currentUser?.displayName?.take(2)?.uppercase()
-                  ?: currentUser?.email?.take(2)?.uppercase()
-                  ?: "LC"
-                Text(initials, color = Color.White, fontWeight = FontWeight.Bold)
-              }
-              Spacer(Modifier.width(14.dp))
-              Column(modifier = Modifier.weight(1f)) {
                 Text(
-                  currentUser?.displayName?.ifBlank { "Line Call user" } ?: "Line Call user",
-                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                  currentUser?.displayName?.take(2)?.uppercase()
+                    ?: currentUser?.email?.take(2)?.uppercase() ?: "LC",
+                  color = Color.White, fontWeight = FontWeight.Bold
                 )
-                Text(
-                  currentUser?.email.orEmpty(),
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.secondary
-                )
-              }
-              IconButton(onClick = { newName = currentUser?.displayName.orEmpty(); showEditNameDialog = true }) {
-                Icon(Icons.Rounded.Edit, contentDescription = "Edit name", tint = CallGreen)
-              }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
-
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-              Text("Phone number", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                  currentUser?.phoneNumber?.ifBlank { "Not added" } ?: "Not added",
-                  modifier = Modifier.weight(1f),
-                  style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
-                )
-                Surface(
-                  shape = RoundedCornerShape(20.dp),
-                  color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                  Text(
-                    if (currentUser?.isPhoneVerified == true) "Verified" else "Unverified",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary
+                if (!currentUser?.avatarUrl.isNullOrBlank()) {
+                  AsyncImage(
+                    model = currentUser?.avatarUrl,
+                    contentDescription = "Profile photo",
+                    modifier = Modifier.fillMaxSize().clip(CircleShape)
                   )
                 }
               }
+              Spacer(Modifier.width(14.dp))
+              Column(modifier = Modifier.weight(1f)) {
+                Text(currentUser?.displayName?.ifBlank { "Line Call user" } ?: "Line Call user",
+                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                Text("Your Line Call profile", style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.secondary)
+              }
             }
+            Button(
+              onClick = { imagePicker.launch("image/*") },
+              modifier = Modifier.fillMaxWidth().height(46.dp),
+              shape = RoundedCornerShape(14.dp),
+              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF242424))
+            ) {
+              Icon(Icons.Rounded.CameraAlt, contentDescription = null, tint = Color.White)
+              Spacer(Modifier.width(8.dp))
+              Text(if (currentUser?.avatarUrl.isNullOrBlank()) "Add profile photo" else "Change profile photo",
+                color = Color.White, fontWeight = FontWeight.SemiBold)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+            ProfileDetailRow("Display name", currentUser?.displayName?.ifBlank { "Not set" } ?: "Not set",
+              onEdit = { openEditor("name", currentUser?.displayName.orEmpty()) })
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            ProfileDetailRow("Phone number", currentUser?.phoneNumber?.ifBlank { "Not added" } ?: "Not added",
+              trailing = if (currentUser?.isPhoneVerified == true) "Verified" else "Not verified",
+              onEdit = { openEditor("phone", currentUser?.phoneNumber.orEmpty()) })
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            ProfileDetailRow("Email address", currentUser?.email.orEmpty(),
+              onEdit = { openEditor("email", currentUser?.email.orEmpty()) })
           }
         }
 
-        Text(
-          "CALL SETTINGS",
-          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-          color = MaterialTheme.colorScheme.secondary
-        )
-
+        Text("CALL SETTINGS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+          color = MaterialTheme.colorScheme.secondary)
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(16.dp),
           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
           Column {
-            Row(
-              modifier = Modifier.fillMaxWidth().padding(16.dp),
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Icon(Icons.Rounded.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Rounded.Email, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
               Spacer(Modifier.width(14.dp))
               Column {
-                Text("Notifications", fontWeight = FontWeight.SemiBold)
-                Text(
-                  "Allow Line Call to show incoming call alerts.",
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.secondary
-                )
+                Text("Account email", fontWeight = FontWeight.SemiBold)
+                Text("Email changes require confirmation from your new inbox.",
+                  style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
               }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-            Row(
-              modifier = Modifier.fillMaxWidth().padding(16.dp),
-              verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
               Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
               Spacer(Modifier.width(14.dp))
               Column {
-                Text("Microphone", fontWeight = FontWeight.SemiBold)
-                Text(
-                  "Permission is requested when you make or answer a call.",
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.secondary
-                )
+                Text("Phone number", fontWeight = FontWeight.SemiBold)
+                Text("Use the full international format, for example +2348012345678.",
+                  style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
               }
             }
           }
         }
 
-        TextButton(
-          onClick = onSignOut,
-          modifier = Modifier.fillMaxWidth().height(52.dp)
-        ) {
+        TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth().height(52.dp)) {
           Icon(Icons.Rounded.ExitToApp, contentDescription = null, tint = CallRed)
           Spacer(Modifier.width(8.dp))
           Text("Sign out", color = CallRed, fontWeight = FontWeight.SemiBold)
@@ -214,46 +198,85 @@ fun SettingsScreen(
     }
   }
 
-  val focusManager = LocalFocusManager.current
-
-  if (showEditNameDialog) {
+  editField?.let { field ->
+    val title = when (field) {
+      "name" -> "Edit display name"
+      "phone" -> "Edit phone number"
+      else -> "Change email address"
+    }
+    val label = when (field) {
+      "name" -> "Display name"
+      "phone" -> "International phone number"
+      else -> "New email address"
+    }
     AlertDialog(
-      onDismissRequest = {
-        focusManager.clearFocus(force = true)
-        showEditNameDialog = false
-      },
-      title = { Text("Edit display name") },
+      onDismissRequest = { focusManager.clearFocus(force = true); editField = null },
+      title = { Text(title) },
       text = {
-        OutlinedTextField(
-          value = newName,
-          onValueChange = { newName = it },
-          label = { Text("Display name") },
-          singleLine = true,
-          keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-          keyboardActions = KeyboardActions(onDone = {
-            focusManager.clearFocus(force = true)
-            onUpdateDisplayName(newName.trim())
-            showEditNameDialog = false
-          }),
-          modifier = Modifier.fillMaxWidth()
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          OutlinedTextField(
+            value = editValue,
+            onValueChange = { editValue = it },
+            label = { Text(label) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(
+              keyboardType = when (field) {
+                "phone" -> KeyboardType.Phone
+                "email" -> KeyboardType.Email
+                else -> KeyboardType.Text
+              },
+              imeAction = ImeAction.Done
+            )
+          )
+          if (field == "email") {
+            Text("A confirmation link will be sent to the new address. Your sign-in email changes only after confirmation.",
+              style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+          } else if (field == "phone") {
+            Text("Your phone number will be marked as unverified until ownership verification is added.",
+              style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+          }
+        }
       },
       confirmButton = {
         Button(
           onClick = {
             focusManager.clearFocus(force = true)
-            onUpdateDisplayName(newName.trim())
-            showEditNameDialog = false
+            when (field) {
+              "name" -> onUpdateDisplayName(editValue.trim())
+              "phone" -> onUpdatePhoneNumber(editValue.trim())
+              "email" -> onUpdateEmail(editValue.trim())
+            }
+            editField = null
           },
-          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF171717))
+          enabled = editValue.trim().isNotBlank(),
+          colors = ButtonDefaults.buttonColors(containerColor = CallGreen)
         ) { Text("Save", color = Color.White) }
       },
       dismissButton = {
-        TextButton(onClick = {
-          focusManager.clearFocus(force = true)
-          showEditNameDialog = false
-        }) { Text("Cancel") }
+        TextButton(onClick = { focusManager.clearFocus(force = true); editField = null }) { Text("Cancel") }
       }
     )
+  }
+}
+
+@Composable
+private fun ProfileDetailRow(
+  label: String,
+  value: String,
+  trailing: String? = null,
+  onEdit: () -> Unit
+) {
+  Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Column(modifier = Modifier.weight(1f)) {
+      Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+      Text(value, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
+      if (trailing != null) Text(trailing, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+    }
+    TextButton(onClick = onEdit) {
+      Icon(Icons.Rounded.Edit, contentDescription = null, tint = CallGreen, modifier = Modifier.size(18.dp))
+      Spacer(Modifier.width(4.dp))
+      Text("Edit", color = CallGreen)
+    }
   }
 }
