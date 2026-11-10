@@ -23,9 +23,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 
 enum class ScreenState {
   BOOTING,
@@ -118,15 +121,20 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   private val _contactSearchQuery = MutableStateFlow("")
   val contactSearchQuery: StateFlow<String> = _contactSearchQuery.asStateFlow()
 
+  // Search filtering runs off the UI thread; unchanged results are not re-emitted.
   val contacts: StateFlow<List<Contact>> = _contactSearchQuery
     .combine(contactDao.getAllContacts()) { query, list ->
       if (query.isBlank()) list
       else list.filter {
         it.name.contains(query, ignoreCase = true) || it.phoneNumber.contains(query)
       }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }
+    .distinctUntilChanged()
+    .flowOn(Dispatchers.Default)
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   val callHistory: StateFlow<List<CallRecord>> = callRecordDao.getAllCallRecords()
+    .distinctUntilChanged()
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   val activeCall: StateFlow<ActiveCallSession?> = callingService.activeCall
