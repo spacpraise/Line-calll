@@ -51,9 +51,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +66,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -82,6 +85,14 @@ fun EmailEntryScreen(
   onBack: () -> Unit
 ) {
   val focusManager = LocalFocusManager.current
+  var emailFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+    mutableStateOf(TextFieldValue(email))
+  }
+  LaunchedEffect(email) {
+    if (emailFieldValue.text != email) {
+      emailFieldValue = TextFieldValue(email)
+    }
+  }
   Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(
       modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
@@ -98,8 +109,11 @@ fun EmailEntryScreen(
         Text("First, enter your email address.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
         Spacer(Modifier.height(24.dp))
         OutlinedTextField(
-          value = email,
-          onValueChange = onEmailChanged,
+          value = emailFieldValue,
+          onValueChange = { updatedValue ->
+            emailFieldValue = updatedValue
+            onEmailChanged(updatedValue.text)
+          },
           modifier = Modifier.fillMaxWidth().testTag("email_input"),
           label = { Text("Email address") },
           placeholder = { Text("name@example.com") },
