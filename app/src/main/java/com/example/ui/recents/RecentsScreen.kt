@@ -250,28 +250,20 @@ fun RecentsScreen(
         )
       }
 
-      // Unified Call History Card (Image 6)
-      item {
-        Card(
-          shape = RoundedCornerShape(24.dp),
-          colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
-          modifier = Modifier.fillMaxWidth()
+      // Keep each call record independently lazy; long histories remain responsive.
+      items(
+        items = filteredHistory,
+        key = { "${it.phoneNumber}_${it.formattedTime}_${it.type.name}" }
+      ) { record ->
+        Surface(
+          shape = RoundedCornerShape(16.dp),
+          color = OneUiCardBackground,
+          modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
         ) {
-          Column {
-            filteredHistory.forEachIndexed { index, record ->
-              OneUiCallRecordRow(
-                record = record,
-                onClick = { onCallRecord(record) }
-              )
-              if (index < filteredHistory.lastIndex) {
-                HorizontalDivider(
-                  color = Color(0xFF26282E),
-                  thickness = 0.5.dp,
-                  modifier = Modifier.padding(start = 48.dp)
-                )
-              }
-            }
-          }
+          OneUiCallRecordRow(
+            record = record,
+            onClick = { onCallRecord(record) }
+          )
         }
       }
     }
