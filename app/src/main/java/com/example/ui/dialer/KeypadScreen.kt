@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -75,11 +78,14 @@ fun KeypadScreen(
       fieldValue = TextFieldValue(enteredNumber, TextRange(enteredNumber.length))
     }
   }
-  val suggestions = remember(enteredNumber, callHistory) {
-    val query = enteredNumber.filter { it.isDigit() }
-    if (query.length < 2) emptyList()
-    else callHistory.filter { it.phoneNumber.filter { ch -> ch.isDigit() }.contains(query) }
-      .distinctBy { it.phoneNumber }.take(4)
+  val queryDigits = enteredNumber.filter { it.isDigit() }
+  val matchingContacts = remember(queryDigits, contacts) {
+    if (queryDigits.isEmpty()) emptyList() else contacts.filter { it.phoneNumber.filter(Char::isDigit).contains(queryDigits) }.take(8)
+  }
+  val matchingHistory = remember(queryDigits, callHistory, matchingContacts) {
+    if (queryDigits.isEmpty()) emptyList() else callHistory.filter { record ->
+      record.phoneNumber.filter(Char::isDigit).contains(queryDigits) && matchingContacts.none { it.phoneNumber == record.phoneNumber }
+    }.distinctBy { it.phoneNumber }.take(8)
   }
   fun insertDigit(value: String) {
     val start = fieldValue.selection.min.coerceIn(0, fieldValue.text.length)
