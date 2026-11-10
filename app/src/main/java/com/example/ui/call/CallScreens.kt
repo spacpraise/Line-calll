@@ -440,7 +440,6 @@ private fun IncomingCallAction(
 }
 
 @Composable
-@Composable
 fun ActiveCallScreen(
   session: ActiveCallSession,
   onMuteToggle: () -> Unit,
