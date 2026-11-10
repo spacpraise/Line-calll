@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.LineCallDatabase
@@ -353,15 +354,23 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           _passwordInput.value = ""
           _confirmPasswordInput.value = ""
           _authError.value = null
-          enterMainApp()
+          _currentScreen.value = ScreenState.PROFILE_SETUP
         }.onFailure { _authError.value = it.message ?: "Could not create your account. No account was created." }
       } else {
         val result = userProfileService.registerPhoneNumber(e164)
-        result.onSuccess { user -> userProfileService.setUser(user); _phoneInput.value = user.phoneNumber; _authError.value = null; enterMainApp() }
+        result.onSuccess { user -> userProfileService.setUser(user); _phoneInput.value = user.phoneNumber; _authError.value = null; _currentScreen.value = ScreenState.PROFILE_SETUP }
           .onFailure { _authError.value = it.message ?: "Could not save this phone number." }
       }
       _isAuthBusy.value = false
     }
+  }
+
+  fun goToLoginFromRegistration() {
+    isCompletingRegistration = false
+    _loginIdentifier.value = _emailInput.value.trim()
+    _passwordInput.value = ""
+    _authError.value = null
+    _currentScreen.value = ScreenState.LOGIN
   }
 
   fun backFromPhoneSetup() {
@@ -453,9 +462,14 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   private fun syncFcmToken(user: UserAccount) {
     FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-      if (task.isSuccessful) {
-        val token = task.result?.takeIf { it.isNotBlank() } ?: return@addOnCompleteListener
-        viewModelScope.launch { runCatching { supabase.saveFcmToken(user.id, token) } }
+      if (!task.isSuccessful) {
+        Log.w("LineCallFCM", "Could not obtain this device's FCM token.", task.exception)
+        return@addOnCompleteListener
+      }
+      val token = task.result?.takeIf { it.isNotBlank() } ?: return@addOnCompleteListener
+      viewModelScope.launch(Dispatchers.IO) {
+        runCatching { supabase.saveFcmToken(user.id, token) }
+          .onFailure { Log.w("LineCallFCM", "Could not save this device's FCM token.", it) }
       }
     }
   }
@@ -571,6 +585,10 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   fun signOut() {
     viewModelScope.launch {
       callingService.stopIncomingCallPolling()
+      userProfileService.currentUser.value?.let { user ->
+        runCatching { supabase.clearFcmToken(user.id) }
+          .onFailure { Log.w("LineCallFCM", "Could not clear device token during sign-out.", it) }
+      }
       authService.signOut()
       userProfileService.clearUser()
       _currentScreen.value = ScreenState.WELCOME
