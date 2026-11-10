@@ -117,7 +117,7 @@ fun SettingsScreen(
                 Text(
                   currentUser?.displayName?.take(2)?.uppercase()
                     ?: currentUser?.email?.take(2)?.uppercase() ?: "LC",
-                  color = Color.White, fontWeight = FontWeight.Bold
+                  color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold
                 )
                 if (!currentUser?.avatarUrl.isNullOrBlank()) {
                   AsyncImage(
