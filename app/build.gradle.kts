@@ -102,7 +102,7 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
-  // implementation(libs.coil.compose)
+  implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation("io.livekit:livekit-android:2.27.0")
   implementation(libs.kotlinx.coroutines.android)
