@@ -33,6 +33,8 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -68,6 +70,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -151,6 +154,8 @@ fun PasswordSetupScreen(
   onBack: () -> Unit
 ) {
   val focusManager = LocalFocusManager.current
+  var passwordVisible by rememberSaveable { mutableStateOf(false) }
+  var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
   Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(
       modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
@@ -170,7 +175,8 @@ fun PasswordSetupScreen(
         value = password, onValueChange = onPasswordChanged,
         modifier = Modifier.fillMaxWidth().testTag("register_password_input"),
         label = { Text("Password") }, singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = { IconButton(onClick = { passwordVisible = !passwordVisible }) { Icon(if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = if (passwordVisible) "Hide password" else "Show password") } },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
         shape = RoundedCornerShape(12.dp)
       )
@@ -179,7 +185,8 @@ fun PasswordSetupScreen(
         value = confirmPassword, onValueChange = onConfirmPasswordChanged,
         modifier = Modifier.fillMaxWidth().testTag("register_confirm_password_input"),
         label = { Text("Confirm password") }, singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
+        visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = { IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) { Icon(if (confirmPasswordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password") } },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); onCreateAccount() }),
         shape = RoundedCornerShape(12.dp)
@@ -204,8 +211,7 @@ fun PasswordSetupScreen(
 
 @Composable
 fun WelcomeScreen(
-  onGetStarted: () -> Unit,
-  onLogIn: () -> Unit
+  onGetStarted: () -> Unit
 ) {
   Surface(
     modifier = Modifier.fillMaxSize(),
@@ -288,23 +294,6 @@ fun WelcomeScreen(
         ) {
           Text(
             text = "Get Started",
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
-          )
-        }
-
-        OutlinedButton(
-          onClick = onLogIn,
-          modifier = Modifier
-            .fillMaxWidth()
-            .height(54.dp)
-            .testTag("log_in_button"),
-          shape = RoundedCornerShape(14.dp),
-          colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = MaterialTheme.colorScheme.onBackground
-          )
-        ) {
-          Text(
-            text = "Log In",
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
           )
         }
