@@ -64,13 +64,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
-import com.example.ui.theme.OneUiCardBackground
-import com.example.ui.theme.OneUiCardBorder
-import com.example.ui.theme.OneUiCardElevated
-import com.example.ui.theme.OneUiDarkBackground
-import com.example.ui.theme.OneUiTextMuted
-import com.example.ui.theme.OneUiTextPrimary
-import com.example.ui.theme.OneUiTextSecondary
+import com.example.ui.theme.MaterialTheme.colorScheme.surface
+import com.example.ui.theme.MaterialTheme.colorScheme.outline
+import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.background
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 fun LoginScreen(
