@@ -329,6 +329,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
           onLogin = { viewModel.signIn() },
+          onBack = { viewModel.navigateTo(ScreenState.WELCOME) },
           onRegister = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) },
           onForgotPassword = { viewModel.navigateTo(ScreenState.FORGOT_PASSWORD) }
         )
@@ -367,7 +368,8 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           onCountrySelected = { viewModel.selectCountry(it) },
           onPhoneNumberChanged = { viewModel.updatePhoneInput(it) },
           onSubmit = { viewModel.submitPhoneNumber() },
-          onBack = { viewModel.backFromPhoneSetup() }
+          onBack = { viewModel.backFromPhoneSetup() },
+          onLoginInstead = { viewModel.goToLoginFromRegistration() }
         )
       }
 
