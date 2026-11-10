@@ -57,8 +57,8 @@ import com.example.data.model.CallRecord
 import com.example.data.model.Contact
 import com.example.data.model.Country
 import com.example.ui.theme.CallGreen
-import com.example.ui.theme.OneUiTextPrimary
-import com.example.ui.theme.OneUiTextSecondary
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 fun KeypadScreen(
@@ -109,7 +109,7 @@ fun KeypadScreen(
             fieldValue = TextFieldValue(contact.phoneNumber, TextRange(contact.phoneNumber.length))
             onNumberChanged(contact.phoneNumber)
           }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.OneUiCardElevated), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
               Text(contact.avatarInitials, color = OneUiTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
