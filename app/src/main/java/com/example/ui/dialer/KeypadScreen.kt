@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.CallRecord
+import com.example.data.model.Contact
 import com.example.data.model.Country
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.OneUiTextPrimary
@@ -60,6 +61,7 @@ fun KeypadScreen(
   enteredNumber: String,
   selectedCountry: Country,
   callHistory: List<CallRecord>,
+  contacts: List<Contact>,
   onNumberChanged: (String) -> Unit,
   onCall: () -> Unit,
   onSelectSuggestion: (CallRecord) -> Unit,
