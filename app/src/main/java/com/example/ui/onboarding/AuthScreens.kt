@@ -73,6 +73,7 @@ fun LoginScreen(
   identifier: String,
   password: String,
   error: String?,
+  notice: String? = null,
   busy: Boolean,
   onIdentifierChanged: (String) -> Unit,
   onPasswordChanged: (String) -> Unit,
@@ -129,6 +130,13 @@ fun LoginScreen(
         style = MaterialTheme.typography.bodyMedium,
         color = OneUiTextSecondary
       )
+
+      if (notice != null) {
+        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = OneUiCardElevated), modifier = Modifier.fillMaxWidth()) {
+          Text(notice, modifier = Modifier.padding(14.dp), color = OneUiTextPrimary, style = MaterialTheme.typography.bodyMedium)
+        }
+        Spacer(Modifier.height(14.dp))
+      }
 
       Spacer(Modifier.height(28.dp))
 
