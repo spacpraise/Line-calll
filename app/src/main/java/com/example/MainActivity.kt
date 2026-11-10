@@ -72,6 +72,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 class MainActivity : ComponentActivity() {
   var pendingIncomingCallIntent by mutableStateOf<Intent?>(null)
     private set
+  var resumeCount by mutableStateOf(0)
+    private set
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -97,6 +99,7 @@ class MainActivity : ComponentActivity() {
 
   override fun onResume() {
     super.onResume()
+    resumeCount += 1
     LineCallUpdateManager.reconcileInstalledVersion(this)
     LineCallUpdateManager.schedule(this)
   }
@@ -212,8 +215,12 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
     }
   }
 
-  LaunchedEffect(Unit) {
+  val appResumeCount = hostActivity?.resumeCount ?: 0
+  LaunchedEffect(appResumeCount) {
     showUpdatePrompt = LineCallUpdateManager.hasPendingUpdate(context)
+  }
+
+  LaunchedEffect(Unit) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -412,6 +419,9 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
         SettingsScreen(
           currentUser = currentUser,
           onUpdateDisplayName = { viewModel.saveDisplayName(it) },
+          onUpdatePhoneNumber = { viewModel.updateProfilePhoneNumber(it) },
+          onUpdateEmail = { viewModel.updateProfileEmail(it) },
+          onAvatarSelected = { viewModel.updateProfileAvatar(it) },
           onSignOut = { viewModel.signOut() },
           onBack = { viewModel.navigateTo(ScreenState.MAIN_APP) }
         )
@@ -515,7 +525,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
     if (showUpdatePrompt && LineCallUpdateManager.hasPendingUpdate(context)) {
       AlertDialog(
         onDismissRequest = { showUpdatePrompt = false },
-        title = { Text("New Line Call update available") },
+        title = { Text("Downloaded Line Call update ready") },
         text = {
           androidx.compose.foundation.layout.Column {
             Text("Version ${LineCallUpdateManager.pendingVersion(context)}")
@@ -525,7 +535,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
               modifier = Modifier.padding(top = 10.dp)
             )
             Text(
-              "The downloaded update is saved on this phone. You can install it now or later.",
+              "This update is already downloaded and saved on this phone. Installing it will use the saved APK; it will not download it again.",
               modifier = Modifier.padding(top = 10.dp)
             )
           }
