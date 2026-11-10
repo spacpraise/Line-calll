@@ -72,13 +72,13 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.Contact
 import com.example.data.model.UserAccount
 import com.example.ui.theme.CallGreen
-import com.example.ui.theme.OneUiCardBackground
-import com.example.ui.theme.OneUiCardElevated
-import com.example.ui.theme.OneUiDarkBackground
-import com.example.ui.theme.OneUiNavPill
-import com.example.ui.theme.OneUiTextMuted
-import com.example.ui.theme.OneUiTextPrimary
-import com.example.ui.theme.OneUiTextSecondary
+import com.example.ui.theme.MaterialTheme.colorScheme.surface
+import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.background
+import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 /**
  * Contact Details Screen precisely matching Image 7:
@@ -191,7 +191,7 @@ fun ContactDetailScreen(
               Surface(
                 onClick = { onCall(contact) },
                 shape = CircleShape,
-                color = Color(0xFF26282E),
+                color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier
                   .size(48.dp)
                   .testTag("detail_call_btn")
@@ -627,7 +627,7 @@ fun AddContactOneUiScreen(
               modifier = Modifier
                 .width(1.dp)
                 .height(20.dp)
-                .background(Color(0xFF383B44))
+                .background(MaterialTheme.colorScheme.secondaryContainer)
             )
 
             Text(
