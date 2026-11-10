@@ -21,6 +21,13 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -380,6 +387,15 @@ fun ContactListRow(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val view = LocalView.current
+  val interaction = remember { MutableInteractionSource() }
+  val pressed by interaction.collectIsPressedAsState()
+  val pressScale by animateFloatAsState(
+    targetValue = if (pressed) 0.985f else 1f,
+    animationSpec = spring(dampingRatio = 0.62f, stiffness = 560f),
+    label = "contact_row_press"
+  )
+
   val avatarColors = listOf(
     Color(0xFFFCA5A5), // Soft peach/salmon
     Color(0xFF86EFAC), // Soft green
@@ -392,7 +408,15 @@ fun ContactListRow(
   Row(
     modifier = modifier
       .fillMaxWidth()
-      .clickable { onClick() }
+      .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+      .clickable(
+        interactionSource = interaction,
+        indication = null,
+        onClick = {
+          view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+          onClick()
+        }
+      )
       .padding(horizontal = 16.dp, vertical = 12.dp)
       .testTag("contact_row_${contact.name}"),
     verticalAlignment = Alignment.CenterVertically,
