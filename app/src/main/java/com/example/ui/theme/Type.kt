@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.sp
  * supported Android devices without shipping a large font asset.
  */
 val Typography = Typography(
-  defaultFontFamily = FontFamily.SansSerif,
   displayLarge = TextStyle(fontSize = 57.sp, lineHeight = 64.sp, fontWeight = FontWeight.Normal, letterSpacing = (-0.25).sp),
   displayMedium = TextStyle(fontSize = 45.sp, lineHeight = 52.sp, fontWeight = FontWeight.Normal),
   displaySmall = TextStyle(fontSize = 36.sp, lineHeight = 44.sp, fontWeight = FontWeight.Normal),

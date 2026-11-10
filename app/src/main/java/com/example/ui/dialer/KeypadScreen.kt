@@ -32,6 +32,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalView
@@ -213,9 +216,18 @@ private fun DialDigit(
   onLongClick: (() -> Unit)? = null
 ) {
   val view = LocalView.current
+  val interactionSource = remember { MutableInteractionSource() }
+  val pressed by interactionSource.collectIsPressedAsState()
+  val scale by animateFloatAsState(
+    targetValue = if (pressed) 0.90f else 1f,
+    animationSpec = spring(dampingRatio = 0.55f, stiffness = 600f),
+    label = "digit_press"
+  )
   Box(
-    Modifier.size(width = 86.dp, height = 58.dp).clip(CircleShape)
+    Modifier.size(width = 86.dp, height = 58.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
       .combinedClickable(
+        interactionSource = interactionSource,
+        indication = null,
         onClick = { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); onClick() },
         onLongClick = onLongClick
       ).testTag("keypad_btn_$digit"),

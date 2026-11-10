@@ -3,6 +3,7 @@ package com.example.ui.common
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +51,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -303,12 +309,23 @@ private fun OneUiNavTabItem(
   tag: String
 ) {
   val interactionSource = remember { MutableInteractionSource() }
+  val pressed by interactionSource.collectIsPressedAsState()
+  val scale by animateFloatAsState(
+    targetValue = if (pressed) 0.94f else 1f,
+    animationSpec = spring(dampingRatio = 0.62f, stiffness = 520f),
+    label = "nav_tab_press"
+  )
+  val view = LocalView.current
 
   Box(
     modifier = Modifier
+      .graphicsLayer { scaleX = scale; scaleY = scale }
       .clip(RoundedCornerShape(24.dp))
       .background(if (isSelected) OneUiNavActivePill else Color.Transparent)
-      .clickable(interactionSource = interactionSource, indication = null) { onClick() }
+      .clickable(interactionSource = interactionSource, indication = null) {
+        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+        onClick()
+      }
       .padding(horizontal = 18.dp, vertical = 8.dp)
       .testTag(tag),
     contentAlignment = Alignment.Center
