@@ -61,9 +61,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Contact
 import com.example.data.model.UserAccount
-import com.example.ui.theme.OneUiCardBackground
-import com.example.ui.theme.OneUiTextPrimary
-import com.example.ui.theme.OneUiTextSecondary
+import com.example.ui.theme.MaterialTheme.colorScheme.surface
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 import com.example.ui.theme.getFavoriteGradient
 
 /**
@@ -352,7 +352,7 @@ fun FavoriteCard(
         modifier = Modifier
           .size(54.dp)
           .clip(CircleShape)
-          .border(1.5.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+          .border(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
         contentAlignment = Alignment.Center
       ) {
         Text(
