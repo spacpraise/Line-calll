@@ -107,7 +107,7 @@ fun KeypadScreen(
             fieldValue = TextFieldValue(contact.phoneNumber, TextRange(contact.phoneNumber.length))
             onNumberChanged(contact.phoneNumber)
           }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
               Text(contact.avatarInitials, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
@@ -121,7 +121,7 @@ fun KeypadScreen(
             fieldValue = TextFieldValue(record.phoneNumber, TextRange(record.phoneNumber.length))
             onNumberChanged(record.phoneNumber)
           }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
               Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
             }
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
