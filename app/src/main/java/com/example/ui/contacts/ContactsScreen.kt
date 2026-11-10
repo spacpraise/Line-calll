@@ -24,11 +24,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -141,7 +141,7 @@ fun ContactsScreen(
           modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp)
         ) {
           Icon(
-            imageVector = Icons.Default.Star,
+            imageVector = Icons.Rounded.Star,
             contentDescription = null,
             tint = OneUiTextPrimary,
             modifier = Modifier.size(16.dp)
@@ -218,7 +218,7 @@ fun ContactsScreen(
               contentAlignment = Alignment.Center
             ) {
               Icon(
-                imageVector = Icons.Default.Person,
+                imageVector = Icons.Rounded.Person,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(24.dp)
@@ -254,7 +254,7 @@ fun ContactsScreen(
               contentAlignment = Alignment.Center
             ) {
               Icon(
-                imageVector = Icons.Default.Group,
+                imageVector = Icons.Rounded.Group,
                 contentDescription = null,
                 tint = Color(0xFFD1D5DB),
                 modifier = Modifier.size(22.dp)
@@ -403,7 +403,7 @@ fun ContactListRow(
       contentAlignment = Alignment.Center
     ) {
       Icon(
-        imageVector = Icons.Default.Person,
+        imageVector = Icons.Rounded.Person,
         contentDescription = null,
         tint = Color.White,
         modifier = Modifier.size(24.dp)

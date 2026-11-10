@@ -21,12 +21,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -103,7 +103,7 @@ fun LoginScreen(
         modifier = Modifier.testTag("login_back_button")
       ) {
         Icon(
-          imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+          imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
           contentDescription = "Back",
           tint = OneUiTextPrimary,
           modifier = Modifier.size(24.dp)
@@ -151,7 +151,7 @@ fun LoginScreen(
             label = { Text("Email or phone number", color = OneUiTextSecondary) },
             placeholder = { Text("name@example.com or +2348012345678", color = OneUiTextMuted) },
             leadingIcon = {
-              Icon(imageVector = Icons.Default.Email, contentDescription = null, tint = OneUiTextSecondary)
+              Icon(imageVector = Icons.Rounded.Email, contentDescription = null, tint = OneUiTextSecondary)
             },
             keyboardOptions = KeyboardOptions(
               keyboardType = KeyboardType.Text,
@@ -177,12 +177,12 @@ fun LoginScreen(
             singleLine = true,
             label = { Text("Password", color = OneUiTextSecondary) },
             leadingIcon = {
-              Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = OneUiTextSecondary)
+              Icon(imageVector = Icons.Rounded.Lock, contentDescription = null, tint = OneUiTextSecondary)
             },
             trailingIcon = {
               IconButton(onClick = { passwordVisible = !passwordVisible }) {
                 Icon(
-                  imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                  imageVector = if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
                   contentDescription = if (passwordVisible) "Hide password" else "Show password",
                   tint = OneUiTextSecondary
                 )
@@ -307,7 +307,7 @@ fun ForgotPasswordScreen(
       verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
       IconButton(onClick = onBack, modifier = Modifier.testTag("forgot_password_back")) {
-        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OneUiTextPrimary)
+        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = OneUiTextPrimary)
       }
       Text("Reset your password", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = OneUiTextPrimary)
       Text(
@@ -318,13 +318,13 @@ fun ForgotPasswordScreen(
         value = email, onValueChange = onEmailChanged, modifier = Modifier.fillMaxWidth().testTag("recovery_email_input"),
         label = { Text("Registered email address") }, placeholder = { Text("name@example.com") },
         singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) }, shape = RoundedCornerShape(14.dp)
+        leadingIcon = { Icon(Icons.Rounded.Email, contentDescription = null) }, shape = RoundedCornerShape(14.dp)
       )
       OutlinedTextField(
         value = phoneNumber, onValueChange = onPhoneChanged, modifier = Modifier.fillMaxWidth().testTag("recovery_phone_input"),
         label = { Text("Registered phone number") }, placeholder = { Text("+2348012345678") },
         singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
-        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) }, shape = RoundedCornerShape(14.dp),
+        leadingIcon = { Icon(Icons.Rounded.Phone, contentDescription = null) }, shape = RoundedCornerShape(14.dp),
         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); if (!busy) onSubmit() })
       )
       if (error != null) Text(error, color = CallRed, style = MaterialTheme.typography.bodySmall)
@@ -366,7 +366,7 @@ fun NewPasswordScreen(
         label = { Text("New password (at least 8 characters)") }, singleLine = true,
         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = { IconButton(onClick = { passwordVisible = !passwordVisible }) {
-          Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = "Toggle password visibility")
+          Icon(if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = "Toggle password visibility")
         } },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
         shape = RoundedCornerShape(14.dp)

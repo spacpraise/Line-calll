@@ -26,21 +26,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Business
+import androidx.compose.material.icons.rounded.Chat
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -119,7 +119,7 @@ fun ContactDetailScreen(
           modifier = Modifier.testTag("contact_detail_back")
         ) {
           Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = "Back",
             tint = OneUiTextPrimary,
             modifier = Modifier.size(24.dp)
@@ -172,7 +172,7 @@ fun ContactDetailScreen(
                 contentAlignment = Alignment.Center
               ) {
                 Icon(
-                  imageVector = Icons.Default.Person,
+                  imageVector = Icons.Rounded.Person,
                   contentDescription = null,
                   tint = Color.White,
                   modifier = Modifier.size(34.dp)
@@ -198,7 +198,7 @@ fun ContactDetailScreen(
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Icon(
-                    imageVector = Icons.Default.Phone,
+                    imageVector = Icons.Rounded.Phone,
                     contentDescription = "Call",
                     tint = CallGreen,
                     modifier = Modifier.size(22.dp)
@@ -215,7 +215,7 @@ fun ContactDetailScreen(
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Icon(
-                    imageVector = Icons.Default.Chat,
+                    imageVector = Icons.Rounded.Chat,
                     contentDescription = "Message",
                     tint = Color(0xFF38BDF8),
                     modifier = Modifier.size(20.dp)
@@ -231,7 +231,7 @@ fun ContactDetailScreen(
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Icon(
-                    imageVector = Icons.Default.Videocam,
+                    imageVector = Icons.Rounded.Videocam,
                     contentDescription = "Video",
                     tint = Color(0xFF10B981),
                     modifier = Modifier.size(24.dp)
@@ -259,7 +259,7 @@ fun ContactDetailScreen(
               color = OneUiTextPrimary
             )
             Icon(
-              imageVector = Icons.Default.Phone,
+              imageVector = Icons.Rounded.Phone,
               contentDescription = null,
               tint = CallGreen,
               modifier = Modifier.size(20.dp)
@@ -327,7 +327,7 @@ fun ContactDetailScreen(
               modifier = Modifier.clickable { onToggleFavorite(contact) }
             ) {
               Icon(
-                imageVector = if (contact.isFavorite) Icons.Default.Star else Icons.Outlined.StarBorder,
+                imageVector = if (contact.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 contentDescription = "Favourites",
                 tint = if (contact.isFavorite) Color(0xFFFBBF24) else OneUiTextSecondary,
                 modifier = Modifier.size(22.dp)
@@ -342,7 +342,7 @@ fun ContactDetailScreen(
             // Edit
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
               Icon(
-                imageVector = Icons.Default.Edit,
+                imageVector = Icons.Rounded.Edit,
                 contentDescription = "Edit",
                 tint = OneUiTextSecondary,
                 modifier = Modifier.size(22.dp)
@@ -363,7 +363,7 @@ fun ContactDetailScreen(
               }
             ) {
               Icon(
-                imageVector = Icons.Default.Delete,
+                imageVector = Icons.Rounded.Delete,
                 contentDescription = "Delete",
                 tint = OneUiTextSecondary,
                 modifier = Modifier.size(22.dp)
@@ -378,7 +378,7 @@ fun ContactDetailScreen(
             // More
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
               Icon(
-                imageVector = Icons.Default.MoreVert,
+                imageVector = Icons.Rounded.MoreVert,
                 contentDescription = "More",
                 tint = OneUiTextSecondary,
                 modifier = Modifier.size(22.dp)
@@ -451,7 +451,7 @@ fun AddContactOneUiScreen(
           color = OneUiTextPrimary
         )
         Icon(
-          imageVector = Icons.Default.KeyboardArrowDown,
+          imageVector = Icons.Rounded.KeyboardArrowDown,
           contentDescription = null,
           tint = OneUiTextSecondary,
           modifier = Modifier.size(18.dp)
@@ -532,7 +532,7 @@ fun AddContactOneUiScreen(
         ) {
           Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             OneUiFormField(
-              icon = Icons.Default.Person,
+              icon = Icons.Rounded.Person,
               value = name,
               onValueChange = { name = it },
               placeholder = "Name",
@@ -540,7 +540,7 @@ fun AddContactOneUiScreen(
             )
             HorizontalDivider(color = Color(0xFF26282E), thickness = 0.5.dp)
             OneUiFormField(
-              icon = Icons.Default.Phone,
+              icon = Icons.Rounded.Phone,
               value = phone,
               onValueChange = { phone = it },
               placeholder = "Phone",
@@ -549,7 +549,7 @@ fun AddContactOneUiScreen(
             )
             HorizontalDivider(color = Color(0xFF26282E), thickness = 0.5.dp)
             OneUiFormField(
-              icon = Icons.Default.Business,
+              icon = Icons.Rounded.Business,
               value = workInfo,
               onValueChange = { workInfo = it },
               placeholder = "Work info"
@@ -565,7 +565,7 @@ fun AddContactOneUiScreen(
         ) {
           Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             OneUiFormField(
-              icon = Icons.Default.Email,
+              icon = Icons.Rounded.Email,
               value = email,
               onValueChange = { email = it },
               placeholder = "Email",
@@ -582,7 +582,7 @@ fun AddContactOneUiScreen(
         ) {
           Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             OneUiFormField(
-              icon = Icons.Default.Group,
+              icon = Icons.Rounded.Group,
               value = "",
               onValueChange = { },
               placeholder = "Groups"

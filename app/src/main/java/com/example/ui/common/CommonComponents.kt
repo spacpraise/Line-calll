@@ -20,18 +20,15 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Dialpad
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Dialpad
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Dialpad
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -149,7 +146,7 @@ fun OneUiTopBar(
               .testTag("oneui_add_contact_top")
           ) {
             Icon(
-              imageVector = Icons.Default.Add,
+              imageVector = Icons.Rounded.Add,
               contentDescription = "Add Contact",
               tint = OneUiTextPrimary,
               modifier = Modifier.size(24.dp)
@@ -161,7 +158,7 @@ fun OneUiTopBar(
             modifier = Modifier.size(42.dp)
           ) {
             Icon(
-              imageVector = Icons.Default.FilterList,
+              imageVector = Icons.Rounded.FilterList,
               contentDescription = "Filters",
               tint = OneUiTextPrimary,
               modifier = Modifier.size(22.dp)
@@ -176,7 +173,7 @@ fun OneUiTopBar(
             .testTag("oneui_search_top")
         ) {
           Icon(
-            imageVector = Icons.Default.Search,
+            imageVector = Icons.Rounded.Search,
             contentDescription = "Search",
             tint = OneUiTextPrimary,
             modifier = Modifier.size(22.dp)
@@ -193,7 +190,7 @@ fun OneUiTopBar(
           ) {
             Box {
               Icon(
-                imageVector = Icons.Default.MoreVert,
+                imageVector = Icons.Rounded.MoreVert,
                 contentDescription = "More",
                 tint = OneUiTextPrimary,
                 modifier = Modifier.size(22.dp)
@@ -271,7 +268,7 @@ fun OneUiFloatingBottomNav(
       ) {
         OneUiNavTabItem(
           label = "Keypad",
-          icon = Icons.Default.Dialpad,
+          icon = Icons.Rounded.Dialpad,
           isSelected = selectedTab == MainTab.KEYPAD,
           onClick = { onTabSelected(MainTab.KEYPAD) },
           tag = "nav_keypad"
@@ -279,7 +276,7 @@ fun OneUiFloatingBottomNav(
 
         OneUiNavTabItem(
           label = "Recents",
-          icon = Icons.Default.History,
+          icon = Icons.Rounded.History,
           isSelected = selectedTab == MainTab.RECENTS,
           onClick = { onTabSelected(MainTab.RECENTS) },
           tag = "nav_recents"
@@ -287,7 +284,7 @@ fun OneUiFloatingBottomNav(
 
         OneUiNavTabItem(
           label = "Contacts",
-          icon = Icons.Default.Person,
+          icon = Icons.Rounded.Person,
           isSelected = selectedTab == MainTab.CONTACTS,
           onClick = { onTabSelected(MainTab.CONTACTS) },
           tag = "nav_contacts"

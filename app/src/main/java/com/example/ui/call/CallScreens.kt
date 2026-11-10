@@ -25,14 +25,14 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CallEnd
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.VolumeDown
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.rounded.CallEnd
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.VolumeDown
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -204,7 +204,7 @@ fun IncomingCallScreen(
           ) {
             Box(contentAlignment = Alignment.Center) {
               Icon(
-                imageVector = Icons.Default.CallEnd,
+                imageVector = Icons.Rounded.CallEnd,
                 contentDescription = "Decline Call",
                 tint = Color.White,
                 modifier = Modifier.size(34.dp)
@@ -231,7 +231,7 @@ fun IncomingCallScreen(
           ) {
             Box(contentAlignment = Alignment.Center) {
               Icon(
-                imageVector = Icons.Default.Phone,
+                imageVector = Icons.Rounded.Phone,
                 contentDescription = "Accept Call",
                 tint = Color.White,
                 modifier = Modifier.size(34.dp)
@@ -296,7 +296,7 @@ fun ActiveCallScreen(
             .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
           Icon(
-            imageVector = Icons.Outlined.Lock,
+            imageVector = Icons.Rounded.Lock,
             contentDescription = null,
             tint = CallGreen,
             modifier = Modifier.size(13.dp)
@@ -417,7 +417,7 @@ fun ActiveCallScreen(
             ) {
               Box(contentAlignment = Alignment.Center) {
                 Icon(
-                  imageVector = if (session.isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                  imageVector = if (session.isMuted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
                   contentDescription = if (session.isMuted) "Unmute" else "Mute",
                   tint = if (session.isMuted) Color.Black else Color.White,
                   modifier = Modifier.size(28.dp)
@@ -444,7 +444,7 @@ fun ActiveCallScreen(
             ) {
               Box(contentAlignment = Alignment.Center) {
                 Icon(
-                  imageVector = if (session.isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                  imageVector = if (session.isSpeakerOn) Icons.Rounded.VolumeUp else Icons.Rounded.VolumeDown,
                   contentDescription = if (session.isSpeakerOn) "Speaker Off" else "Speaker On",
                   tint = if (session.isSpeakerOn) Color.Black else Color.White,
                   modifier = Modifier.size(28.dp)
@@ -472,7 +472,7 @@ fun ActiveCallScreen(
         ) {
           Box(contentAlignment = Alignment.Center) {
             Icon(
-              imageVector = Icons.Default.CallEnd,
+              imageVector = Icons.Rounded.CallEnd,
               contentDescription = "End Call",
               tint = Color.White,
               modifier = Modifier.size(34.dp)

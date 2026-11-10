@@ -25,11 +25,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -80,7 +80,7 @@ fun SettingsScreen(
         verticalAlignment = Alignment.CenterVertically
       ) {
         IconButton(onClick = onBack) {
-          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+          Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
         }
         Text(
           text = "Settings",
@@ -126,7 +126,7 @@ fun SettingsScreen(
                 )
               }
               IconButton(onClick = { newName = currentUser?.displayName.orEmpty(); showEditNameDialog = true }) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit name", tint = CallGreen)
+                Icon(Icons.Rounded.Edit, contentDescription = "Edit name", tint = CallGreen)
               }
             }
 
@@ -172,7 +172,7 @@ fun SettingsScreen(
               modifier = Modifier.fillMaxWidth().padding(16.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
-              Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+              Icon(Icons.Rounded.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
               Spacer(Modifier.width(14.dp))
               Column {
                 Text("Notifications", fontWeight = FontWeight.SemiBold)
@@ -188,7 +188,7 @@ fun SettingsScreen(
               modifier = Modifier.fillMaxWidth().padding(16.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
-              Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+              Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
               Spacer(Modifier.width(14.dp))
               Column {
                 Text("Microphone", fontWeight = FontWeight.SemiBold)
@@ -206,7 +206,7 @@ fun SettingsScreen(
           onClick = onSignOut,
           modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
-          Icon(Icons.Default.ExitToApp, contentDescription = null, tint = CallRed)
+          Icon(Icons.Rounded.ExitToApp, contentDescription = null, tint = CallRed)
           Spacer(Modifier.width(8.dp))
           Text("Sign out", color = CallRed, fontWeight = FontWeight.SemiBold)
         }

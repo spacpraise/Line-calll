@@ -17,8 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.automirrored.rounded.Backspace
+import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -181,7 +181,7 @@ fun KeypadScreen(
           modifier = Modifier.size(64.dp).testTag("keypad_backspace")
         ) {
           Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Delete digit",
+            Icon(Icons.AutoMirrored.Rounded.Backspace, contentDescription = "Delete digit",
               tint = OneUiTextPrimary, modifier = Modifier.size(25.dp))
           }
         }
@@ -192,7 +192,7 @@ fun KeypadScreen(
           modifier = Modifier.size(64.dp).testTag("call_action_button")
         ) {
           Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color.White, modifier = Modifier.size(30.dp))
+            Icon(Icons.Rounded.Phone, contentDescription = "Call", tint = Color.White, modifier = Modifier.size(30.dp))
           }
         }
       }

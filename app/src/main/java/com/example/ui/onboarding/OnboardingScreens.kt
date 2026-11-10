@@ -25,14 +25,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -90,7 +90,7 @@ fun EmailEntryScreen(
     ) {
       Column {
         IconButton(onClick = onBack, modifier = Modifier.testTag("auth_back_button")) {
-          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+          Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
         }
         Spacer(Modifier.height(28.dp))
         Text("Create your account", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
@@ -106,7 +106,7 @@ fun EmailEntryScreen(
           singleLine = true,
           keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
           keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); onContinue() }),
-          leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+          leadingIcon = { Icon(Icons.Rounded.Email, contentDescription = null) },
           shape = RoundedCornerShape(12.dp)
         )
         if (error != null) {
@@ -143,7 +143,7 @@ fun PasswordSetupScreen(
         .padding(horizontal = 24.dp, vertical = 16.dp).verticalScroll(rememberScrollState())
     ) {
       IconButton(onClick = onBack, modifier = Modifier.testTag("password_setup_back")) {
-        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
       }
       Spacer(Modifier.height(24.dp))
       Text("Create a password", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
@@ -220,7 +220,7 @@ fun WelcomeScreen(
           contentAlignment = Alignment.Center
         ) {
           Icon(
-            imageVector = Icons.Default.Phone,
+            imageVector = Icons.Rounded.Phone,
             contentDescription = "Line Call Logo",
             tint = CallGreen,
             modifier = Modifier.size(42.dp)
@@ -318,14 +318,14 @@ fun RegistrationScreen(
   Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 24.dp, vertical = 16.dp).verticalScroll(rememberScrollState())) {
       IconButton(onClick = { focusManager.clearFocus(force = true); onBack() }, modifier = Modifier.testTag("auth_back_button")) {
-        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
       }
       Spacer(Modifier.height(20.dp))
       Text("Create your account", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onBackground)
       Spacer(Modifier.height(8.dp))
       Text("Enter your email and choose a password. No verification link is required.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
       Spacer(Modifier.height(24.dp))
-      OutlinedTextField(value = email, onValueChange = onEmailChanged, modifier = Modifier.fillMaxWidth().testTag("email_input"), label = { Text("Email address") }, placeholder = { Text("name@example.com") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) }, shape = RoundedCornerShape(12.dp))
+      OutlinedTextField(value = email, onValueChange = onEmailChanged, modifier = Modifier.fillMaxWidth().testTag("email_input"), label = { Text("Email address") }, placeholder = { Text("name@example.com") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), leadingIcon = { Icon(Icons.Rounded.Email, contentDescription = null) }, shape = RoundedCornerShape(12.dp))
       Spacer(Modifier.height(14.dp))
       OutlinedTextField(value = password, onValueChange = onPasswordChanged, modifier = Modifier.fillMaxWidth().testTag("register_password_input"), label = { Text("Create password (min 8 characters)") }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next), shape = RoundedCornerShape(12.dp))
       Spacer(Modifier.height(14.dp))
@@ -372,7 +372,7 @@ fun PhoneNumberSetupScreen(
         modifier = Modifier.testTag("phone_setup_back")
       ) {
         Icon(
-          imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+          imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
           contentDescription = "Back",
           tint = MaterialTheme.colorScheme.onBackground
         )
@@ -434,7 +434,7 @@ fun PhoneNumberSetupScreen(
               color = MaterialTheme.colorScheme.secondary
             )
             Icon(
-              imageVector = Icons.Default.KeyboardArrowDown,
+              imageVector = Icons.Rounded.KeyboardArrowDown,
               contentDescription = "Select country",
               tint = MaterialTheme.colorScheme.secondary
             )
@@ -583,7 +583,7 @@ fun PhoneNumberSetupScreen(
             value = countrySearch,
             onValueChange = { countrySearch = it },
             placeholder = { Text("Search country or code...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = {
@@ -711,7 +711,7 @@ fun ProfileSetupScreen(
             )
           } else {
             Icon(
-              imageVector = Icons.Default.Person,
+              imageVector = Icons.Rounded.Person,
               contentDescription = null,
               tint = MaterialTheme.colorScheme.secondary,
               modifier = Modifier.size(46.dp)

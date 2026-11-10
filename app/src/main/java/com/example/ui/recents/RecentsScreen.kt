@@ -20,12 +20,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.CallMade
-import androidx.compose.material.icons.automirrored.filled.CallMissed
-import androidx.compose.material.icons.automirrored.filled.CallReceived
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.CallMade
+import androidx.compose.material.icons.automirrored.rounded.CallMissed
+import androidx.compose.material.icons.automirrored.rounded.CallReceived
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -124,7 +124,7 @@ fun RecentsScreen(
                 .align(Alignment.TopEnd)
             ) {
               Icon(
-                imageVector = Icons.Default.Close,
+                imageVector = Icons.Rounded.Close,
                 contentDescription = "Dismiss",
                 tint = OneUiTextSecondary,
                 modifier = Modifier.size(16.dp)
@@ -192,7 +192,7 @@ fun RecentsScreen(
                 color = CallGreen
               )
               Icon(
-                imageVector = Icons.Default.Close,
+                imageVector = Icons.Rounded.Close,
                 contentDescription = "Clear filter",
                 tint = OneUiTextSecondary,
                 modifier = Modifier
@@ -225,7 +225,7 @@ fun RecentsScreen(
             contentAlignment = Alignment.Center
           ) {
             Icon(
-              imageVector = Icons.Default.History,
+              imageVector = Icons.Rounded.History,
               contentDescription = null,
               tint = OneUiTextSecondary,
               modifier = Modifier.size(32.dp)
@@ -372,7 +372,7 @@ fun OneUiCallRecordRow(
       when (record.type) {
         CallType.OUTGOING -> {
           Icon(
-            imageVector = Icons.AutoMirrored.Filled.CallMade,
+            imageVector = Icons.AutoMirrored.Rounded.CallMade,
             contentDescription = "Outgoing",
             tint = CallGreen,
             modifier = Modifier.size(16.dp)
@@ -380,7 +380,7 @@ fun OneUiCallRecordRow(
         }
         CallType.INCOMING -> {
           Icon(
-            imageVector = Icons.AutoMirrored.Filled.CallReceived,
+            imageVector = Icons.AutoMirrored.Rounded.CallReceived,
             contentDescription = "Incoming",
             tint = OneUiTextSecondary,
             modifier = Modifier.size(16.dp)
@@ -388,7 +388,7 @@ fun OneUiCallRecordRow(
         }
         CallType.MISSED -> {
           Icon(
-            imageVector = Icons.AutoMirrored.Filled.CallMissed,
+            imageVector = Icons.AutoMirrored.Rounded.CallMissed,
             contentDescription = "Missed",
             tint = CallRed,
             modifier = Modifier.size(16.dp)
