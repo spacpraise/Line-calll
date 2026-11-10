@@ -201,7 +201,17 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
       }
     }
     viewModelScope.launch {
-      val restoredUser = authService.restoreSession()
+      var restoredUser: UserAccount? = null
+      // Do not interpret a temporary network failure as a sign-out. Keep the
+      // startup screen in place and retry while an encrypted refresh token exists.
+      while (restoredUser == null && supabase.hasStoredSession()) {
+        try {
+          restoredUser = authService.restoreSession()
+        } catch (error: Exception) {
+          Log.w("LineCallAuth", "Session restoration failed temporarily; retrying.", error)
+          delay(3_000L)
+        }
+      }
       if (restoredUser != null) {
         userProfileService.setUser(restoredUser)
         _emailInput.value = restoredUser.email
