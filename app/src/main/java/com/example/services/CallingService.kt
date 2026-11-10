@@ -70,6 +70,7 @@ class CallingService(
   private var incomingPollJob: Job? = null
   private var outgoingPollJob: Job? = null
   private var incomingWatchJob: Job? = null
+  private var callHeartbeatJob: Job? = null
 
   fun validateNumber(e164: String): Boolean = userProfileService.validateE164(e164)
 
@@ -291,6 +292,7 @@ class CallingService(
     if (_activeCall.value?.callId == callId) {
       _activeCall.value = session.copy(state = CallSessionState.CONNECTED)
       startDurationTimer()
+      startCallHeartbeat(callId)
     }
   }
 
@@ -399,6 +401,23 @@ class CallingService(
     ringbackTone = null
   }
 
+  private fun startCallHeartbeat(callId: String) {
+    callHeartbeatJob?.cancel()
+    callHeartbeatJob = coroutineScope.launch(Dispatchers.IO) {
+      while (isActive && _activeCall.value?.callId == callId) {
+        delay(30_000)
+        if (!isActive || _activeCall.value?.callId != callId) break
+        // A short server-side lease prevents abandoned accepted calls from blocking
+        // the caller and recipient forever after a process or network failure.
+        runCatching {
+          supabase.callFunction(
+            JSONObject().put("action", "heartbeat").put("call_id", callId)
+          )
+        }
+      }
+    }
+  }
+
   private fun startDurationTimer() {
     timerJob?.cancel()
     timerJob = coroutineScope.launch {
@@ -414,6 +433,8 @@ class CallingService(
   }
 
   private fun stopCallSession() {
+    callHeartbeatJob?.cancel()
+    callHeartbeatJob = null
     stopIncomingRingtone()
     stopRingbackTone()
     timerJob?.cancel()
