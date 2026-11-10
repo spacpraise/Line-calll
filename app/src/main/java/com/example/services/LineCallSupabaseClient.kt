@@ -24,6 +24,8 @@ import javax.crypto.spec.GCMParameterSpec
  * Small REST client for Supabase Auth, PostgREST and Edge Functions.
  * The publishable key is intentionally a client-side key; access is restricted by RLS.
  */
+data class AccountLookupResult(val exists: Boolean, val displayName: String = "", val avatarUrl: String? = null)
+
 class LineCallSupabaseClient(context: Context) {
   private val http = OkHttpClient.Builder().build()
   private val secureStore = SecureSessionStore(context.applicationContext)
@@ -33,7 +35,7 @@ class LineCallSupabaseClient(context: Context) {
     get() = BackendConfig.SUPABASE_URL.isNotBlank() &&
       BackendConfig.SUPABASE_ANON_KEY.isNotBlank()
 
-  suspend fun checkEmailExists(email: String): Result<Boolean> = withContext(Dispatchers.IO) {
+  suspend fun checkEmailExists(email: String): Result<AccountLookupResult> = withContext(Dispatchers.IO) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
       val response = execute(
@@ -43,7 +45,11 @@ class LineCallSupabaseClient(context: Context) {
           .post(JSONObject().put("email", email.trim().lowercase()).toString().toRequestBody(jsonType))
           .build()
       )
-      response.optBoolean("exists")
+      AccountLookupResult(
+        exists = response.optBoolean("exists"),
+        displayName = response.optString("display_name").takeUnless { it == "null" }.orEmpty(),
+        avatarUrl = response.optString("avatar_url").takeUnless { it.isBlank() || it == "null" }
+      )
     }
   }
 
