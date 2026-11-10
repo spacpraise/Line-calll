@@ -16,7 +16,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -42,6 +42,14 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
       - name: Run unit tests and build APK
         run: gradle --no-daemon --console=plain :app:testDebugUnitTest :app:assembleDebug --stacktrace
+      - name: Run Android UI regression tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: gradle --no-daemon --console=plain :app:connectedDebugAndroidTest
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
