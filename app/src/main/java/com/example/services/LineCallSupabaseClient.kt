@@ -105,9 +105,11 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
+  fun hasStoredSession(): Boolean = secureStore.hasValidStoredRefreshToken()
+
   suspend fun restoreSession(): UserAccount? = withContext(Dispatchers.IO) {
-    runCatching {
-      val refreshToken = secureStore.get("refresh_token") ?: return@runCatching null
+    val refreshToken = secureStore.get("refresh_token") ?: return@withContext null
+    try {
       val expiry = secureStore.get("expires_at")?.toLongOrNull() ?: 0L
       if (expiry <= System.currentTimeMillis() / 1000 + 60) {
         val refreshed = execute(
@@ -121,7 +123,16 @@ class LineCallSupabaseClient(context: Context) {
       }
       val authUser = getAuthenticatedUserBlocking()
       getOrCreateProfileBlocking(authUser)
-    }.getOrNull()
+    } catch (error: HttpStatusException) {
+      // A revoked/deleted/expired account is genuinely signed out. Network failures
+      // are allowed to propagate so startup can retry without showing onboarding.
+      if (error.statusCode == 400 || error.statusCode == 401) {
+        secureStore.clear()
+        null
+      } else {
+        throw error
+      }
+    }
   }
 
   suspend fun savePhoneNumber(user: UserAccount, phoneNumber: String): Result<UserAccount> = withContext(Dispatchers.IO) {
@@ -401,13 +412,15 @@ class LineCallSupabaseClient(context: Context) {
             }
           }
         }.getOrDefault(raw)
-        throw IOException(message.ifBlank { "Supabase request failed (${response.code})." })
+        throw HttpStatusException(response.code, message.ifBlank { "Supabase request failed (${response.code})." })
       }
       if (raw.isBlank()) return JSONObject()
       return if (raw.trimStart().startsWith("[")) JSONObject().put("data", JSONArray(raw)) else JSONObject(raw)
     }
   }
 }
+
+private class HttpStatusException(val statusCode: Int, message: String) : IOException(message)
 
 /** Encrypts session material with a key held in Android Keystore. */
 private class SecureSessionStore(context: Context) {
@@ -448,6 +461,18 @@ private class SecureSessionStore(context: Context) {
     cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
     String(cipher.doFinal(encrypted), Charsets.UTF_8)
   }.getOrNull()
+
+  fun hasValidStoredRefreshToken(): Boolean {
+    val stored = prefs.contains("refresh_token")
+    if (!stored) return false
+    val token = get("refresh_token")
+    if (token.isNullOrBlank()) {
+      // The encrypted value can no longer be decrypted (for example, after key loss).
+      clear()
+      return false
+    }
+    return true
+  }
 
   fun remove(name: String) {
     prefs.edit().remove(name).apply()
