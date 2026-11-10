@@ -130,6 +130,8 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val confirmNewPassword: StateFlow<String> = _confirmNewPassword.asStateFlow()
 
   private var isCompletingRegistration = false
+  private var emailChangeAwaitingConfirmation = false
+  private var emailBeforeChange = ""
 
   private val _phoneInput = MutableStateFlow("")
   val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
@@ -476,8 +478,10 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   fun updateProfileEmail(email: String) {
     viewModelScope.launch {
+      emailBeforeChange = userProfileService.currentUser.value?.email.orEmpty()
       val result = userProfileService.updateEmail(email)
       result.onSuccess {
+        emailChangeAwaitingConfirmation = true
         _backendNotice.value = BackendNoticeState(
           title = "Confirm your new email",
           message = "A confirmation link has been sent to the new email address. Your Line Call email will change after you confirm it. Until then, keep signing in with your current email.",
@@ -491,6 +495,21 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           targetNumber = "",
           targetName = null
         )
+      }
+    }
+  }
+
+  fun refreshProfileAfterAppResume() {
+    if (!emailChangeAwaitingConfirmation) return
+    viewModelScope.launch {
+      userProfileService.refreshCurrentUser().onSuccess { refreshed ->
+        if (refreshed.email.isNotBlank()) {
+          _emailInput.value = refreshed.email
+          _loginIdentifier.value = refreshed.email
+        }
+        if (refreshed.email.isNotBlank() && !refreshed.email.equals(emailBeforeChange, ignoreCase = true)) {
+          emailChangeAwaitingConfirmation = false
+        }
       }
     }
   }
