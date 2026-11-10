@@ -17,6 +17,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -346,10 +353,27 @@ fun OneUiCallRecordRow(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val view = LocalView.current
+  val interaction = remember { MutableInteractionSource() }
+  val pressed by interaction.collectIsPressedAsState()
+  val pressScale by animateFloatAsState(
+    targetValue = if (pressed) 0.985f else 1f,
+    animationSpec = spring(dampingRatio = 0.62f, stiffness = 560f),
+    label = "recent_row_press"
+  )
+
   Row(
     modifier = modifier
       .fillMaxWidth()
-      .clickable { onClick() }
+      .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+      .clickable(
+        interactionSource = interaction,
+        indication = null,
+        onClick = {
+          view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+          onClick()
+        }
+      )
       .padding(horizontal = 16.dp, vertical = 14.dp)
       .testTag("recent_row_${record.phoneNumber}"),
     verticalAlignment = Alignment.CenterVertically,
