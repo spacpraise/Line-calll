@@ -650,6 +650,7 @@ fun PhoneNumberSetupScreen(
 @Composable
 fun ProfileSetupScreen(
   displayName: String,
+  error: String?,
   onDisplayNameChanged: (String) -> Unit,
   onComplete: () -> Unit,
   onSkip: () -> Unit
@@ -762,6 +763,15 @@ fun ProfileSetupScreen(
           unfocusedBorderColor = MaterialTheme.colorScheme.outline
         )
       )
+
+      if (error != null) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+          text = error,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.error
+        )
+      }
 
       Spacer(modifier = Modifier.weight(1f))
 
