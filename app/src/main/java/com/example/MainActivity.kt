@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,7 +65,6 @@ import com.example.ui.onboarding.NewPasswordScreen
 import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
-import com.example.ui.theme.OneUiDarkBackground
 import com.example.update.LineCallUpdateManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -293,7 +293,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   Box(
     modifier = Modifier
       .fillMaxSize()
-      .background(OneUiDarkBackground)
+      .background(MaterialTheme.colorScheme.background)
   ) {
     when (currentScreen) {
       ScreenState.BOOTING -> {
@@ -309,7 +309,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           )
           androidx.compose.material3.Text(
             text = "Line Call",
-            color = androidx.compose.ui.graphics.Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(top = 18.dp, bottom = 18.dp)
           )
@@ -430,7 +430,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
 
       ScreenState.MAIN_APP -> {
         Scaffold(
-          containerColor = OneUiDarkBackground,
+          containerColor = MaterialTheme.colorScheme.background,
           contentWindowInsets = WindowInsets(0, 0, 0, 0),
           topBar = {
             OneUiTopBar(
