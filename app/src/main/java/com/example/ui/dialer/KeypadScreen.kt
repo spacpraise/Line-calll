@@ -18,9 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -137,6 +134,8 @@ fun KeypadScreen(
         }
       }
     } else { Spacer(Modifier.height(8.dp)) }
+    // Keep the number display directly above the keypad, not in the upper half.
+    Spacer(Modifier.weight(1f))
     Box(Modifier.fillMaxWidth().height(54.dp), contentAlignment = Alignment.Center) {
       BasicTextField(
         value = fieldValue,
@@ -150,7 +149,6 @@ fun KeypadScreen(
         } }
       )
     }
-    Spacer(Modifier.weight(1f))
 
     Column(
       modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
