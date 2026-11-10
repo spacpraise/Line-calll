@@ -1,6 +1,7 @@
 package com.example.ui.dialer
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -134,12 +135,15 @@ fun KeypadScreen(
     }
 
     if (suggestions.isNotEmpty()) {
-      Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+      Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text("RECENT MATCHES", color = OneUiTextSecondary, fontSize = 10.sp,
           letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold)
         suggestions.forEach { record ->
           Surface(
-            onClick = { onSelectSuggestion(record) },
+            onClick = {
+              view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+              onSelectSuggestion(record)
+            },
             shape = RoundedCornerShape(12.dp),
             color = Color(0xFF1C1E23),
             modifier = Modifier.fillMaxWidth()
