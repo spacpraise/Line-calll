@@ -295,7 +295,7 @@ fun ContactsScreen(
     } else {
       item {
         Text(
-          text = if (searchQuery.isEmpty()) "&" else "Search results",
+          text = if (searchQuery.isEmpty()) "All contacts" else "Search results",
           style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
           color = OneUiTextSecondary,
           modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
