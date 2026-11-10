@@ -450,7 +450,9 @@ private class SecureSessionStore(context: Context) {
     cipher.init(Cipher.ENCRYPT_MODE, key())
     val encrypted = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
     val combined = cipher.iv + encrypted
-    prefs.edit().putString(name, Base64.encodeToString(combined, Base64.NO_WRAP)).apply()
+    check(prefs.edit().putString(name, Base64.encodeToString(combined, Base64.NO_WRAP)).commit()) {
+      "Could not securely save the sign-in session."
+    }
   }
 
   fun get(name: String): String? = runCatching {
@@ -479,6 +481,6 @@ private class SecureSessionStore(context: Context) {
   }
 
   fun clear() {
-    prefs.edit().clear().apply()
+    prefs.edit().clear().commit()
   }
 }
