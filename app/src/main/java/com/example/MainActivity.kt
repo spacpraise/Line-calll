@@ -542,9 +542,12 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
         },
         confirmButton = {
           Button(onClick = {
-            showUpdatePrompt = false
-            LineCallUpdateManager.installPending(context)
-          }) { Text("Install update") }
+            val launched = LineCallUpdateManager.installPending(context)
+            showUpdatePrompt = !launched
+            if (!launched) {
+              Toast.makeText(context, "The saved update could not be opened. It is still available to try again.", Toast.LENGTH_LONG).show()
+            }
+          }) { Text("Install downloaded update") }
         },
         dismissButton = {
           TextButton(onClick = { showUpdatePrompt = false }) { Text("Not now") }
