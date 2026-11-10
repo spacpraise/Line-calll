@@ -33,7 +33,7 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
 
       - name: Set up Java
         uses: actions/setup-java@v4
