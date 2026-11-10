@@ -225,6 +225,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   }
 
   fun checkEmailAndContinue() {
+    if (_isAuthBusy.value) return
     val email = _emailInput.value.trim()
     if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
       _authError.value = "Enter a valid email address."
