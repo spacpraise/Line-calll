@@ -417,11 +417,11 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
             modifier = Modifier
               .fillMaxSize()
               .padding(innerPadding)
-              .padding(bottom = if (selectedTab == MainTab.KEYPAD) 104.dp else 0.dp)
           ) {
             when (selectedTab) {
               MainTab.KEYPAD -> {
                 KeypadScreen(
+                  modifier = Modifier.fillMaxSize().padding(bottom = 112.dp),
                   enteredNumber = enteredNumber,
                   selectedCountry = selectedCountry,
                   callHistory = callHistory,
