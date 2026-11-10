@@ -10,7 +10,6 @@ import com.example.ui.onboarding.EmailEntryScreen
 import com.example.ui.onboarding.LoginScreen
 import com.example.ui.onboarding.PhoneNumberSetupScreen
 import com.example.ui.theme.LineCallTheme
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -42,9 +41,8 @@ class AuthFlowUiTest {
   }
 
   @Test
-  fun loginBackButtonReturnsToWelcomeInsteadOfRegistration() {
+  fun loginBackButtonReturnsToEmailEntry() {
     var wentBack = false
-    var openedRegistration = false
     composeRule.setContent {
       LineCallTheme {
         LoginScreen(
@@ -56,7 +54,6 @@ class AuthFlowUiTest {
           onPasswordChanged = {},
           onLogin = {},
           onBack = { wentBack = true },
-          onRegister = { openedRegistration = true },
           onForgotPassword = {}
         )
       }
@@ -64,7 +61,6 @@ class AuthFlowUiTest {
     composeRule.onNodeWithTag("login_back_button").performClick()
     composeRule.runOnIdle {
       assertTrue(wentBack)
-      assertFalse(openedRegistration)
     }
   }
 
