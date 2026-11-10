@@ -217,12 +217,10 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         _emailInput.value = restoredUser.email
         _phoneInput.value = restoredUser.phoneNumber
         _displayNameInput.value = restoredUser.displayName
-        if (restoredUser.phoneNumber.isBlank()) {
-          _currentScreen.value = ScreenState.PHONE_SETUP
-        } else {
-          _currentScreen.value = ScreenState.MAIN_APP
-          startIncomingCallPollingIfForeground()
-        }
+        // A valid restored session always returns to the app. Missing profile
+        // details can be completed later from Settings, not through onboarding.
+        _currentScreen.value = ScreenState.MAIN_APP
+        startIncomingCallPollingIfForeground()
       } else {
         _currentScreen.value = ScreenState.WELCOME
       }
@@ -332,11 +330,10 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         _phoneInput.value = user.phoneNumber
         _displayNameInput.value = user.displayName
         _passwordInput.value = ""
-        if (user.phoneNumber.isBlank()) _currentScreen.value = ScreenState.PHONE_SETUP
-        else {
-          _currentScreen.value = ScreenState.MAIN_APP
-          startIncomingCallPollingIfForeground()
-        }
+        // Successful authentication must not send an existing account back
+        // through registration screens, even if optional profile details are absent.
+        _currentScreen.value = ScreenState.MAIN_APP
+        startIncomingCallPollingIfForeground()
         _authError.value = null
         _authNotice.value = null
       }.onFailure { _authError.value = it.message ?: "Could not sign in. Check your details." }
