@@ -348,7 +348,8 @@ fun PhoneNumberSetupScreen(
   onCountrySelected: (Country) -> Unit,
   onPhoneNumberChanged: (String) -> Unit,
   onSubmit: () -> Unit,
-  onBack: () -> Unit
+  onBack: () -> Unit,
+  onLoginInstead: () -> Unit
 ) {
   val focusManager = LocalFocusManager.current
   var showCountryPicker by remember { mutableStateOf(false) }
@@ -483,6 +484,17 @@ fun PhoneNumberSetupScreen(
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.error
         )
+        if (error.contains("already exists", ignoreCase = true)) {
+          TextButton(
+            onClick = {
+              focusManager.clearFocus(force = true)
+              onLoginInstead()
+            },
+            modifier = Modifier.fillMaxWidth().testTag("existing_account_login_button")
+          ) {
+            Text("Already have an account? Log in", color = CallGreen, fontWeight = FontWeight.SemiBold)
+          }
+        }
       }
 
       Spacer(modifier = Modifier.height(20.dp))
