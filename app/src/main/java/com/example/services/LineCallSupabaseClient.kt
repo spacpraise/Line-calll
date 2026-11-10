@@ -33,6 +33,20 @@ class LineCallSupabaseClient(context: Context) {
     get() = BackendConfig.SUPABASE_URL.isNotBlank() &&
       BackendConfig.SUPABASE_ANON_KEY.isNotBlank()
 
+  suspend fun checkEmailExists(email: String): Result<Boolean> = withContext(Dispatchers.IO) {
+    runCatching {
+      check(isConfigured) { "Supabase is not configured." }
+      val response = execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/functions/v1/check-account")
+          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+          .post(JSONObject().put("email", email.trim().lowercase()).toString().toRequestBody(jsonType))
+          .build()
+      )
+      response.optBoolean("exists")
+    }
+  }
+
   suspend fun signUpWithPassword(email: String, password: String, phoneNumber: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
