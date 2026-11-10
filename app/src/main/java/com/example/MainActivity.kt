@@ -20,6 +20,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +65,7 @@ import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
 import com.example.ui.theme.OneUiDarkBackground
+import com.example.update.LineCallUpdateManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -73,7 +78,11 @@ class MainActivity : ComponentActivity() {
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
     if (pendingIncomingCallIntent != null) setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
     enableEdgeToEdge()
+    LineCallUpdateManager.schedule(this)
     setContent { LineCallTheme { LineCallApp() } }
+    if (intent.getBooleanExtra("linecall_install_update", false)) {
+      window.decorView.post { LineCallUpdateManager.installPending(this) }
+    }
   }
 
   override fun onNewIntent(intent: Intent) {
@@ -81,6 +90,15 @@ class MainActivity : ComponentActivity() {
     setIntent(intent)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
     if (pendingIncomingCallIntent != null) setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
+    if (intent.getBooleanExtra("linecall_install_update", false)) {
+      window.decorView.post { LineCallUpdateManager.installPending(this) }
+    }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    LineCallUpdateManager.reconcileInstalledVersion(this)
+    LineCallUpdateManager.schedule(this)
   }
 
   fun setCallWindowMode(showOnLockScreen: Boolean, wakeScreen: Boolean) {
@@ -144,6 +162,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   }
 
   var pendingMicrophoneAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+  var showUpdatePrompt by remember { mutableStateOf(false) }
 
   LaunchedEffect(pendingCallIntent) {
     if (pendingCallIntent != null) {
@@ -194,6 +213,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   }
 
   LaunchedEffect(Unit) {
+    showUpdatePrompt = LineCallUpdateManager.hasPendingUpdate(context)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -488,6 +508,36 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
         onSave = { name, phone ->
           viewModel.addContact(name, phone)
           viewModel.setShowAddContactScreen(false)
+        }
+      )
+    }
+
+    if (showUpdatePrompt && LineCallUpdateManager.hasPendingUpdate(context)) {
+      AlertDialog(
+        onDismissRequest = { showUpdatePrompt = false },
+        title = { Text("New Line Call update available") },
+        text = {
+          androidx.compose.foundation.layout.Column {
+            Text("Version ${LineCallUpdateManager.pendingVersion(context)}")
+            Text(
+              LineCallUpdateManager.pendingNotes(context).trim().take(900)
+                .ifBlank { "Bug fixes and improvements are ready to install." },
+              modifier = Modifier.padding(top = 10.dp)
+            )
+            Text(
+              "The downloaded update is saved on this phone. You can install it now or later.",
+              modifier = Modifier.padding(top = 10.dp)
+            )
+          }
+        },
+        confirmButton = {
+          Button(onClick = {
+            showUpdatePrompt = false
+            LineCallUpdateManager.installPending(context)
+          }) { Text("Install update") }
+        },
+        dismissButton = {
+          TextButton(onClick = { showUpdatePrompt = false }) { Text("Not now") }
         }
       )
     }
