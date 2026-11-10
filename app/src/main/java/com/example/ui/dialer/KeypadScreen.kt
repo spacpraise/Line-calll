@@ -162,7 +162,7 @@ fun KeypadScreen(
       verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
       listOf(listOf("1","2","3"), listOf("4","5","6"), listOf("7","8","9")).forEach { row ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-          row.forEach { digit -> DialDigit(digit) { insertDigit(digit) } }
+          row.forEach { digit -> DialDigit(digit, onClick = { insertDigit(digit) }) }
         }
       }
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
