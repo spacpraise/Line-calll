@@ -57,8 +57,6 @@ import com.example.data.model.CallRecord
 import com.example.data.model.Contact
 import com.example.data.model.Country
 import com.example.ui.theme.CallGreen
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 fun KeypadScreen(
@@ -110,11 +108,11 @@ fun KeypadScreen(
             onNumberChanged(contact.phoneNumber)
           }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-              Text(contact.avatarInitials, color = OneUiTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+              Text(contact.avatarInitials, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
-              Text(contact.name, color = OneUiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-              Text(contact.phoneNumber, color = OneUiTextSecondary, fontSize = 11.sp)
+              Text(contact.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+              Text(contact.phoneNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
             }
           }
         }
@@ -123,12 +121,12 @@ fun KeypadScreen(
             fieldValue = TextFieldValue(record.phoneNumber, TextRange(record.phoneNumber.length))
             onNumberChanged(record.phoneNumber)
           }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.OneUiCardElevated), contentAlignment = Alignment.Center) {
-              Icon(Icons.Rounded.Phone, contentDescription = null, tint = OneUiTextSecondary, modifier = Modifier.size(17.dp))
+            Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+              Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
             }
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
-              Text(record.contactName ?: "Recent number", color = OneUiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-              Text(record.phoneNumber, color = OneUiTextSecondary, fontSize = 11.sp)
+              Text(record.contactName ?: "Recent number", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+              Text(record.phoneNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
             }
           }
         }
@@ -141,10 +139,10 @@ fun KeypadScreen(
         value = fieldValue,
         onValueChange = { fieldValue = it; onNumberChanged(it.text) },
         readOnly = true, singleLine = true, cursorBrush = SolidColor(CallGreen),
-        textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = 1.sp, color = OneUiTextPrimary, textAlign = TextAlign.Center),
+        textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center),
         modifier = Modifier.fillMaxWidth().testTag("dialer_number_display"),
         decorationBox = { inner -> Box(contentAlignment = Alignment.Center) {
-          if (fieldValue.text.isEmpty()) Text("Enter phone number", color = OneUiTextSecondary, fontSize = 18.sp)
+          if (fieldValue.text.isEmpty()) Text("Enter phone number", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp)
           inner()
         } }
       )
@@ -187,7 +185,7 @@ fun KeypadScreen(
             Icon(
               Icons.Rounded.Close,
               contentDescription = "Clear last digit",
-              tint = OneUiTextPrimary,
+              tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(27.dp)
             )
           }
@@ -240,8 +238,8 @@ private fun DialDigit(
     contentAlignment = Alignment.Center
   ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-      Text(digit, color = OneUiTextPrimary, fontSize = 34.sp, fontWeight = FontWeight.Medium)
-      if (sub.isNotEmpty()) Text(sub, color = OneUiTextSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
+      Text(digit, color = MaterialTheme.colorScheme.onSurface, fontSize = 34.sp, fontWeight = FontWeight.Medium)
+      if (sub.isNotEmpty()) Text(sub, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, letterSpacing = 1.sp)
     }
   }
 }
