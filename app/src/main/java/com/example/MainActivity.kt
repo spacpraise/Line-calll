@@ -218,6 +218,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   val appResumeCount = hostActivity?.resumeCount ?: 0
   LaunchedEffect(appResumeCount) {
     showUpdatePrompt = LineCallUpdateManager.hasPendingUpdate(context)
+    viewModel.refreshProfileAfterAppResume()
   }
 
   LaunchedEffect(Unit) {
