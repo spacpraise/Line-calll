@@ -272,6 +272,10 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
+  suspend fun refreshAuthenticatedProfile(): Result<UserAccount> = withContext(Dispatchers.IO) {
+    runCatching { getOrCreateProfileBlocking(getAuthenticatedUserBlocking()) }
+  }
+
   suspend fun signOut() = withContext(Dispatchers.IO) {
     runCatching {
       val access = secureStore.get("access_token")
