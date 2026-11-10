@@ -148,19 +148,21 @@ object LineCallUpdateManager {
         try { NotificationManagerCompat.from(context).notify(UPDATE_NOTIFICATION_ID, notification) } catch (_: SecurityException) { }
     }
 
-    internal fun installedVersionCode(context: Context): Long =
-        if (Build.VERSION.SDK_INT >= 28) context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
-        else @Suppress("DEPRECATION") context.packageManager.getPackageInfo(context.packageName, 0).versionCode.toLong()
+    @Suppress("DEPRECATION")
+    internal fun installedVersionCode(context: Context): Long {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        return if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+    }
 
+    @Suppress("DEPRECATION")
     internal fun archiveVersionCode(context: Context, apk: File): Long? {
         val info = if (Build.VERSION.SDK_INT >= 33) {
             context.packageManager.getPackageArchiveInfo(apk.absolutePath, PackageManager.PackageInfoFlags.of(0))
         } else {
-            @Suppress("DEPRECATION")
             context.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)
         } ?: return null
         if (info.packageName != context.packageName) return null
-        return if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
+        return if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
     }
 
     fun reconcileInstalledVersion(context: Context) {
