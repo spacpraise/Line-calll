@@ -394,6 +394,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   fun updateDisplayNameInput(name: String) {
     _displayNameInput.value = name
+    _authError.value = null
   }
 
   fun saveDisplayName(name: String) {
