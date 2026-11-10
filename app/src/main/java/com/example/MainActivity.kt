@@ -157,9 +157,13 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   }
 
   LaunchedEffect(activeCall, pendingCallIntent) {
+    val incomingSession = activeCall?.takeIf { it.isIncoming }
     when {
-      activeCall?.isIncoming == true ->
-        hostActivity?.setCallWindowMode(showOnLockScreen = true, wakeScreen = activeCall.state == CallSessionState.RINGING)
+      incomingSession != null ->
+        hostActivity?.setCallWindowMode(
+          showOnLockScreen = true,
+          wakeScreen = incomingSession.state == CallSessionState.RINGING
+        )
       pendingCallIntent == null ->
         hostActivity?.setCallWindowMode(showOnLockScreen = false, wakeScreen = false)
     }
