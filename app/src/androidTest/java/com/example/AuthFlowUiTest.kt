@@ -46,19 +46,20 @@ class AuthFlowUiTest {
     composeRule.setContent {
       LineCallTheme {
         LoginScreen(
-          identifier = "",
+          identifier = "samuel@example.com",
+          displayName = "Samuel",
+          avatarUrl = null,
           password = "",
           error = null,
           busy = false,
-          onIdentifierChanged = {},
           onPasswordChanged = {},
           onLogin = {},
-          onBack = { wentBack = true },
+          onSwitchAccount = { wentBack = true },
           onForgotPassword = {}
         )
       }
     }
-    composeRule.onNodeWithTag("login_back_button").performClick()
+    composeRule.onNodeWithTag("login_switch_back").performClick()
     composeRule.runOnIdle {
       assertTrue(wentBack)
     }
