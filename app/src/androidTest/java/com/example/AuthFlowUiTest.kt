@@ -3,8 +3,10 @@ package com.example
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.data.model.CountryList
+import com.example.ui.onboarding.EmailEntryScreen
 import com.example.ui.onboarding.LoginScreen
 import com.example.ui.onboarding.PhoneNumberSetupScreen
 import com.example.ui.theme.LineCallTheme
@@ -18,6 +20,26 @@ import org.junit.runner.RunWith
 class AuthFlowUiTest {
   @get:Rule
   val composeRule = createComposeRule()
+
+  @Test
+  fun emailEntryKeepsEachTypedCharacterOnce() {
+    var email = ""
+    composeRule.setContent {
+      LineCallTheme {
+        EmailEntryScreen(
+          email = email,
+          error = null,
+          onEmailChanged = { email = it },
+          onContinue = {},
+          onBack = {}
+        )
+      }
+    }
+    composeRule.onNodeWithTag("email_input").performTextInput("sparkpraisesamuel@gmail.com")
+    composeRule.runOnIdle {
+      assertTrue(email == "sparkpraisesamuel@gmail.com")
+    }
+  }
 
   @Test
   fun loginBackButtonReturnsToWelcomeInsteadOfRegistration() {
