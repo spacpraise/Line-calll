@@ -1,6 +1,7 @@
 package com.example
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -58,16 +59,32 @@ import com.example.ui.theme.LineCallTheme
 import com.example.ui.theme.OneUiDarkBackground
 
 class MainActivity : ComponentActivity() {
+  var pendingIncomingCallIntent by mutableStateOf<Intent?>(null)
+    private set
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
     enableEdgeToEdge()
     setContent { LineCallTheme { LineCallApp() } }
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
+  }
+
+  fun clearPendingIncomingCallIntent() {
+    pendingIncomingCallIntent = null
   }
 }
 
 @Composable
 fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   val context = LocalContext.current
+  val hostActivity = context as? MainActivity
+  val pendingCallIntent = hostActivity?.pendingIncomingCallIntent
   val focusManager = LocalFocusManager.current
   val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
   val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
@@ -104,6 +121,17 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   }
 
   var pendingMicrophoneAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+  LaunchedEffect(pendingCallIntent) {
+    if (pendingCallIntent != null) {
+      val callId = pendingCallIntent.getStringExtra("linecall_call_id")
+      val action = pendingCallIntent.getStringExtra("linecall_call_action")
+      if (!callId.isNullOrBlank() && !action.isNullOrBlank()) {
+        viewModel.handleIncomingCallAction(action, callId)
+      }
+      hostActivity?.clearPendingIncomingCallIntent()
+    }
+  }
 
   val notificationPermissionLauncher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestPermission()

@@ -17,6 +17,7 @@ import com.example.services.CallingService
 import com.example.services.LineCallAuthService
 import com.example.services.LineCallSupabaseClient
 import com.example.services.UserProfileService
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 enum class ScreenState {
   WELCOME,
@@ -149,6 +151,11 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val favoritesViewAsList: StateFlow<Boolean> = _favoritesViewAsList.asStateFlow()
 
   init {
+    viewModelScope.launch {
+      userProfileService.currentUser.collect { user ->
+        if (user != null) syncFcmToken(user)
+      }
+    }
     viewModelScope.launch {
       callingService.callEvents.collect { event ->
         if (event is CallEvent.Error) {
@@ -429,6 +436,30 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           showNotice("Invalid phone number", result.reason, rawNumber)
         is CallInitiationResult.UserNotRegistered ->
           showNotice("Not on Line Call", "This number is not registered on Line Call yet.", e164)
+      }
+    }
+  }
+
+  private fun syncFcmToken(user: UserAccount) {
+    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+      if (task.isSuccessful) {
+        val token = task.result?.takeIf { it.isNotBlank() } ?: return@addOnCompleteListener
+        viewModelScope.launch { runCatching { supabase.saveFcmToken(user.id, token) } }
+      }
+    }
+  }
+
+  fun handleIncomingCallAction(action: String, callId: String) {
+    if (action != "answer" && action != "decline") return
+    viewModelScope.launch {
+      repeat(40) {
+        val session = callingService.activeCall.value
+        if (session?.callId == callId && session.isIncoming) {
+          if (action == "answer") callingService.acceptIncomingCall()
+          else callingService.declineIncomingCall()
+          return@launch
+        }
+        delay(500)
       }
     }
   }

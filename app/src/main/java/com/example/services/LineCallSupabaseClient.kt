@@ -118,6 +118,18 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
+  suspend fun saveFcmToken(userId: String, token: String) = withContext(Dispatchers.IO) {
+    require(token.isNotBlank()) { "FCM token is empty." }
+    execute(
+      Request.Builder()
+        .url("${BackendConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.$userId")
+        .headers(userHeaders())
+        .header("Prefer", "return=minimal")
+        .patch(JSONObject().put("fcm_token", token).toString().toRequestBody(jsonType))
+        .build()
+    )
+  }
+
   suspend fun saveDisplayName(user: UserAccount, displayName: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
       val payload = JSONObject().put("display_name", displayName)

@@ -1,0 +1,119 @@
+package com.example.services
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
+import com.example.MainActivity
+import com.example.R
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+
+class IncomingCallMessagingService : FirebaseMessagingService() {
+  override fun onNewToken(token: String) {
+    super.onNewToken(token)
+    getSharedPreferences("line_call_fcm", Context.MODE_PRIVATE)
+      .edit().putString("fcm_token", token).apply()
+  }
+
+  override fun onMessageReceived(message: RemoteMessage) {
+    super.onMessageReceived(message)
+    val data = message.data
+    if (data["type"] != "INCOMING_CALL") return
+    val callId = data["call_id"]?.takeIf { it.isNotBlank() } ?: return
+    if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+
+    val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: data["caller_phone"] ?: "Line Call user"
+    val notificationManager = getSystemService(NotificationManager::class.java)
+    createCallChannel(notificationManager)
+
+    val requestBase = callId.hashCode()
+    val openIntent = Intent(this, MainActivity::class.java).apply {
+      putExtra("linecall_call_id", callId)
+      putExtra("linecall_call_action", "open")
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+    val fullScreenPendingIntent = PendingIntent.getActivity(
+      this, requestBase, openIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    val answerPendingIntent = actionPendingIntent(callId, "answer", requestBase + 1)
+    val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2)
+    val person = Person.Builder().setName(callerName).setImportant(true).build()
+
+    val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+      .setSmallIcon(R.mipmap.ic_launcher)
+      .setContentTitle("Incoming Line Call")
+      .setContentText(callerName)
+      .setCategory(NotificationCompat.CATEGORY_CALL)
+      .setPriority(NotificationCompat.PRIORITY_MAX)
+      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+      .setOngoing(true)
+      .setAutoCancel(false)
+      .setTimeoutAfter(45_000L)
+      .setFullScreenIntent(fullScreenPendingIntent, true)
+      .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, declinePendingIntent, answerPendingIntent))
+      .build()
+
+    notificationManager.notify(notificationId(callId), notification)
+  }
+
+  private fun actionPendingIntent(callId: String, action: String, requestCode: Int): PendingIntent {
+    val intent = Intent(this, IncomingCallActionReceiver::class.java).apply {
+      putExtra("linecall_call_id", callId)
+      putExtra("linecall_call_action", action)
+    }
+    return PendingIntent.getBroadcast(
+      this, requestCode, intent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+  }
+
+  private fun createCallChannel(manager: NotificationManager) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      val ringtone = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+      val attributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .build()
+      val channel = NotificationChannel(
+        CHANNEL_ID, "Incoming calls", NotificationManager.IMPORTANCE_HIGH
+      ).apply {
+        description = "Notifications for incoming Line Call voice calls"
+        setSound(ringtone, attributes)
+        enableVibration(true)
+        vibrationPattern = longArrayOf(0, 700, 400, 700)
+        lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+      }
+      manager.createNotificationChannel(channel)
+    }
+  }
+
+  companion object {
+    const val CHANNEL_ID = "linecall_incoming_calls"
+    fun notificationId(callId: String): Int = callId.hashCode()
+  }
+}
+
+class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
+  override fun onReceive(context: Context, intent: Intent) {
+    val callId = intent.getStringExtra("linecall_call_id") ?: return
+    val action = intent.getStringExtra("linecall_call_action") ?: return
+    val manager = context.getSystemService(NotificationManager::class.java)
+    manager.cancel(IncomingCallMessagingService.notificationId(callId))
+    val launch = Intent(context, MainActivity::class.java).apply {
+      putExtra("linecall_call_id", callId)
+      putExtra("linecall_call_action", action)
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+    context.startActivity(launch)
+  }
+}
