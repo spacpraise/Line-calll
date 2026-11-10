@@ -242,7 +242,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
 
   BackHandler(enabled = activeCall == null && selectedContactDetail == null && !showAddContactScreen && currentScreen == ScreenState.LOGIN) {
     focusManager.clearFocus(force = true)
-    viewModel.navigateTo(ScreenState.WELCOME)
+    viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION)
   }
 
   BackHandler(enabled = activeCall == null && currentScreen == ScreenState.RESET_PASSWORD) {
@@ -330,8 +330,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
           onLogin = { viewModel.signIn() },
-          onBack = { viewModel.navigateTo(ScreenState.WELCOME) },
-          onRegister = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) },
+          onBack = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) },
           onForgotPassword = { viewModel.navigateTo(ScreenState.FORGOT_PASSWORD) }
         )
       }
