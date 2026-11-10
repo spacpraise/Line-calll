@@ -4,12 +4,18 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to build and upload (for example v1.02)"
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: line-call-release-${{ github.ref }}
+  group: line-call-release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -17,7 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      VERSION_NAME: ${{ github.ref_name }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+      VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
       KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
       STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -25,6 +32,8 @@ jobs:
     steps:
       - name: Check out tagged source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -49,11 +58,16 @@ jobs:
 
       - name: Run unit tests and build signed release APK
         run: |
-          gradle --no-daemon --console=plain :app:testReleaseUnitTest :app:assembleRelease --stacktrace
+          gradle --no-daemon --console=plain :app:testDebugUnitTest :app:assembleRelease --stacktrace
 
-      - name: Publish GitHub release and attach APK
+      - name: Publish APK to GitHub release
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            app/build/outputs/apk/release/app-release.apk \
-            --title "Line Call $VERSION_NAME" \
-            --generate-notes
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$APK" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$APK" \
+              --title "Line Call ${VERSION_NAME#v}" \
+              --generate-notes
+          fi
