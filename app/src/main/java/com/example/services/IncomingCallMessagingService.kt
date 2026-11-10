@@ -59,7 +59,9 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       .setOngoing(true)
       .setAutoCancel(false)
       .setTimeoutAfter(45_000L)
+      .setContentIntent(fullScreenPendingIntent)
       .setFullScreenIntent(fullScreenPendingIntent, true)
+      .setOnlyAlertOnce(true)
       .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, declinePendingIntent, answerPendingIntent))
       .build()
 
