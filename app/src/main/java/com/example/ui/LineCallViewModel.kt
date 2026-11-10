@@ -1,6 +1,9 @@
 package com.example.ui
 
 import android.app.Application
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
@@ -31,6 +34,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 
@@ -448,6 +452,94 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         _backendNotice.value = BackendNoticeState(
           title = "Profile not saved",
           message = it.message ?: "Your display name could not be updated.",
+          targetNumber = "",
+          targetName = null
+        )
+      }
+    }
+  }
+
+  fun updateProfilePhoneNumber(phoneNumber: String) {
+    viewModelScope.launch {
+      val result = userProfileService.updatePhoneNumber(phoneNumber.trim())
+      result.onSuccess { _phoneInput.value = it.phoneNumber }
+      result.onFailure {
+        _backendNotice.value = BackendNoticeState(
+          title = "Phone number not saved",
+          message = it.message ?: "Your phone number could not be updated.",
+          targetNumber = "",
+          targetName = null
+        )
+      }
+    }
+  }
+
+  fun updateProfileEmail(email: String) {
+    viewModelScope.launch {
+      val result = userProfileService.updateEmail(email)
+      result.onSuccess {
+        _backendNotice.value = BackendNoticeState(
+          title = "Confirm your new email",
+          message = "A confirmation link has been sent to the new email address. Your Line Call email will change after you confirm it. Until then, keep signing in with your current email.",
+          targetNumber = "",
+          targetName = null
+        )
+      }.onFailure {
+        _backendNotice.value = BackendNoticeState(
+          title = "Email change not requested",
+          message = it.message ?: "Your email address could not be changed.",
+          targetNumber = "",
+          targetName = null
+        )
+      }
+    }
+  }
+
+  fun updateProfileAvatar(uri: Uri) {
+    viewModelScope.launch(Dispatchers.IO) {
+      try {
+        val resolver = getApplication<Application>().contentResolver
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+          throw IllegalArgumentException("The selected image could not be opened.")
+        }
+        var sampleSize = 1
+        while (bounds.outWidth / sampleSize > 1024 || bounds.outHeight / sampleSize > 1024) {
+          sampleSize *= 2
+        }
+        val decoded = resolver.openInputStream(uri)?.use {
+          BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sampleSize })
+        } ?: throw IllegalArgumentException("The selected image could not be opened.")
+        val side = minOf(decoded.width, decoded.height)
+        val square = Bitmap.createBitmap(
+          decoded,
+          (decoded.width - side) / 2,
+          (decoded.height - side) / 2,
+          side,
+          side
+        )
+        val avatar = Bitmap.createScaledBitmap(square, 512, 512, true)
+        val bytes = ByteArrayOutputStream().use { output ->
+          avatar.compress(Bitmap.CompressFormat.JPEG, 86, output)
+          output.toByteArray()
+        }
+        if (avatar !== square) avatar.recycle()
+        if (square !== decoded) square.recycle()
+        decoded.recycle()
+        val result = userProfileService.updateAvatar(bytes)
+        result.onFailure {
+          _backendNotice.value = BackendNoticeState(
+            title = "Photo not saved",
+            message = it.message ?: "Your profile photo could not be uploaded.",
+            targetNumber = "",
+            targetName = null
+          )
+        }
+      } catch (error: Exception) {
+        _backendNotice.value = BackendNoticeState(
+          title = "Photo not saved",
+          message = error.message ?: "The selected photo could not be processed.",
           targetNumber = "",
           targetName = null
         )
