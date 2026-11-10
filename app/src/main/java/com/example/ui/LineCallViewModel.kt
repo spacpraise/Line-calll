@@ -3,6 +3,9 @@ package com.example.ui
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.LineCallDatabase
 import com.example.data.model.ActiveCallSession
@@ -67,6 +70,16 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val authService = LineCallAuthService(supabase)
   val userProfileService = UserProfileService(authService, supabase)
   val callingService = CallingService(application, callRecordDao, userProfileService, supabase, viewModelScope)
+
+  private val appLifecycleObserver = LifecycleEventObserver { _, event ->
+    when (event) {
+      Lifecycle.Event.ON_START -> {
+        if (userProfileService.currentUser.value != null) callingService.startIncomingCallPolling()
+      }
+      Lifecycle.Event.ON_STOP -> callingService.stopIncomingCallPolling()
+      else -> Unit
+    }
+  }
 
   private val _currentScreen = MutableStateFlow(ScreenState.BOOTING)
   val currentScreen: StateFlow<ScreenState> = _currentScreen.asStateFlow()
@@ -161,6 +174,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val favoritesViewAsList: StateFlow<Boolean> = _favoritesViewAsList.asStateFlow()
 
   init {
+    ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycleObserver)
     viewModelScope.launch {
       userProfileService.currentUser.collect { user ->
         if (user != null) syncFcmToken(user)
@@ -184,7 +198,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           _currentScreen.value = ScreenState.PHONE_SETUP
         } else {
           _currentScreen.value = ScreenState.MAIN_APP
-          callingService.startIncomingCallPolling()
+          startIncomingCallPollingIfForeground()
         }
       } else {
         _currentScreen.value = ScreenState.WELCOME
@@ -263,7 +277,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         if (user.phoneNumber.isBlank()) _currentScreen.value = ScreenState.PHONE_SETUP
         else {
           _currentScreen.value = ScreenState.MAIN_APP
-          callingService.startIncomingCallPolling()
+          startIncomingCallPollingIfForeground()
         }
         _authError.value = null
       }.onFailure { _authError.value = it.message ?: "Could not sign in. Check your details." }
@@ -414,9 +428,15 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     enterMainApp()
   }
 
+  private fun startIncomingCallPollingIfForeground() {
+    if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+      callingService.startIncomingCallPolling()
+    }
+  }
+
   private fun enterMainApp() {
     _currentScreen.value = ScreenState.MAIN_APP
-    callingService.startIncomingCallPolling()
+    startIncomingCallPollingIfForeground()
   }
 
   fun appendKeypadChar(char: Char) {
@@ -598,6 +618,12 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
       _authError.value = null
       _enteredNumber.value = ""
     }
+  }
+
+  override fun onCleared() {
+    ProcessLifecycleOwner.get().lifecycle.removeObserver(appLifecycleObserver)
+    callingService.stopIncomingCallPolling()
+    super.onCleared()
   }
 
 }
