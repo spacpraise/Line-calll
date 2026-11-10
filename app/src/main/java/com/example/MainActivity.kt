@@ -379,10 +379,10 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
                 KeypadScreen(
                   enteredNumber = enteredNumber,
                   selectedCountry = selectedCountry,
-                  onAppendChar = { viewModel.appendKeypadChar(it) },
-                  onBackspace = { viewModel.backspaceKeypad() },
-                  onClear = { viewModel.clearKeypad() },
+                  callHistory = callHistory,
+                  onNumberChanged = { viewModel.setEnteredNumber(it) },
                   onCall = { runWithMicrophonePermission { viewModel.onCallButtonPressed() } },
+                  onSelectSuggestion = { runWithMicrophonePermission { viewModel.callRecent(it) } },
                   onSaveContact = { viewModel.setShowAddContactScreen(true) }
                 )
               }
