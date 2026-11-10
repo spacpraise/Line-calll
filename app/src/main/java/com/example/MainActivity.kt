@@ -325,12 +325,13 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           identifier = loginIdentifier,
           password = passwordInput,
           error = authError,
-          notice = authNotice,
           busy = isAuthBusy,
-          onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
           onLogin = { viewModel.signIn() },
-          onBack = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) },
+          onSwitchAccount = {
+            viewModel.updatePasswordInput("")
+            viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION)
+          },
           onForgotPassword = { viewModel.navigateTo(ScreenState.FORGOT_PASSWORD) }
         )
       }
