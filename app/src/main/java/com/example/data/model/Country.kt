@@ -27,7 +27,7 @@ object CountryList {
     Country("Singapore", "SG", "+65", "🇸🇬", "8123 4567")
   )
 
-  val defaultCountry: Country = allCountries[0] // US as standard default
+  val defaultCountry: Country = allCountries.first { it.code == "NG" } // Nigeria is the default calling region
 
   fun findByDialCode(dialCode: String): Country? {
     return allCountries.find { it.dialCode == dialCode }
