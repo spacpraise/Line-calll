@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -100,36 +103,53 @@ fun KeypadScreen(
     modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 8.dp),
     horizontalAlignment = Alignment.CenterHorizontally
   ) {
-    // The number display owns the flexible space. The keypad below has fixed
-    // dimensions, so entering digits never pushes or resizes the keys.
-    Box(
-      modifier = Modifier.fillMaxWidth().weight(1f),
-      contentAlignment = Alignment.Center
-    ) {
-      BasicTextField(
-        value = fieldValue,
-        onValueChange = {
-          fieldValue = it
-          onNumberChanged(it.text)
-        },
-        readOnly = true,
-        singleLine = true,
-        cursorBrush = SolidColor(CallGreen),
-        textStyle = MaterialTheme.typography.headlineLarge.copy(
-          fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = 1.sp,
-          color = OneUiTextPrimary, textAlign = TextAlign.Center
-        ),
-        modifier = Modifier.fillMaxWidth().testTag("dialer_number_display"),
-        decorationBox = { inner ->
-          Box(contentAlignment = Alignment.Center) {
-            if (fieldValue.text.isEmpty()) {
-              Text("Enter phone number", color = OneUiTextSecondary, fontSize = 18.sp)
+    // Suggestions are shown only after the first digit and scroll independently.
+    if (enteredNumber.isNotBlank() && (matchingContacts.isNotEmpty() || matchingHistory.isNotEmpty())) {
+      Column(Modifier.fillMaxWidth().height(104.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        matchingContacts.forEach { contact ->
+          Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+            fieldValue = TextFieldValue(contact.phoneNumber, TextRange(contact.phoneNumber.length))
+            onNumberChanged(contact.phoneNumber)
+          }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.OneUiCardElevated), contentAlignment = Alignment.Center) {
+              Text(contact.avatarInitials, color = OneUiTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
-            inner()
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+              Text(contact.name, color = OneUiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+              Text(contact.phoneNumber, color = OneUiTextSecondary, fontSize = 11.sp)
+            }
           }
         }
+        matchingHistory.forEach { record ->
+          Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+            fieldValue = TextFieldValue(record.phoneNumber, TextRange(record.phoneNumber.length))
+            onNumberChanged(record.phoneNumber)
+          }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(34.dp).clip(CircleShape).background(com.example.ui.theme.OneUiCardElevated), contentAlignment = Alignment.Center) {
+              Icon(Icons.Rounded.Phone, contentDescription = null, tint = OneUiTextSecondary, modifier = Modifier.size(17.dp))
+            }
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+              Text(record.contactName ?: "Recent number", color = OneUiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+              Text(record.phoneNumber, color = OneUiTextSecondary, fontSize = 11.sp)
+            }
+          }
+        }
+      }
+    } else { Spacer(Modifier.height(8.dp)) }
+    Box(Modifier.fillMaxWidth().height(54.dp), contentAlignment = Alignment.Center) {
+      BasicTextField(
+        value = fieldValue,
+        onValueChange = { fieldValue = it; onNumberChanged(it.text) },
+        readOnly = true, singleLine = true, cursorBrush = SolidColor(CallGreen),
+        textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = 1.sp, color = OneUiTextPrimary, textAlign = TextAlign.Center),
+        modifier = Modifier.fillMaxWidth().testTag("dialer_number_display"),
+        decorationBox = { inner -> Box(contentAlignment = Alignment.Center) {
+          if (fieldValue.text.isEmpty()) Text("Enter phone number", color = OneUiTextSecondary, fontSize = 18.sp)
+          inner()
+        } }
       )
     }
+    Spacer(Modifier.weight(1f))
 
     Column(
       modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -180,14 +200,14 @@ fun KeypadScreen(
         shape = CircleShape,
         color = CallGreen,
         shadowElevation = 5.dp,
-        modifier = Modifier.padding(top = 2.dp).size(82.dp).testTag("call_action_button")
+        modifier = Modifier.padding(top = 1.dp).size(76.dp).testTag("call_action_button")
       ) {
         Box(contentAlignment = Alignment.Center) {
           Icon(Icons.Rounded.Phone, contentDescription = "Call", tint = Color.White, modifier = Modifier.size(36.dp))
         }
       }
     }
-    Spacer(Modifier.height(18.dp))
+    Spacer(Modifier.height(4.dp))
   }
 }
 
