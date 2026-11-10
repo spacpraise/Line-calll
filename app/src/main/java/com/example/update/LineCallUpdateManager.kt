@@ -102,7 +102,7 @@ object LineCallUpdateManager {
             }
             return try {
                 context.startActivity(permissionIntent)
-                false
+                true
             } catch (_: Exception) {
                 false
             }
