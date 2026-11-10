@@ -196,6 +196,7 @@ class CallingService(
           }
         }
       } catch (error: Exception) {
+        closeServerCall(session.callId)
         _callEvents.emit(CallEvent.Error(error.message ?: "Connection lost while waiting for an answer."))
         stopCallSession()
         return
@@ -214,6 +215,7 @@ class CallingService(
         supabase.callFunction(JSONObject().put("action", "accept").put("call_id", current.callId))
         connectToLiveKit(current.callId, current)
       } catch (error: Exception) {
+        closeServerCall(current.callId)
         _callEvents.emit(CallEvent.Error(error.message ?: "Could not accept this call."))
         stopCallSession()
       }
@@ -237,6 +239,12 @@ class CallingService(
         )
       )
       stopCallSession()
+    }
+  }
+
+  private suspend fun closeServerCall(callId: String) {
+    runCatching {
+      supabase.callFunction(JSONObject().put("action", "end").put("call_id", callId))
     }
   }
 
