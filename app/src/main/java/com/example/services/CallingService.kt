@@ -11,6 +11,7 @@ import com.example.data.model.CallRecord
 import com.example.data.model.CallSessionState
 import com.example.data.model.CallType
 import io.livekit.android.LiveKit
+import io.livekit.android.events.RoomEvent
 import io.livekit.android.room.Room
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +60,8 @@ class CallingService(
 
   private val audioManager = application.getSystemService(AudioManager::class.java)
   private var liveKitRoom: Room? = null
+  private var liveKitEventsJob: Job? = null
+  private var endingCallId: String? = null
   private var incomingRingtone: Ringtone? = null
   private var ringbackTone: ToneGenerator? = null
   private var ringbackJob: Job? = null
@@ -255,6 +258,27 @@ class CallingService(
     room.localParticipant.setMicrophoneEnabled(true)
     LineCallOngoingCallService.start(application)
 
+    liveKitEventsJob?.cancel()
+    liveKitEventsJob = coroutineScope.launch {
+      room.events.collect { event ->
+        when (event) {
+          is RoomEvent.ParticipantDisconnected -> {
+            if (_activeCall.value?.callId == callId) {
+              _callEvents.emit(CallEvent.Error("The other person ended the call."))
+              endCall()
+            }
+          }
+          is RoomEvent.Disconnected -> {
+            if (_activeCall.value?.callId == callId) {
+              _callEvents.emit(CallEvent.Error("The call connection was lost."))
+              endCall()
+            }
+          }
+          else -> Unit
+        }
+      }
+    }
+
     if (_activeCall.value?.callId == callId) {
       _activeCall.value = session.copy(state = CallSessionState.CONNECTED)
       startDurationTimer()
@@ -281,14 +305,14 @@ class CallingService(
 
   fun endCall() {
     val current = _activeCall.value ?: return
+    if (endingCallId == current.callId) return
+    endingCallId = current.callId
     stopIncomingRingtone()
     coroutineScope.launch(Dispatchers.IO) {
       val duration = current.durationSeconds
       runCatching {
         supabase.callFunction(JSONObject().put("action", "end").put("call_id", current.callId))
       }
-      runCatching { liveKitRoom?.disconnect() }
-      liveKitRoom = null
       audioManager.isSpeakerphoneOn = false
       audioManager.mode = AudioManager.MODE_NORMAL
       callRecordDao.insertCallRecord(
@@ -389,7 +413,12 @@ class CallingService(
     outgoingPollJob = null
     incomingWatchJob?.cancel()
     incomingWatchJob = null
-    coroutineScope.launch { runCatching { liveKitRoom?.disconnect() }; liveKitRoom = null }
+    liveKitEventsJob?.cancel()
+    liveKitEventsJob = null
+    val room = liveKitRoom
+    liveKitRoom = null
+    endingCallId = null
+    if (room != null) coroutineScope.launch { runCatching { room.disconnect() } }
     LineCallOngoingCallService.stop(application)
     _activeCall.value = null
     audioManager.isSpeakerphoneOn = false
