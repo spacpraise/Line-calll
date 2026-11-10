@@ -496,7 +496,7 @@ fun ActiveCallScreen(
             modifier = Modifier
               .clip(RoundedCornerShape(24.dp))
               .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f))
-              .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(24.dp))
+              .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.09f), RoundedCornerShape(24.dp))
               .padding(horizontal = 13.dp, vertical = 8.dp)
           ) {
             Box(Modifier.size(7.dp).clip(CircleShape).background(CallGreen))
@@ -606,7 +606,7 @@ fun ActiveCallScreen(
           Text(
             text = session.phoneNumber,
             style = MaterialTheme.typography.bodyLarge.copy(
-              color = Color.White.copy(alpha = 0.60f),
+              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.60f),
               fontWeight = FontWeight.Medium
             ),
             textAlign = TextAlign.Center
@@ -728,7 +728,7 @@ private fun ActiveCallControl(
         Icon(
           imageVector = icon,
           contentDescription = label,
-          tint = if (selected) Color(0xFF071009) else Color.White,
+          tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
           modifier = Modifier.size(27.dp)
         )
       }
