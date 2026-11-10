@@ -14,8 +14,15 @@ android {
     applicationId = "com.aistudio.linecall.vczr"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    // Release tags such as v1.01 supply VERSION_NAME in CI. The derived integer
+    // versionCode remains monotonic for Android's update comparison.
+    val releaseVersionName = System.getenv("VERSION_NAME")?.removePrefix("v") ?: "1.01"
+    val versionParts = releaseVersionName.split(".").map { it.toIntOrNull() ?: 0 }
+    versionCode = System.getenv("VERSION_CODE")?.toIntOrNull()
+      ?: ((versionParts.getOrNull(0) ?: 1) * 10_000 +
+          (versionParts.getOrNull(1) ?: 0) * 100 +
+          (versionParts.getOrNull(2) ?: 0))
+    versionName = releaseVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
