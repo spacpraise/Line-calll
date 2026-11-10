@@ -12,6 +12,7 @@ import com.example.data.model.CallSessionState
 import com.example.data.model.CallType
 import io.livekit.android.LiveKit
 import io.livekit.android.events.RoomEvent
+import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
