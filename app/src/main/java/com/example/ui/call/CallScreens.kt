@@ -2,23 +2,28 @@ package com.example.ui.call
 
 import android.view.HapticFeedbackConstants
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -43,6 +48,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +57,9 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +70,8 @@ import com.example.data.model.ActiveCallSession
 import com.example.data.model.CallSessionState
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun IncomingCallScreen(
@@ -216,9 +227,19 @@ fun IncomingCallScreen(
 
         Column(
           horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.spacedBy(22.dp),
+          verticalArrangement = Arrangement.spacedBy(18.dp),
           modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)
         ) {
+          IncomingCallSlider(
+            onAnswer = {
+              view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+              onAccept()
+            },
+            onDecline = {
+              view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+              onDecline()
+            }
+          )
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -246,13 +267,125 @@ fun IncomingCallScreen(
             )
           }
           Text(
-            "Answer to connect over the internet",
+            "Slide to answer or decline, or use the buttons",
             style = MaterialTheme.typography.labelSmall,
             color = Color.White.copy(alpha = 0.42f),
             textAlign = TextAlign.Center
           )
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun IncomingCallSlider(
+  onAnswer: () -> Unit,
+  onDecline: () -> Unit
+) {
+  val drag = remember { Animatable(0f) }
+  val scope = rememberCoroutineScope()
+  val density = LocalDensity.current
+
+  BoxWithConstraints(
+    modifier = Modifier.fillMaxWidth().height(76.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    val maxDrag = with(density) { (maxWidth - 76.dp).toPx().coerceAtLeast(0f) / 2f }
+    val threshold = maxDrag * 0.72f
+
+    Row(
+      modifier = Modifier
+        .fillMaxSize()
+        .clip(RoundedCornerShape(40.dp))
+        .background(Color.White.copy(alpha = 0.075f))
+        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(40.dp)),
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      Box(
+        modifier = Modifier.weight(1f).fillMaxSize()
+          .background(CallRed.copy(alpha = 0.10f)),
+        contentAlignment = Alignment.Center
+      ) {
+        Text(
+          "←  DECLINE",
+          style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.8.sp
+          ),
+          color = Color.White.copy(alpha = 0.78f)
+        )
+      }
+      Box(
+        modifier = Modifier.weight(1f).fillMaxSize()
+          .background(CallGreen.copy(alpha = 0.10f)),
+        contentAlignment = Alignment.Center
+      ) {
+        Text(
+          "ANSWER  →",
+          style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.8.sp
+          ),
+          color = Color.White.copy(alpha = 0.78f)
+        )
+      }
+    }
+
+    Box(
+      modifier = Modifier
+        .offset { IntOffset(drag.value.roundToInt(), 0) }
+        .size(64.dp)
+        .clip(CircleShape)
+        .background(
+          Brush.linearGradient(
+            colors = listOf(Color(0xFF344B3C), CallGreen)
+          )
+        )
+        .border(1.dp, Color.White.copy(alpha = 0.32f), CircleShape)
+        .pointerInput(maxDrag, threshold) {
+          detectDragGestures(
+            onDrag = { change, amount ->
+              change.consume()
+              scope.launch {
+                drag.snapTo((drag.value + amount.x).coerceIn(-maxDrag, maxDrag))
+              }
+            },
+            onDragEnd = {
+              val position = drag.value
+              when {
+                position >= threshold -> {
+                  onAnswer()
+                }
+                position <= -threshold -> {
+                  onDecline()
+                }
+                else -> scope.launch {
+                  drag.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(dampingRatio = 0.62f, stiffness = 420f)
+                  )
+                }
+              }
+            },
+            onDragCancel = {
+              scope.launch {
+                drag.animateTo(
+                  targetValue = 0f,
+                  animationSpec = spring(dampingRatio = 0.62f, stiffness = 420f)
+                )
+              }
+            }
+          )
+        },
+      contentAlignment = Alignment.Center
+    ) {
+      Icon(
+        imageVector = Icons.Rounded.Phone,
+        contentDescription = "Slide right to answer or left to decline",
+        tint = Color.White,
+        modifier = Modifier.size(27.dp)
+      )
     }
   }
 }
