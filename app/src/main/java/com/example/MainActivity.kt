@@ -376,6 +376,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       ScreenState.PROFILE_SETUP -> {
         ProfileSetupScreen(
           displayName = displayNameInput,
+          error = authError,
           onDisplayNameChanged = { viewModel.updateDisplayNameInput(it) },
           onComplete = { viewModel.completeProfileSetup() },
           onSkip = { viewModel.skipProfileSetup() }
