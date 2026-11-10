@@ -220,7 +220,11 @@ class ReleaseCheckWorker(
 
             if (release.optBoolean("draft") || release.optBoolean("prerelease")) return@withContext Result.success()
             val tag = release.optString("tag_name").removePrefix("v")
-            val assets = release.optJSONArray("assets") ?: return@withContext Result.success()
+            val assets = release.optJSONArray("assets")
+            if (assets == null || assets.length() == 0) {
+                android.util.Log.w("LineCallUpdater", "Release $tag has no APK asset yet; retrying the update check.")
+                return@withContext Result.retry()
+            }
             var apkUrl: String? = null
             var apkName = "line-call-update.apk"
             var expectedDigest = ""
@@ -234,7 +238,10 @@ class ReleaseCheckWorker(
                     break
                 }
             }
-            if (apkUrl.isNullOrBlank()) return@withContext Result.success()
+            if (apkUrl.isNullOrBlank()) {
+                android.util.Log.w("LineCallUpdater", "Release $tag has no downloadable APK asset; retrying the update check.")
+                return@withContext Result.retry()
+            }
 
             val directory = File(applicationContext.filesDir, "updates").apply { mkdirs() }
             val finalApk = File(directory, apkName)
