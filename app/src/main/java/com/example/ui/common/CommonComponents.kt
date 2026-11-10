@@ -65,12 +65,12 @@ import com.example.ui.BackendNoticeState
 import com.example.ui.MainTab
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.NotificationOrange
-import com.example.ui.theme.OneUiCardBackground
-import com.example.ui.theme.OneUiNavActivePill
-import com.example.ui.theme.OneUiNavPill
-import com.example.ui.theme.OneUiTextMuted
-import com.example.ui.theme.OneUiTextPrimary
-import com.example.ui.theme.OneUiTextSecondary
+import com.example.ui.theme.MaterialTheme.colorScheme.surface
+import com.example.ui.theme.MaterialTheme.colorScheme.secondaryContainer
+import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 /**
  * Top header matching Samsung One UI Phone / Contacts app:
