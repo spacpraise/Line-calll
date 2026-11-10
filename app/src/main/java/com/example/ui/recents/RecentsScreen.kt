@@ -63,11 +63,6 @@ import com.example.data.model.CallRecord
 import com.example.data.model.CallType
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
-import com.example.ui.theme.MaterialTheme.colorScheme.surface
-import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 /**
  * Recents screen matching Samsung One UI Phone Recents (Images 5 & 6):
@@ -117,7 +112,7 @@ fun RecentsScreen(
       item {
         Card(
           shape = RoundedCornerShape(24.dp),
-          colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
           modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
@@ -133,7 +128,7 @@ fun RecentsScreen(
               Icon(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = "Dismiss",
-                tint = OneUiTextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp)
               )
             }
@@ -149,7 +144,7 @@ fun RecentsScreen(
                   fontWeight = FontWeight.Bold,
                   fontSize = 15.sp
                 ),
-                color = OneUiTextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
               )
 
@@ -164,7 +159,7 @@ fun RecentsScreen(
                 Text(
                   text = "Call back",
                   style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                  color = OneUiTextPrimary,
+                  color = MaterialTheme.colorScheme.onSurface,
                   modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp)
                 )
               }
@@ -186,7 +181,7 @@ fun RecentsScreen(
         ) {
           Surface(
             shape = RoundedCornerShape(16.dp),
-            color = OneUiCardElevated
+            color = MaterialTheme.colorScheme.surfaceVariant
           ) {
             Row(
               modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -201,7 +196,7 @@ fun RecentsScreen(
               Icon(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = "Clear filter",
-                tint = OneUiTextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                   .size(14.dp)
                   .clickable { onFilterSelected(null) }
@@ -210,7 +205,7 @@ fun RecentsScreen(
           }
 
           TextButton(onClick = onClearHistory) {
-            Text("Clear all", color = OneUiTextSecondary, fontSize = 12.sp)
+            Text("Clear all", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
           }
         }
       }
@@ -228,13 +223,13 @@ fun RecentsScreen(
             modifier = Modifier
               .size(68.dp)
               .clip(CircleShape)
-              .background(OneUiCardBackground),
+              .background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center
           ) {
             Icon(
               imageVector = Icons.Rounded.History,
               contentDescription = null,
-              tint = OneUiTextSecondary,
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.size(32.dp)
             )
           }
@@ -242,7 +237,7 @@ fun RecentsScreen(
           Text(
             text = "No Recent Calls",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = OneUiTextPrimary
+            color = MaterialTheme.colorScheme.onSurface
           )
         }
       }
@@ -252,7 +247,7 @@ fun RecentsScreen(
         Text(
           text = "Today",
           style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-          color = OneUiTextSecondary,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 6.dp)
         )
       }
@@ -264,7 +259,7 @@ fun RecentsScreen(
       ) { record ->
         Surface(
           shape = RoundedCornerShape(16.dp),
-          color = OneUiCardBackground,
+          color = MaterialTheme.colorScheme.surface,
           modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
         ) {
           OneUiCallRecordRow(
@@ -291,7 +286,7 @@ fun RecentsScreen(
         Text(
           text = "Filters",
           style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-          color = OneUiTextPrimary
+          color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -299,7 +294,7 @@ fun RecentsScreen(
         Text(
           text = "Call type",
           style = MaterialTheme.typography.labelSmall,
-          color = OneUiTextSecondary
+          color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -398,7 +393,7 @@ fun OneUiCallRecordRow(
           Icon(
             imageVector = Icons.AutoMirrored.Rounded.CallReceived,
             contentDescription = "Incoming",
-            tint = OneUiTextSecondary,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp)
           )
         }
@@ -418,7 +413,7 @@ fun OneUiCallRecordRow(
         text = nameText,
         style = MaterialTheme.typography.bodyLarge.copy(
           fontWeight = FontWeight.Medium,
-          color = if (record.type == CallType.MISSED) CallRed else OneUiTextPrimary
+          color = if (record.type == CallType.MISSED) CallRed else MaterialTheme.colorScheme.onSurface
         ),
         maxLines = 1,
         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -429,7 +424,7 @@ fun OneUiCallRecordRow(
     Text(
       text = record.formattedTime.substringAfterLast(", "),
       style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-      color = OneUiTextSecondary
+      color = MaterialTheme.colorScheme.onSurfaceVariant
     )
   }
 }
@@ -450,7 +445,7 @@ private fun FilterPill(
       style = MaterialTheme.typography.labelMedium.copy(
         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
       ),
-      color = if (isSelected) Color.White else OneUiTextPrimary,
+      color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
       modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
     )
   }
