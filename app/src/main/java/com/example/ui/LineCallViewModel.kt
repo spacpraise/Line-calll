@@ -628,9 +628,9 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   private fun handleCallResult(result: CallInitiationResult, number: String, name: String?) {
     when (result) {
       is CallInitiationResult.Started -> Unit
-      is CallInitiationResult.BackendNotConnected -> showNotice("Call could not start", result.message, number, name)
-      is CallInitiationResult.InvalidNumber -> showNotice("Invalid phone number", result.reason, number, name)
-      is CallInitiationResult.UserNotRegistered -> showNotice("Not on Line Call", "This number is not registered on Line Call yet.", number, name)
+      is CallInitiationResult.BackendNotConnected -> showNotice("Call unavailable", "We couldn’t place this call. Check your internet connection and try again.", number, name)
+      is CallInitiationResult.InvalidNumber -> showNotice("Invalid number", "Enter a valid phone number and try again.", number, name)
+      is CallInitiationResult.UserNotRegistered -> showNotice("Number not found", "The number you dialed isn’t registered on Line Call.", number, name)
     }
   }
 
