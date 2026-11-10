@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
@@ -49,6 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -72,6 +75,8 @@ import com.example.ui.theme.OneUiTextSecondary
 @Composable
 fun LoginScreen(
   identifier: String,
+  displayName: String,
+  avatarUrl: String?,
   password: String,
   error: String?,
   busy: Boolean,
@@ -100,12 +105,17 @@ fun LoginScreen(
       }
       Spacer(Modifier.height(34.dp))
       Box(Modifier.size(112.dp).clip(CircleShape).background(OneUiCardElevated), contentAlignment = Alignment.Center) {
-        Icon(Icons.Rounded.Person, contentDescription = "Profile", tint = OneUiTextSecondary, modifier = Modifier.size(58.dp))
+        if (!avatarUrl.isNullOrBlank()) {
+          AsyncImage(model = avatarUrl, contentDescription = "Profile picture", contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().clip(CircleShape))
+        } else {
+          Icon(Icons.Rounded.Person, contentDescription = "Profile", tint = OneUiTextSecondary, modifier = Modifier.size(58.dp))
+        }
       }
       Spacer(Modifier.height(22.dp))
       Text("Log in to your account", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 27.sp), color = OneUiTextPrimary)
       Spacer(Modifier.height(8.dp))
-      Text(identifier.substringBefore("@").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = OneUiTextPrimary)
+      Text(displayName.ifBlank { identifier.substringBefore("@").replaceFirstChar { it.uppercase() } }, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = OneUiTextPrimary)
       Spacer(Modifier.height(5.dp))
       Text(maskedEmail, color = OneUiTextSecondary, style = MaterialTheme.typography.bodyMedium)
       Spacer(Modifier.height(34.dp))
