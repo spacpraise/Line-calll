@@ -77,6 +77,7 @@ fun LoginScreen(
   onIdentifierChanged: (String) -> Unit,
   onPasswordChanged: (String) -> Unit,
   onLogin: () -> Unit,
+  onBack: () -> Unit,
   onRegister: () -> Unit,
   onForgotPassword: () -> Unit
 ) {
@@ -98,7 +99,7 @@ fun LoginScreen(
       IconButton(
         onClick = {
           focusManager.clearFocus(force = true)
-          onRegister()
+          onBack()
         },
         modifier = Modifier.testTag("login_back_button")
       ) {
