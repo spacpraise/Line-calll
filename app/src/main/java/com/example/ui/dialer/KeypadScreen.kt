@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Backspace
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -89,14 +89,14 @@ fun KeypadScreen(
   }
 
   Column(
-    modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 4.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.SpaceBetween
+    modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 8.dp),
+    horizontalAlignment = Alignment.CenterHorizontally
   ) {
-    Column(
-      modifier = Modifier.fillMaxWidth().weight(1f, fill = false).padding(top = 14.dp, bottom = 8.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.Center
+    // The number display owns the flexible space. The keypad below has fixed
+    // dimensions, so entering digits never pushes or resizes the keys.
+    Box(
+      modifier = Modifier.fillMaxWidth().weight(1f),
+      contentAlignment = Alignment.Center
     ) {
       BasicTextField(
         value = fieldValue,
@@ -108,7 +108,7 @@ fun KeypadScreen(
         singleLine = true,
         cursorBrush = SolidColor(CallGreen),
         textStyle = MaterialTheme.typography.headlineLarge.copy(
-          fontWeight = FontWeight.Normal, fontSize = 30.sp, letterSpacing = 1.sp,
+          fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = 1.sp,
           color = OneUiTextPrimary, textAlign = TextAlign.Center
         ),
         modifier = Modifier.fillMaxWidth().testTag("dialer_number_display"),
@@ -121,92 +121,65 @@ fun KeypadScreen(
           }
         }
       )
-      if (enteredNumber.isNotBlank()) {
-        Surface(
-          onClick = { onSaveContact(enteredNumber) },
-          shape = RoundedCornerShape(16.dp),
-          color = Color(0xFF1E2026),
-          modifier = Modifier.padding(top = 8.dp)
-        ) {
-          Text("＋  Add to contacts", color = Color.White, fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-        }
-      }
     }
 
-    if (suggestions.isNotEmpty()) {
-      Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text("RECENT MATCHES", color = OneUiTextSecondary, fontSize = 10.sp,
-          letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold)
-        suggestions.forEach { record ->
-          Surface(
-            onClick = {
-              view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-              onSelectSuggestion(record)
-            },
-            shape = RoundedCornerShape(12.dp),
-            color = Color(0xFF1C1E23),
-            modifier = Modifier.fillMaxWidth()
-          ) {
-            Row(
-              Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Column {
-                Text(record.contactName ?: record.phoneNumber, color = Color.White,
-                  fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (!record.contactName.isNullOrBlank()) {
-                  Text(record.phoneNumber, color = OneUiTextSecondary, fontSize = 12.sp)
-                }
-              }
-              Text("Call", color = CallGreen, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-            }
-          }
-        }
-      }
-    }
-
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
       listOf(listOf("1","2","3"), listOf("4","5","6"), listOf("7","8","9")).forEach { row ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
           row.forEach { digit -> DialDigit(digit, onClick = { insertDigit(digit) }) }
         }
       }
-      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically) {
+      Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Spacer(Modifier.size(64.dp))
+        DialDigit("0", sub = "+", onClick = { insertDigit("0") }, onLongClick = { insertDigit("+") })
         Surface(
           onClick = {
             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-            val start = fieldValue.selection.min.coerceIn(0, fieldValue.text.length)
-            val end = fieldValue.selection.max.coerceIn(0, fieldValue.text.length)
-            val from = if (start == end && start > 0) start - 1 else start
-            val updated = fieldValue.text.removeRange(from, end)
-            fieldValue = TextFieldValue(updated, TextRange(from))
-            onNumberChanged(updated)
+            if (fieldValue.text.isNotEmpty()) {
+              val startIndex = fieldValue.selection.min.coerceIn(0, fieldValue.text.length)
+              val endIndex = fieldValue.selection.max.coerceIn(0, fieldValue.text.length)
+              val from = if (startIndex == endIndex && startIndex > 0) startIndex - 1 else startIndex
+              val updated = fieldValue.text.removeRange(from, endIndex)
+              fieldValue = TextFieldValue(updated, TextRange(from))
+              onNumberChanged(updated)
+            }
           },
-          shape = CircleShape, color = Color(0xFF202228),
+          shape = CircleShape,
+          color = Color.Transparent,
           modifier = Modifier.size(64.dp).testTag("keypad_backspace")
         ) {
           Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.AutoMirrored.Rounded.Backspace, contentDescription = "Delete digit",
-              tint = OneUiTextPrimary, modifier = Modifier.size(25.dp))
-          }
-        }
-        DialDigit("0", sub = "+", onClick = { insertDigit("0") }, onLongClick = { insertDigit("+") })
-        Surface(
-          onClick = { view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY); onCall() },
-          shape = CircleShape, color = CallGreen, shadowElevation = 4.dp,
-          modifier = Modifier.size(64.dp).testTag("call_action_button")
-        ) {
-          Box(contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Phone, contentDescription = "Call", tint = Color.White, modifier = Modifier.size(30.dp))
+            Icon(
+              Icons.Rounded.Close,
+              contentDescription = "Clear last digit",
+              tint = OneUiTextPrimary,
+              modifier = Modifier.size(27.dp)
+            )
           }
         }
       }
+
+      Surface(
+        onClick = { view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY); onCall() },
+        shape = CircleShape,
+        color = CallGreen,
+        shadowElevation = 5.dp,
+        modifier = Modifier.padding(top = 2.dp).size(82.dp).testTag("call_action_button")
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(Icons.Rounded.Phone, contentDescription = "Call", tint = Color.White, modifier = Modifier.size(36.dp))
+        }
+      }
     }
-    Spacer(Modifier.height(76.dp))
+    Spacer(Modifier.height(18.dp))
   }
 }
 
@@ -230,7 +203,7 @@ private fun DialDigit(
     label = "digit_press"
   )
   Box(
-    Modifier.size(width = 86.dp, height = 58.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
+    Modifier.size(width = 86.dp, height = 68.dp).graphicsLayer { scaleX = scale; scaleY = scale }.clip(CircleShape)
       .combinedClickable(
         interactionSource = interactionSource,
         indication = null,
@@ -240,8 +213,8 @@ private fun DialDigit(
     contentAlignment = Alignment.Center
   ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-      Text(digit, color = OneUiTextPrimary, fontSize = 29.sp, fontWeight = FontWeight.Normal)
-      if (sub.isNotEmpty()) Text(sub, color = OneUiTextSecondary, fontSize = 9.sp, letterSpacing = 1.sp)
+      Text(digit, color = OneUiTextPrimary, fontSize = 34.sp, fontWeight = FontWeight.Medium)
+      if (sub.isNotEmpty()) Text(sub, color = OneUiTextSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
     }
   }
 }
