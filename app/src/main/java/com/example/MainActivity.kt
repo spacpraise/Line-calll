@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -59,6 +60,8 @@ import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.LineCallTheme
 import com.example.ui.theme.OneUiDarkBackground
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
   var pendingIncomingCallIntent by mutableStateOf<Intent?>(null)
@@ -67,6 +70,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
+    if (pendingIncomingCallIntent != null) setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
     enableEdgeToEdge()
     setContent { LineCallTheme { LineCallApp() } }
   }
@@ -75,6 +79,19 @@ class MainActivity : ComponentActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
+    if (pendingIncomingCallIntent != null) setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
+  }
+
+  fun setCallWindowMode(showOnLockScreen: Boolean, wakeScreen: Boolean) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(showOnLockScreen)
+      setTurnScreenOn(wakeScreen)
+    } else {
+      if (showOnLockScreen) window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+      else window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+      if (wakeScreen) window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+      else window.clearFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+    }
   }
 
   fun clearPendingIncomingCallIntent() {
@@ -130,8 +147,21 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       val action = pendingCallIntent.getStringExtra("linecall_call_action")
       if (!callId.isNullOrBlank() && !action.isNullOrBlank()) {
         viewModel.handleIncomingCallAction(action, callId)
+        // Keep the lock-screen call window active until polling restores this exact call.
+        withTimeoutOrNull(20_000L) {
+          viewModel.activeCall.first { it?.callId == callId }
+        }
       }
       hostActivity?.clearPendingIncomingCallIntent()
+    }
+  }
+
+  LaunchedEffect(activeCall, pendingCallIntent) {
+    when {
+      activeCall?.isIncoming == true ->
+        hostActivity?.setCallWindowMode(showOnLockScreen = true, wakeScreen = activeCall.state == CallSessionState.RINGING)
+      pendingCallIntent == null ->
+        hostActivity?.setCallWindowMode(showOnLockScreen = false, wakeScreen = false)
     }
   }
 
