@@ -114,6 +114,8 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   val phoneInput by viewModel.phoneInput.collectAsStateWithLifecycle()
   val displayNameInput by viewModel.displayNameInput.collectAsStateWithLifecycle()
   val loginIdentifier by viewModel.loginIdentifier.collectAsStateWithLifecycle()
+  val loginDisplayName by viewModel.loginDisplayName.collectAsStateWithLifecycle()
+  val loginAvatarUrl by viewModel.loginAvatarUrl.collectAsStateWithLifecycle()
   val passwordInput by viewModel.passwordInput.collectAsStateWithLifecycle()
   val confirmPasswordInput by viewModel.confirmPasswordInput.collectAsStateWithLifecycle()
   val isAuthBusy by viewModel.isAuthBusy.collectAsStateWithLifecycle()
@@ -323,6 +325,8 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       ScreenState.LOGIN -> {
         LoginScreen(
           identifier = loginIdentifier,
+          displayName = loginDisplayName,
+          avatarUrl = loginAvatarUrl,
           password = passwordInput,
           error = authError,
           busy = isAuthBusy,
