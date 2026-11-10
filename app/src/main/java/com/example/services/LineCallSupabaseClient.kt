@@ -188,6 +188,7 @@ class LineCallSupabaseClient(context: Context) {
           .put(JSONObject().put("email", cleanEmail).toString().toRequestBody(jsonType))
           .build()
       )
+      Unit
     }
   }
 
