@@ -272,35 +272,38 @@ fun ContactsScreen(
       }
     }
 
-    // 4. Contacts List Grouped in Card (Image 4)
-    item {
-      Text(
-        text = if (searchQuery.isEmpty()) "&" else "Search results",
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-        color = OneUiTextSecondary,
-        modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
-      )
-
-      Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
-        modifier = Modifier.fillMaxWidth()
-      ) {
-        Column {
-          val listToRender = if (searchQuery.isEmpty()) regularContacts else contacts
-          listToRender.forEachIndexed { index, contact ->
-            ContactListRow(
-              contact = contact,
-              onClick = { onContactClick(contact) }
-            )
-            if (index < listToRender.lastIndex) {
-              HorizontalDivider(
-                color = Color(0xFF26282E),
-                thickness = 0.5.dp,
-                modifier = Modifier.padding(start = 64.dp)
-              )
-            }
-          }
+    // Render each contact as its own lazy item so large address books do not
+    // compose every row at once.
+    val listToRender = if (searchQuery.isEmpty()) regularContacts else contacts
+    if (listToRender.isEmpty()) {
+      item {
+        Text(
+          text = if (searchQuery.isEmpty()) "No contacts yet" else "No matching contacts",
+          color = OneUiTextSecondary,
+          style = MaterialTheme.typography.bodyMedium,
+          modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
+          textAlign = TextAlign.Center
+        )
+      }
+    } else {
+      item {
+        Text(
+          text = if (searchQuery.isEmpty()) "&" else "Search results",
+          style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+          color = OneUiTextSecondary,
+          modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
+        )
+      }
+      items(listToRender, key = { it.id }) { contact ->
+        Surface(
+          shape = RoundedCornerShape(18.dp),
+          color = OneUiCardBackground,
+          modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+        ) {
+          ContactListRow(
+            contact = contact,
+            onClick = { onContactClick(contact) }
+          )
         }
       }
     }
