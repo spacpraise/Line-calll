@@ -72,13 +72,6 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.Contact
 import com.example.data.model.UserAccount
 import com.example.ui.theme.CallGreen
-import com.example.ui.theme.MaterialTheme.colorScheme.surface
-import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
-import com.example.ui.theme.MaterialTheme.colorScheme.background
-import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 /**
  * Contact Details Screen precisely matching Image 7:
@@ -99,7 +92,7 @@ fun ContactDetailScreen(
 ) {
   Surface(
     modifier = modifier.fillMaxSize(),
-    color = OneUiDarkBackground
+    color = MaterialTheme.colorScheme.background
   ) {
     Column(
       modifier = Modifier
@@ -121,7 +114,7 @@ fun ContactDetailScreen(
           Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = "Back",
-            tint = OneUiTextPrimary,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(24.dp)
           )
         }
@@ -137,7 +130,7 @@ fun ContactDetailScreen(
         // Hero Card (Image 7)
         Card(
           shape = RoundedCornerShape(26.dp),
-          colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
           modifier = Modifier.fillMaxWidth()
         ) {
           Column(modifier = Modifier.padding(20.dp)) {
@@ -153,13 +146,13 @@ fun ContactDetailScreen(
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp
                   ),
-                  color = OneUiTextPrimary
+                  color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                   text = "Mobile ${contact.phoneNumber}",
                   style = MaterialTheme.typography.bodyMedium,
-                  color = OneUiTextSecondary
+                  color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
               }
 
@@ -245,7 +238,7 @@ fun ContactDetailScreen(
         // "Line Call Voice" Card
         Surface(
           shape = RoundedCornerShape(22.dp),
-          color = OneUiCardBackground,
+          color = MaterialTheme.colorScheme.surface,
           modifier = Modifier.fillMaxWidth()
         ) {
           Row(
@@ -256,7 +249,7 @@ fun ContactDetailScreen(
             Text(
               text = "Line Call Voice",
               style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-              color = OneUiTextPrimary
+              color = MaterialTheme.colorScheme.onSurface
             )
             Icon(
               imageVector = Icons.Rounded.Phone,
@@ -270,7 +263,7 @@ fun ContactDetailScreen(
         // "History" Pill Button (Image 7)
         Surface(
           shape = RoundedCornerShape(22.dp),
-          color = OneUiCardElevated,
+          color = MaterialTheme.colorScheme.surfaceVariant,
           modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
@@ -279,7 +272,7 @@ fun ContactDetailScreen(
             Text(
               text = "History",
               style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-              color = OneUiTextPrimary
+              color = MaterialTheme.colorScheme.onSurface
             )
           }
         }
@@ -287,7 +280,7 @@ fun ContactDetailScreen(
         // "Storage locations" Card (Image 7)
         Surface(
           shape = RoundedCornerShape(22.dp),
-          color = OneUiCardElevated,
+          color = MaterialTheme.colorScheme.surfaceVariant,
           modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
@@ -296,7 +289,7 @@ fun ContactDetailScreen(
             Text(
               text = "Storage locations",
               style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-              color = OneUiTextPrimary
+              color = MaterialTheme.colorScheme.onSurface
             )
           }
         }
@@ -312,7 +305,7 @@ fun ContactDetailScreen(
       ) {
         Surface(
           shape = RoundedCornerShape(32.dp),
-          color = OneUiNavPill,
+          color = MaterialTheme.colorScheme.surfaceVariant,
           tonalElevation = 6.dp,
           shadowElevation = 8.dp
         ) {
@@ -329,13 +322,13 @@ fun ContactDetailScreen(
               Icon(
                 imageVector = if (contact.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 contentDescription = "Favourites",
-                tint = if (contact.isFavorite) Color(0xFFFBBF24) else OneUiTextSecondary,
+                tint = if (contact.isFavorite) Color(0xFFFBBF24) else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(22.dp)
               )
               Text(
                 text = "Favourites",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = OneUiTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
               )
             }
 
@@ -344,13 +337,13 @@ fun ContactDetailScreen(
               Icon(
                 imageVector = Icons.Rounded.Edit,
                 contentDescription = "Edit",
-                tint = OneUiTextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(22.dp)
               )
               Text(
                 text = "Edit",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = OneUiTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
               )
             }
 
@@ -365,13 +358,13 @@ fun ContactDetailScreen(
               Icon(
                 imageVector = Icons.Rounded.Delete,
                 contentDescription = "Delete",
-                tint = OneUiTextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(22.dp)
               )
               Text(
                 text = "Delete",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = OneUiTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
               )
             }
 
@@ -380,13 +373,13 @@ fun ContactDetailScreen(
               Icon(
                 imageVector = Icons.Rounded.MoreVert,
                 contentDescription = "More",
-                tint = OneUiTextSecondary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(22.dp)
               )
               Text(
                 text = "More",
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = OneUiTextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
               )
             }
           }
@@ -419,7 +412,7 @@ fun AddContactOneUiScreen(
 
   Surface(
     modifier = modifier.fillMaxSize(),
-    color = OneUiDarkBackground
+    color = MaterialTheme.colorScheme.background
   ) {
     Column(
       modifier = Modifier
@@ -448,12 +441,12 @@ fun AddContactOneUiScreen(
         Text(
           text = currentUser?.email ?: "omolayojoy568@gmail.com",
           style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-          color = OneUiTextPrimary
+          color = MaterialTheme.colorScheme.onSurface
         )
         Icon(
           imageVector = Icons.Rounded.KeyboardArrowDown,
           contentDescription = null,
-          tint = OneUiTextSecondary,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.size(18.dp)
         )
       }
@@ -490,7 +483,7 @@ fun AddContactOneUiScreen(
               Text(
                 text = "Profile card",
                 style = MaterialTheme.typography.labelSmall,
-                color = OneUiTextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
               )
             }
@@ -515,7 +508,7 @@ fun AddContactOneUiScreen(
               Text(
                 text = "Picture",
                 style = MaterialTheme.typography.labelSmall,
-                color = OneUiTextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
               )
             }
@@ -527,7 +520,7 @@ fun AddContactOneUiScreen(
         // Group 1: Name & Phone & Work in One UI Rounded Card (Image 3)
         Card(
           shape = RoundedCornerShape(22.dp),
-          colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
           modifier = Modifier.fillMaxWidth()
         ) {
           Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -560,7 +553,7 @@ fun AddContactOneUiScreen(
         // Group 2: Email in Rounded Card (Image 3)
         Card(
           shape = RoundedCornerShape(22.dp),
-          colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
           modifier = Modifier.fillMaxWidth()
         ) {
           Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -577,7 +570,7 @@ fun AddContactOneUiScreen(
         // Group 3: Groups in Rounded Card (Image 3)
         Card(
           shape = RoundedCornerShape(22.dp),
-          colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
           modifier = Modifier.fillMaxWidth()
         ) {
           Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -601,7 +594,7 @@ fun AddContactOneUiScreen(
       ) {
         Surface(
           shape = RoundedCornerShape(32.dp),
-          color = OneUiNavPill,
+          color = MaterialTheme.colorScheme.surfaceVariant,
           tonalElevation = 6.dp,
           shadowElevation = 8.dp
         ) {
@@ -613,7 +606,7 @@ fun AddContactOneUiScreen(
             Text(
               text = "Cancel",
               style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-              color = OneUiTextPrimary,
+              color = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier
                 .clickable {
                   focusManager.clearFocus(force = true)
@@ -634,7 +627,7 @@ fun AddContactOneUiScreen(
               text = "Save",
               style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = if (name.isNotBlank() && phone.isNotBlank()) CallGreen else OneUiTextSecondary
+                color = if (name.isNotBlank() && phone.isNotBlank()) CallGreen else MaterialTheme.colorScheme.onSurfaceVariant
               ),
               modifier = Modifier
                 .clickable(enabled = name.isNotBlank() && phone.isNotBlank()) {
@@ -678,7 +671,7 @@ private fun OneUiFormField(
     OutlinedTextField(
       value = value,
       onValueChange = onValueChange,
-      placeholder = { Text(placeholder, color = OneUiTextMuted) },
+      placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant) },
       singleLine = true,
       keyboardOptions = KeyboardOptions(
         keyboardType = keyboardType,
@@ -690,9 +683,9 @@ private fun OneUiFormField(
       colors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = Color.Transparent,
         unfocusedBorderColor = Color.Transparent,
-        focusedTextColor = OneUiTextPrimary,
-        unfocusedTextColor = OneUiTextPrimary,
-        cursorColor = OneUiTextPrimary
+        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        cursorColor = MaterialTheme.colorScheme.onSurface
       ),
       modifier = Modifier
         .fillMaxWidth()
