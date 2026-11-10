@@ -489,21 +489,39 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       )
     }
 
-    // Active or Incoming Voice Call Overlays
+    // Animate the hand-off from the incoming-call surface into the live call.
     activeCall?.let { session ->
-      if (session.isIncoming && session.state == CallSessionState.RINGING) {
-        IncomingCallScreen(
-          session = session,
-          onAccept = { runWithMicrophonePermission { viewModel.acceptIncomingCall() } },
-          onDecline = { viewModel.declineIncomingCall() }
-        )
-      } else {
-        ActiveCallScreen(
-          session = session,
-          onMuteToggle = { viewModel.toggleMute() },
-          onSpeakerToggle = { viewModel.toggleSpeaker() },
-          onEndCall = { viewModel.endCall() }
-        )
+      androidx.compose.animation.AnimatedContent(
+        targetState = session.state == CallSessionState.CONNECTED,
+        transitionSpec = {
+          (androidx.compose.animation.fadeIn(
+            animationSpec = androidx.compose.animation.core.tween(420)
+          ) + androidx.compose.animation.scaleIn(
+            initialScale = 0.94f,
+            animationSpec = androidx.compose.animation.core.spring(
+              dampingRatio = 0.82f,
+              stiffness = 260f
+            )
+          )) togetherWith androidx.compose.animation.fadeOut(
+            animationSpec = androidx.compose.animation.core.tween(160)
+          )
+        },
+        label = "incoming_to_active_call"
+      ) { connected ->
+        if (!connected && session.isIncoming && session.state == CallSessionState.RINGING) {
+          IncomingCallScreen(
+            session = session,
+            onAccept = { runWithMicrophonePermission { viewModel.acceptIncomingCall() } },
+            onDecline = { viewModel.declineIncomingCall() }
+          )
+        } else {
+          ActiveCallScreen(
+            session = session,
+            onMuteToggle = { viewModel.toggleMute() },
+            onSpeakerToggle = { viewModel.toggleSpeaker() },
+            onEndCall = { viewModel.endCall() }
+          )
+        }
       }
     }
   }
