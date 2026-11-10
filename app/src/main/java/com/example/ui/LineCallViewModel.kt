@@ -132,6 +132,9 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   private val _authError = MutableStateFlow<String?>(null)
   val authError: StateFlow<String?> = _authError.asStateFlow()
 
+  private val _authNotice = MutableStateFlow<String?>(null)
+  val authNotice: StateFlow<String?> = _authNotice.asStateFlow()
+
   private val _contactSearchQuery = MutableStateFlow("")
   val contactSearchQuery: StateFlow<String> = _contactSearchQuery.asStateFlow()
 
@@ -218,6 +221,36 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   fun updateEmailInput(email: String) {
     _emailInput.value = email
     _authError.value = null
+    _authNotice.value = null
+  }
+
+  fun checkEmailAndContinue() {
+    val email = _emailInput.value.trim()
+    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+      _authError.value = "Enter a valid email address."
+      return
+    }
+    viewModelScope.launch {
+      _isAuthBusy.value = true
+      _authError.value = null
+      _authNotice.value = null
+      supabase.checkEmailExists(email).onSuccess { exists ->
+        _passwordInput.value = ""
+        _confirmPasswordInput.value = ""
+        if (exists) {
+          isCompletingRegistration = false
+          _loginIdentifier.value = email
+          _authNotice.value = "An account already exists for this email. Enter your password to log in."
+          _currentScreen.value = ScreenState.LOGIN
+        } else {
+          isCompletingRegistration = true
+          _currentScreen.value = ScreenState.PASSWORD_SETUP
+        }
+      }.onFailure {
+        _authError.value = it.message ?: "We couldn't check this email. Please try again."
+      }
+      _isAuthBusy.value = false
+    }
   }
 
   fun continueToPasswordSetup() {
@@ -254,7 +287,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     _currentScreen.value = ScreenState.PHONE_SETUP
   }
 
-  fun updateLoginIdentifier(value: String) { _loginIdentifier.value = value; _authError.value = null }
+  fun updateLoginIdentifier(value: String) { _loginIdentifier.value = value; _authError.value = null; _authNotice.value = null }
   fun updatePasswordInput(value: String) { _passwordInput.value = value; _authError.value = null }
   fun updateConfirmPasswordInput(value: String) { _confirmPasswordInput.value = value; _authError.value = null }
 
@@ -280,6 +313,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           startIncomingCallPollingIfForeground()
         }
         _authError.value = null
+        _authNotice.value = null
       }.onFailure { _authError.value = it.message ?: "Could not sign in. Check your details." }
       _isAuthBusy.value = false
     }
@@ -617,6 +651,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
       _phoneInput.value = ""
       _displayNameInput.value = ""
       _authError.value = null
+      _authNotice.value = null
       _enteredNumber.value = ""
     }
   }
