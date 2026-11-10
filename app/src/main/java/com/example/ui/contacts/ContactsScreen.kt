@@ -61,9 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Contact
 import com.example.data.model.UserAccount
-import com.example.ui.theme.MaterialTheme.colorScheme.surface
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 import com.example.ui.theme.getFavoriteGradient
 
 /**
@@ -99,7 +96,7 @@ fun ContactsScreen(
       item {
         Card(
           shape = RoundedCornerShape(22.dp),
-          colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
           modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
@@ -108,7 +105,7 @@ fun ContactsScreen(
             Text(
               text = "Your favourite contacts now appear as cards. You can change to list view in the More menu.",
               style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-              color = OneUiTextPrimary
+              color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(
@@ -119,7 +116,7 @@ fun ContactsScreen(
               Text(
                 text = "View as list",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = OneUiTextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                   .clickable { showBannerTip = false }
                   .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -128,7 +125,7 @@ fun ContactsScreen(
               Text(
                 text = "OK",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = OneUiTextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                   .clickable { showBannerTip = false }
                   .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -150,7 +147,7 @@ fun ContactsScreen(
           Icon(
             imageVector = Icons.Rounded.Star,
             contentDescription = null,
-            tint = OneUiTextPrimary,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(16.dp)
           )
           Text(
@@ -159,7 +156,7 @@ fun ContactsScreen(
               fontWeight = FontWeight.Bold,
               fontSize = 15.sp
             ),
-            color = OneUiTextPrimary
+            color = MaterialTheme.colorScheme.onSurface
           )
         }
       }
@@ -200,14 +197,14 @@ fun ContactsScreen(
         Text(
           text = "My profile",
           style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-          color = OneUiTextSecondary,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 6.dp)
         )
 
         Surface(
           onClick = onProfileClick,
           shape = RoundedCornerShape(22.dp),
-          color = OneUiCardBackground,
+          color = MaterialTheme.colorScheme.surface,
           modifier = Modifier
             .fillMaxWidth()
             .testTag("my_profile_pill_card")
@@ -234,7 +231,7 @@ fun ContactsScreen(
             Text(
               text = currentUser?.displayName?.ifBlank { "Omolayo" } ?: "Omolayo",
               style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-              color = OneUiTextPrimary
+              color = MaterialTheme.colorScheme.onSurface
             )
           }
         }
@@ -245,7 +242,7 @@ fun ContactsScreen(
         Surface(
           onClick = { },
           shape = RoundedCornerShape(22.dp),
-          color = OneUiCardBackground,
+          color = MaterialTheme.colorScheme.surface,
           modifier = Modifier.fillMaxWidth()
         ) {
           Row(
@@ -270,7 +267,7 @@ fun ContactsScreen(
             Text(
               text = "Groups",
               style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-              color = OneUiTextPrimary
+              color = MaterialTheme.colorScheme.onSurface
             )
           }
         }
@@ -286,7 +283,7 @@ fun ContactsScreen(
       item {
         Text(
           text = if (searchQuery.isEmpty()) "No contacts yet" else "No matching contacts",
-          color = OneUiTextSecondary,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
           style = MaterialTheme.typography.bodyMedium,
           modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
           textAlign = TextAlign.Center
@@ -297,14 +294,14 @@ fun ContactsScreen(
         Text(
           text = if (searchQuery.isEmpty()) "All contacts" else "Search results",
           style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-          color = OneUiTextSecondary,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
         )
       }
       items(listToRender, key = { it.id }) { contact ->
         Surface(
           shape = RoundedCornerShape(18.dp),
-          color = OneUiCardBackground,
+          color = MaterialTheme.colorScheme.surface,
           modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
         ) {
           ContactListRow(
@@ -440,7 +437,7 @@ fun ContactListRow(
     Text(
       text = contact.name,
       style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-      color = OneUiTextPrimary,
+      color = MaterialTheme.colorScheme.onSurface,
       modifier = Modifier.weight(1f)
     )
   }
