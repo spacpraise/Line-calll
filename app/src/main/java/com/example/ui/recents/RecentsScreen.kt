@@ -63,11 +63,11 @@ import com.example.data.model.CallRecord
 import com.example.data.model.CallType
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
-import com.example.ui.theme.OneUiCardBackground
-import com.example.ui.theme.OneUiCardElevated
-import com.example.ui.theme.OneUiTextMuted
-import com.example.ui.theme.OneUiTextPrimary
-import com.example.ui.theme.OneUiTextSecondary
+import com.example.ui.theme.MaterialTheme.colorScheme.surface
+import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
+import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 /**
  * Recents screen matching Samsung One UI Phone Recents (Images 5 & 6):
@@ -158,7 +158,7 @@ fun RecentsScreen(
               Surface(
                 onClick = { onCallRecord(latestMissed) },
                 shape = RoundedCornerShape(18.dp),
-                color = Color(0xFF26282E),
+                color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.testTag("callback_banner_btn")
               ) {
                 Text(
@@ -281,7 +281,7 @@ fun RecentsScreen(
     ModalBottomSheet(
       onDismissRequest = { showFilterSheet = false },
       sheetState = sheetState,
-      containerColor = Color(0xFF141519)
+      containerColor = MaterialTheme.colorScheme.surfaceVariant
     ) {
       Column(
         modifier = Modifier
