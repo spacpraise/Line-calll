@@ -44,18 +44,25 @@ Deno.serve(async (req: Request) => {
       .insert({ identifier_hash: identifierHash, ip_hash: ipHash });
     if (logError) throw logError;
 
-    let exists = false;
+    let matchedUser: { id: string } | null = null;
     for (let page = 1; page <= 50; page++) {
       const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
       if (error) throw error;
       const users = data.users ?? [];
-      if (users.some((user) => user.email?.toLowerCase() === email)) {
-        exists = true;
-        break;
-      }
+      const match = users.find((user) => user.email?.toLowerCase() === email);
+      if (match) { matchedUser = { id: match.id }; break; }
       if (users.length < 1000) break;
     }
-    return json({ exists });
+    if (!matchedUser) return json({ exists: false });
+    const { data: profile } = await admin.from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", matchedUser.id)
+      .maybeSingle();
+    return json({
+      exists: true,
+      display_name: profile?.display_name ?? "",
+      avatar_url: profile?.avatar_url ?? null,
+    });
   } catch (error) {
     console.error("check-account failed:", error instanceof Error ? error.message : "unknown");
     return json({ error: "We couldn't check this email. Please try again." }, 503);
