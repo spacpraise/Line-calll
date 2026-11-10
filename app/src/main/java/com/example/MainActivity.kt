@@ -118,6 +118,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
   val confirmPasswordInput by viewModel.confirmPasswordInput.collectAsStateWithLifecycle()
   val isAuthBusy by viewModel.isAuthBusy.collectAsStateWithLifecycle()
   val authError by viewModel.authError.collectAsStateWithLifecycle()
+  val authNotice by viewModel.authNotice.collectAsStateWithLifecycle()
   val recoveryEmail by viewModel.recoveryEmail.collectAsStateWithLifecycle()
   val recoveryPhone by viewModel.recoveryPhone.collectAsStateWithLifecycle()
   val newPassword by viewModel.newPassword.collectAsStateWithLifecycle()
@@ -300,7 +301,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           email = emailInput,
           error = authError,
           onEmailChanged = { viewModel.updateEmailInput(it) },
-          onContinue = { viewModel.continueToPasswordSetup() },
+          onContinue = { viewModel.checkEmailAndContinue() },
           onBack = { viewModel.navigateTo(ScreenState.WELCOME) }
         )
       }
@@ -324,7 +325,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           identifier = loginIdentifier,
           password = passwordInput,
           error = authError,
-          notice = viewModel.authNotice.collectAsStateWithLifecycle().value,
+          notice = authNotice,
           busy = isAuthBusy,
           onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
