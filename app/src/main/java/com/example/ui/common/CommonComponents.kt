@@ -65,12 +65,6 @@ import com.example.ui.BackendNoticeState
 import com.example.ui.MainTab
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.NotificationOrange
-import com.example.ui.theme.MaterialTheme.colorScheme.surface
-import com.example.ui.theme.MaterialTheme.colorScheme.secondaryContainer
-import com.example.ui.theme.MaterialTheme.colorScheme.surfaceVariant
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurface
-import com.example.ui.theme.MaterialTheme.colorScheme.onSurfaceVariant
 
 /**
  * Top header matching Samsung One UI Phone / Contacts app:
@@ -111,12 +105,12 @@ fun OneUiTopBar(
               fontWeight = FontWeight.Bold,
               fontSize = 28.sp
             ),
-            color = OneUiTextPrimary
+            color = MaterialTheme.colorScheme.onSurface
           )
           Text(
             text = "$contactsCount contacts",
             style = MaterialTheme.typography.bodySmall,
-            color = OneUiTextSecondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
           )
         }
       } else {
@@ -134,7 +128,7 @@ fun OneUiTopBar(
           Text(
             text = "Line Call",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = OneUiTextPrimary
+            color = MaterialTheme.colorScheme.onSurface
           )
         }
       }
@@ -154,7 +148,7 @@ fun OneUiTopBar(
             Icon(
               imageVector = Icons.Rounded.Add,
               contentDescription = "Add Contact",
-              tint = OneUiTextPrimary,
+              tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(24.dp)
             )
           }
@@ -166,7 +160,7 @@ fun OneUiTopBar(
             Icon(
               imageVector = Icons.Rounded.FilterList,
               contentDescription = "Filters",
-              tint = OneUiTextPrimary,
+              tint = MaterialTheme.colorScheme.onSurface,
               modifier = Modifier.size(22.dp)
             )
           }
@@ -181,7 +175,7 @@ fun OneUiTopBar(
           Icon(
             imageVector = Icons.Rounded.Search,
             contentDescription = "Search",
-            tint = OneUiTextPrimary,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(22.dp)
           )
         }
@@ -198,7 +192,7 @@ fun OneUiTopBar(
               Icon(
                 imageVector = Icons.Rounded.MoreVert,
                 contentDescription = "More",
-                tint = OneUiTextPrimary,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(22.dp)
               )
               // Distinct orange indicator dot
@@ -215,10 +209,10 @@ fun OneUiTopBar(
           DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            modifier = Modifier.background(OneUiCardBackground)
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
           ) {
             DropdownMenuItem(
-              text = { Text("Settings", color = OneUiTextPrimary) },
+              text = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
               onClick = {
                 showMenu = false
                 onSettingsClick()
@@ -226,7 +220,7 @@ fun OneUiTopBar(
             )
             if (currentTab == MainTab.CONTACTS) {
               DropdownMenuItem(
-                text = { Text("Add new contact", color = OneUiTextPrimary) },
+                text = { Text("Add new contact", color = MaterialTheme.colorScheme.onSurface) },
                 onClick = {
                   showMenu = false
                   onAddContactClick()
@@ -243,9 +237,9 @@ fun OneUiTopBar(
 /**
  * Floating Dark Pill Navigation Bar exactly matching Samsung One UI phone screenshots (Images 1, 2, 4, 6):
  * - Floats gracefully above the bottom system navigation insets
- * - Pill container: RoundedCornerShape(32.dp) with OneUiNavPill background
+ * - Pill container: RoundedCornerShape(32.dp) with MaterialTheme.colorScheme.surfaceVariant background
  * - 3 Tabs: Keypad, Recents, Contacts
- * - Selected tab highlighted by an active inner pill (OneUiNavActivePill)
+ * - Selected tab highlighted by an active inner pill (MaterialTheme.colorScheme.secondaryContainer)
  */
 @Composable
 fun OneUiFloatingBottomNav(
@@ -262,7 +256,7 @@ fun OneUiFloatingBottomNav(
   ) {
     Surface(
       shape = RoundedCornerShape(32.dp),
-      color = OneUiNavPill,
+      color = MaterialTheme.colorScheme.surfaceVariant,
       tonalElevation = 6.dp,
       shadowElevation = 8.dp,
       modifier = Modifier.padding(horizontal = 24.dp)
@@ -321,7 +315,7 @@ private fun OneUiNavTabItem(
     modifier = Modifier
       .graphicsLayer { scaleX = scale; scaleY = scale }
       .clip(RoundedCornerShape(24.dp))
-      .background(if (isSelected) OneUiNavActivePill else Color.Transparent)
+      .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
       .clickable(interactionSource = interactionSource, indication = null) {
         view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
         onClick()
@@ -337,7 +331,7 @@ private fun OneUiNavTabItem(
       Icon(
         imageVector = icon,
         contentDescription = label,
-        tint = if (isSelected) Color.White else OneUiTextSecondary,
+        tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.size(20.dp)
       )
       Spacer(modifier = Modifier.height(2.dp))
@@ -347,7 +341,7 @@ private fun OneUiNavTabItem(
           fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
           fontSize = 11.sp
         ),
-        color = if (isSelected) Color.White else OneUiTextSecondary
+        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
       )
     }
   }
@@ -362,19 +356,19 @@ fun BackendNoticeDialog(
   AlertDialog(
     onDismissRequest = onDismiss,
     shape = RoundedCornerShape(22.dp),
-    containerColor = OneUiCardBackground,
+    containerColor = MaterialTheme.colorScheme.surface,
     title = {
       Text(
         text = notice.title,
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-        color = OneUiTextPrimary
+        color = MaterialTheme.colorScheme.onSurface
       )
     },
     text = {
       Text(
         text = notice.message,
         style = MaterialTheme.typography.bodyMedium,
-        color = OneUiTextSecondary
+        color = MaterialTheme.colorScheme.onSurfaceVariant
       )
     },
     confirmButton = {
