@@ -111,7 +111,7 @@ fun SettingsScreen(
           Column(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               Box(
-                modifier = Modifier.size(76.dp).clip(CircleShape).background(Color(0xFF171717)),
+                modifier = Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
               ) {
                 Text(
@@ -139,12 +139,12 @@ fun SettingsScreen(
               onClick = { imagePicker.launch("image/*") },
               modifier = Modifier.fillMaxWidth().height(46.dp),
               shape = RoundedCornerShape(14.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF242424))
+              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-              Icon(Icons.Rounded.CameraAlt, contentDescription = null, tint = Color.White)
+              Icon(Icons.Rounded.CameraAlt, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
               Spacer(Modifier.width(8.dp))
               Text(if (currentUser?.avatarUrl.isNullOrBlank()) "Add profile photo" else "Change profile photo",
-                color = Color.White, fontWeight = FontWeight.SemiBold)
+                color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
             ProfileDetailRow("Display name", currentUser?.displayName?.ifBlank { "Not set" } ?: "Not set",
