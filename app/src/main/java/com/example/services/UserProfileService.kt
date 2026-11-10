@@ -57,6 +57,12 @@ class UserProfileService(
     return result
   }
 
+  suspend fun refreshCurrentUser(): Result<UserAccount> {
+    val result = supabase.refreshAuthenticatedProfile()
+    result.onSuccess(::setUser)
+    return result
+  }
+
   suspend fun updatePhoneNumber(e164PhoneNumber: String): Result<UserAccount> =
     registerPhoneNumber(e164PhoneNumber)
 
