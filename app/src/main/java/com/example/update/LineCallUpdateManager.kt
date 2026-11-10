@@ -29,6 +29,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 private const val RELEASES_URL = "https://api.github.com/repos/spacpraise/Line-calll/releases/latest"
@@ -207,12 +208,14 @@ class ReleaseCheckWorker(
             val assets = release.optJSONArray("assets") ?: return@withContext Result.success()
             var apkUrl: String? = null
             var apkName = "line-call-update.apk"
+            var expectedDigest = ""
             for (index in 0 until assets.length()) {
                 val asset = assets.optJSONObject(index) ?: continue
                 val name = asset.optString("name")
                 if (name.endsWith(".apk", ignoreCase = true)) {
                     apkUrl = asset.optString("browser_download_url")
                     apkName = name
+                    expectedDigest = asset.optString("digest")
                     break
                 }
             }
@@ -232,6 +235,15 @@ class ReleaseCheckWorker(
                     FileOutputStream(partial).use { output -> input.copyTo(output) }
                 }
             } finally { download.disconnect() }
+
+            if (expectedDigest.startsWith("sha256:", ignoreCase = true)) {
+                val actualDigest = MessageDigest.getInstance("SHA-256").digest(partial.readBytes())
+                    .joinToString("") { "%02x".format(it) }
+                if (!actualDigest.equals(expectedDigest.substringAfter(":"), ignoreCase = true)) {
+                    partial.delete()
+                    return@withContext Result.failure()
+                }
+            }
 
             val candidateCode = LineCallUpdateManager.archiveVersionCode(applicationContext, partial)
                 ?: run { partial.delete(); return@withContext Result.failure() }
