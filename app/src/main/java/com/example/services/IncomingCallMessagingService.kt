@@ -16,12 +16,25 @@ import com.example.MainActivity
 import com.example.R
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class IncomingCallMessagingService : FirebaseMessagingService() {
   override fun onNewToken(token: String) {
     super.onNewToken(token)
     getSharedPreferences("line_call_fcm", Context.MODE_PRIVATE)
       .edit().putString("fcm_token", token).apply()
+    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+      runCatching {
+        val backend = LineCallSupabaseClient(applicationContext)
+        val user = backend.restoreSession()
+        if (user != null) backend.saveFcmToken(user.id, token)
+      }.onFailure {
+        android.util.Log.w("LineCallFCM", "Could not sync refreshed device token.", it)
+      }
+    }
   }
 
   override fun onMessageReceived(message: RemoteMessage) {
