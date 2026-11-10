@@ -57,6 +57,20 @@ class UserProfileService(
     return result
   }
 
+  suspend fun updatePhoneNumber(e164PhoneNumber: String): Result<UserAccount> =
+    registerPhoneNumber(e164PhoneNumber)
+
+  suspend fun updateEmail(newEmail: String): Result<Unit> =
+    supabase.requestEmailChange(newEmail)
+
+  suspend fun updateAvatar(jpegBytes: ByteArray): Result<UserAccount> {
+    val current = _currentUser.value
+      ?: return Result.failure(IllegalStateException("No signed-in account was found."))
+    val result = supabase.saveAvatar(current, jpegBytes)
+    result.onSuccess(::setUser)
+    return result
+  }
+
   suspend fun checkTargetUserRegistration(e164PhoneNumber: String): RegistrationStatus {
     if (!validateE164(e164PhoneNumber)) return RegistrationStatus.NotRegistered(e164PhoneNumber)
     return try {
