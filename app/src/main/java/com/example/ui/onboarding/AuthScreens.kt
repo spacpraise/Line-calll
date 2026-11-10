@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
@@ -73,213 +74,87 @@ fun LoginScreen(
   identifier: String,
   password: String,
   error: String?,
-  notice: String? = null,
   busy: Boolean,
-  onIdentifierChanged: (String) -> Unit,
   onPasswordChanged: (String) -> Unit,
   onLogin: () -> Unit,
-  onBack: () -> Unit,
+  onSwitchAccount: () -> Unit,
   onForgotPassword: () -> Unit
 ) {
   val focusManager = LocalFocusManager.current
   var passwordVisible by remember { mutableStateOf(false) }
-
-  Surface(
-    modifier = Modifier.fillMaxSize(),
-    color = OneUiDarkBackground
-  ) {
+  val maskedEmail = remember(identifier) {
+    val parts = identifier.trim().split("@", limit = 2)
+    if (parts.size != 2) identifier
+    else (if (parts[0].length <= 2) parts[0].take(1) + "•••" else parts[0].take(2) + "••••") + "@" + parts[1]
+  }
+  Surface(Modifier.fillMaxSize(), color = OneUiDarkBackground) {
     Column(
-      modifier = Modifier
-        .fillMaxSize()
-        .windowInsetsPadding(WindowInsets.statusBars)
-        .padding(horizontal = 24.dp, vertical = 16.dp)
-        .verticalScroll(rememberScrollState())
+      Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
+        .padding(horizontal = 26.dp, vertical = 18.dp).verticalScroll(rememberScrollState()),
+      horizontalAlignment = Alignment.CenterHorizontally
     ) {
-      // Top row: Back to Welcome
-      IconButton(
-        onClick = {
-          focusManager.clearFocus(force = true)
-          onBack()
-        },
-        modifier = Modifier.testTag("login_back_button")
-      ) {
-        Icon(
-          imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-          contentDescription = "Back",
-          tint = OneUiTextPrimary,
-          modifier = Modifier.size(24.dp)
-        )
+      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+        IconButton(onClick = onSwitchAccount, modifier = Modifier.testTag("login_switch_back")) {
+          Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = OneUiTextPrimary)
+        }
       }
-
-      Spacer(Modifier.height(18.dp))
-
-      Text(
-        text = "Welcome back",
-        style = MaterialTheme.typography.headlineMedium.copy(
-          fontWeight = FontWeight.Bold,
-          fontSize = 28.sp
-        ),
-        color = OneUiTextPrimary
-      )
-
+      Spacer(Modifier.height(34.dp))
+      Box(Modifier.size(112.dp).clip(CircleShape).background(OneUiCardElevated), contentAlignment = Alignment.Center) {
+        Icon(Icons.Rounded.Person, contentDescription = "Profile", tint = OneUiTextSecondary, modifier = Modifier.size(58.dp))
+      }
+      Spacer(Modifier.height(22.dp))
+      Text("Log in to your account", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 27.sp), color = OneUiTextPrimary)
       Spacer(Modifier.height(8.dp))
-
-      Text(
-        text = "Log in with your registered email address or international phone number and password.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = OneUiTextSecondary
-      )
-
-      if (notice != null) {
-        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = OneUiCardElevated), modifier = Modifier.fillMaxWidth()) {
-          Text(notice, modifier = Modifier.padding(14.dp), color = OneUiTextPrimary, style = MaterialTheme.typography.bodyMedium)
-        }
-        Spacer(Modifier.height(14.dp))
-      }
-
-      Spacer(Modifier.height(28.dp))
-
-      Card(
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = OneUiCardBackground),
-        modifier = Modifier.fillMaxWidth()
-      ) {
-        Column(
-          modifier = Modifier.padding(18.dp),
-          verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-          // Email or phone number field
+      Text(identifier.substringBefore("@").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = OneUiTextPrimary)
+      Spacer(Modifier.height(5.dp))
+      Text(maskedEmail, color = OneUiTextSecondary, style = MaterialTheme.typography.bodyMedium)
+      Spacer(Modifier.height(34.dp))
+      Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = OneUiCardBackground), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          Text("Password", color = OneUiTextSecondary, style = MaterialTheme.typography.labelLarge)
           OutlinedTextField(
-            value = identifier,
-            onValueChange = onIdentifierChanged,
-            modifier = Modifier
-              .fillMaxWidth()
-              .testTag("login_email_input"),
-            singleLine = true,
-            label = { Text("Email or phone number", color = OneUiTextSecondary) },
-            placeholder = { Text("name@example.com or +2348012345678", color = OneUiTextMuted) },
-            leadingIcon = {
-              Icon(imageVector = Icons.Rounded.Email, contentDescription = null, tint = OneUiTextSecondary)
-            },
-            keyboardOptions = KeyboardOptions(
-              keyboardType = KeyboardType.Text,
-              imeAction = ImeAction.Next
-            ),
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-              focusedBorderColor = CallGreen,
-              unfocusedBorderColor = OneUiCardBorder,
-              focusedTextColor = OneUiTextPrimary,
-              unfocusedTextColor = OneUiTextPrimary,
-              cursorColor = CallGreen
-            )
-          )
-
-          // Password field
-          OutlinedTextField(
-            value = password,
-            onValueChange = onPasswordChanged,
-            modifier = Modifier
-              .fillMaxWidth()
-              .testTag("login_password_input"),
-            singleLine = true,
-            label = { Text("Password", color = OneUiTextSecondary) },
-            leadingIcon = {
-              Icon(imageVector = Icons.Rounded.Lock, contentDescription = null, tint = OneUiTextSecondary)
-            },
-            trailingIcon = {
-              IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                Icon(
-                  imageVector = if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                  contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                  tint = OneUiTextSecondary
-                )
-              }
-            },
+            value = password, onValueChange = onPasswordChanged,
+            modifier = Modifier.fillMaxWidth().testTag("login_password_input"), singleLine = true,
+            placeholder = { Text("Enter your password", color = OneUiTextMuted) },
+            leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null, tint = OneUiTextSecondary) },
+            trailingIcon = { IconButton(onClick = { passwordVisible = !passwordVisible }) {
+              Icon(if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                contentDescription = if (passwordVisible) "Hide password" else "Show password", tint = OneUiTextSecondary)
+            } },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-              keyboardType = KeyboardType.Password,
-              imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-              onDone = {
-                focusManager.clearFocus(force = true)
-                if (identifier.isNotBlank() && password.isNotBlank() && !busy) onLogin()
-              }
-            ),
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-              focusedBorderColor = CallGreen,
-              unfocusedBorderColor = OneUiCardBorder,
-              focusedTextColor = OneUiTextPrimary,
-              unfocusedTextColor = OneUiTextPrimary,
-              cursorColor = CallGreen
-            )
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); if (password.isNotBlank() && !busy) onLogin() }),
+            shape = RoundedCornerShape(15.dp),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CallGreen, unfocusedBorderColor = OneUiCardBorder,
+              focusedTextColor = OneUiTextPrimary, unfocusedTextColor = OneUiTextPrimary, cursorColor = CallGreen)
           )
+          TextButton(onClick = { focusManager.clearFocus(force = true); onForgotPassword() },
+            modifier = Modifier.align(Alignment.End).testTag("forgot_password_button")) {
+            Text("Forgot password?", color = CallGreen, fontWeight = FontWeight.SemiBold)
+          }
         }
       }
-
-
       if (error != null) {
-        Spacer(Modifier.height(4.dp))
-        Text(
-          text = error,
-          color = CallRed,
-          style = MaterialTheme.typography.bodySmall,
-          modifier = Modifier.padding(horizontal = 4.dp)
-        )
+        Spacer(Modifier.height(12.dp))
+        Text(error, color = CallRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth())
       }
-
       Spacer(Modifier.height(20.dp))
-
-      // Main Log In Button
-      Button(
-        onClick = {
-          focusManager.clearFocus(force = true)
-          onLogin()
-        },
-        enabled = !busy && identifier.isNotBlank() && password.isNotBlank(),
-        modifier = Modifier
-          .fillMaxWidth()
-          .height(52.dp)
-          .testTag("login_submit_btn"),
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-          containerColor = CallGreen,
-          contentColor = Color.White,
-          disabledContainerColor = OneUiCardElevated,
-          disabledContentColor = OneUiTextMuted
-        )
-      ) {
-        if (busy) {
-          CircularProgressIndicator(
-            color = Color.White,
-            modifier = Modifier.size(22.dp),
-            strokeWidth = 2.dp
-          )
-        } else {
-          Text("Log In", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
-        }
+      Button(onClick = { focusManager.clearFocus(force = true); onLogin() },
+        enabled = !busy && password.isNotBlank(),
+        modifier = Modifier.fillMaxWidth().height(56.dp).testTag("login_submit_btn"),
+        shape = RoundedCornerShape(17.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = CallGreen, contentColor = Color.White,
+          disabledContainerColor = OneUiCardElevated, disabledContentColor = OneUiTextMuted)) {
+        if (busy) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+        else Text("Continue", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
       }
-
       Spacer(Modifier.height(16.dp))
-
-      TextButton(
-        onClick = {
-          focusManager.clearFocus(force = true)
-          onForgotPassword()
-        },
-        modifier = Modifier.fillMaxWidth().testTag("forgot_password_button")
-      ) {
-        Text("Forgot password?", color = CallGreen, fontWeight = FontWeight.SemiBold)
+      TextButton(onClick = onSwitchAccount, modifier = Modifier.testTag("switch_account_button")) {
+        Text("Switch account", color = OneUiTextSecondary, fontWeight = FontWeight.SemiBold)
       }
-
-
     }
   }
 }
-
-
 
 
 @Composable
