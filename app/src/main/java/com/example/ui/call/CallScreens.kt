@@ -99,13 +99,13 @@ fun IncomingCallScreen(
     ?.takeIf { it.isNotBlank() }
     ?: session.phoneNumber.filter { it.isLetterOrDigit() }.take(2).ifBlank { "LC" }).uppercase()
 
-  Surface(modifier = modifier.fillMaxSize(), color = Color(0xFF080A09)) {
+  Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Box(
       modifier = Modifier
         .fillMaxSize()
         .background(
           Brush.verticalGradient(
-            colors = listOf(Color(0xFF142019), Color(0xFF090C0A), Color(0xFF070807))
+            colors = listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.background, MaterialTheme.colorScheme.background)
           )
         )
     ) {
@@ -126,8 +126,8 @@ fun IncomingCallScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
               .clip(RoundedCornerShape(24.dp))
-              .background(Color.White.copy(alpha = 0.07f))
-              .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
+              .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f))
+              .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
               .padding(horizontal = 14.dp, vertical = 8.dp)
           ) {
             Box(
@@ -139,7 +139,7 @@ fun IncomingCallScreen(
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.8.sp
               ),
-              color = Color.White
+              color = MaterialTheme.colorScheme.onBackground
             )
           }
           Text(
@@ -148,7 +148,7 @@ fun IncomingCallScreen(
               letterSpacing = 2.2.sp,
               fontWeight = FontWeight.SemiBold
             ),
-            color = Color.White.copy(alpha = 0.58f)
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.58f)
           )
         }
 
@@ -182,7 +182,7 @@ fun IncomingCallScreen(
                   .clip(CircleShape)
                   .background(
                     Brush.linearGradient(
-                      colors = listOf(Color(0xFF344B3C), Color(0xFF18241C))
+                      colors = listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.surfaceVariant)
                     )
                   )
                   .border(2.dp, CallGreen.copy(alpha = 0.55f), CircleShape),
@@ -194,7 +194,7 @@ fun IncomingCallScreen(
                     fontWeight = FontWeight.Bold,
                     fontSize = 40.sp
                   ),
-                  color = Color.White
+                  color = MaterialTheme.colorScheme.onBackground
                 )
               }
             }
@@ -205,7 +205,7 @@ fun IncomingCallScreen(
                 fontWeight = FontWeight.Bold,
                 fontSize = 29.sp
               ),
-              color = Color.White,
+              color = MaterialTheme.colorScheme.onBackground,
               textAlign = TextAlign.Center,
               maxLines = 2
             )
@@ -215,13 +215,13 @@ fun IncomingCallScreen(
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.3.sp
               ),
-              color = Color.White.copy(alpha = 0.62f),
+              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f),
               textAlign = TextAlign.Center
             )
             Text(
               "is calling you",
               style = MaterialTheme.typography.bodyMedium,
-              color = Color.White.copy(alpha = 0.48f)
+              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.48f)
             )
           }
         }
@@ -270,7 +270,7 @@ fun IncomingCallScreen(
           Text(
             "Slide to answer or decline, or use the buttons",
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.42f),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.42f),
             textAlign = TextAlign.Center
           )
         }
@@ -299,8 +299,8 @@ private fun IncomingCallSlider(
       modifier = Modifier
         .fillMaxSize()
         .clip(RoundedCornerShape(40.dp))
-        .background(Color.White.copy(alpha = 0.075f))
-        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(40.dp)),
+        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.075f))
+        .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f), RoundedCornerShape(40.dp)),
       verticalAlignment = Alignment.CenterVertically
     ) {
       Box(
@@ -314,7 +314,7 @@ private fun IncomingCallSlider(
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.8.sp
           ),
-          color = Color.White.copy(alpha = 0.78f)
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
         )
       }
       Box(
@@ -328,7 +328,7 @@ private fun IncomingCallSlider(
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.8.sp
           ),
-          color = Color.White.copy(alpha = 0.78f)
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
         )
       }
     }
@@ -343,7 +343,7 @@ private fun IncomingCallSlider(
             colors = listOf(Color(0xFF344B3C), CallGreen)
           )
         )
-        .border(1.dp, Color.White.copy(alpha = 0.32f), CircleShape)
+        .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.32f), CircleShape)
         .pointerInput(maxDrag, threshold) {
           detectDragGestures(
             onDrag = { change, amount ->
@@ -434,7 +434,7 @@ private fun IncomingCallAction(
     Text(
       label,
       style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-      color = Color.White.copy(alpha = 0.9f)
+      color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f)
     )
   }
 }
@@ -468,13 +468,13 @@ fun ActiveCallScreen(
     label = "active_call_avatar_scale"
   ) { if (it) 1f else 0.92f }
 
-  Surface(modifier = modifier.fillMaxSize(), color = Color(0xFF090D0A)) {
+  Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Box(
       modifier = Modifier
         .fillMaxSize()
         .background(
           Brush.verticalGradient(
-            listOf(Color(0xFF142019), Color(0xFF090D0A), Color(0xFF070807))
+            listOf(Color(0xFF142019), MaterialTheme.colorScheme.background, Color(0xFF070807))
           )
         )
     ) {
@@ -495,7 +495,7 @@ fun ActiveCallScreen(
             horizontalArrangement = Arrangement.spacedBy(7.dp),
             modifier = Modifier
               .clip(RoundedCornerShape(24.dp))
-              .background(Color.White.copy(alpha = 0.07f))
+              .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.07f))
               .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(24.dp))
               .padding(horizontal = 13.dp, vertical = 8.dp)
           ) {
@@ -506,7 +506,7 @@ fun ActiveCallScreen(
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.1.sp
               ),
-              color = Color.White.copy(alpha = 0.86f)
+              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.86f)
             )
           }
           androidx.compose.animation.AnimatedContent(
@@ -527,7 +527,7 @@ fun ActiveCallScreen(
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = if (connected) 1.4.sp else 0.3.sp
               ),
-              color = if (connected) Color.White else Color.White.copy(alpha = 0.66f),
+              color = if (connected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.66f),
               modifier = Modifier.testTag("call_duration_timer")
             )
           }
@@ -571,7 +571,7 @@ fun ActiveCallScreen(
                 .clip(CircleShape)
                 .background(
                   Brush.linearGradient(
-                    listOf(Color(0xFF344B3C), Color(0xFF18241C))
+                    listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.surfaceVariant)
                   )
                 )
                 .border(2.dp, CallGreen.copy(alpha = if (connected) 0.62f else 0.30f), CircleShape),
@@ -588,7 +588,7 @@ fun ActiveCallScreen(
                   fontWeight = FontWeight.Bold,
                   fontSize = 39.sp
                 ),
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
               )
             }
           }
@@ -599,7 +599,7 @@ fun ActiveCallScreen(
               fontWeight = FontWeight.Bold,
               fontSize = 28.sp
             ),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
             maxLines = 2
           )
@@ -687,7 +687,7 @@ fun ActiveCallScreen(
           Text(
             "End call",
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = Color.White.copy(alpha = 0.78f)
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
           )
         }
       }
@@ -718,7 +718,7 @@ private fun ActiveCallControl(
       onClick = onClick,
       interactionSource = interaction,
       shape = CircleShape,
-      color = if (selected) CallGreen else Color.White.copy(alpha = 0.09f),
+      color = if (selected) CallGreen else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.09f),
       modifier = Modifier.size(66.dp).graphicsLayer {
         scaleX = scale
         scaleY = scale
@@ -736,7 +736,7 @@ private fun ActiveCallControl(
     Text(
       label,
       style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-      color = Color.White.copy(alpha = 0.78f)
+      color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
     )
   }
 }
