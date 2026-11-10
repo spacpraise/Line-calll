@@ -361,86 +361,30 @@ fun BackendNoticeDialog(
 ) {
   AlertDialog(
     onDismissRequest = onDismiss,
-    shape = RoundedCornerShape(24.dp),
+    shape = RoundedCornerShape(22.dp),
     containerColor = OneUiCardBackground,
     title = {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-      ) {
-        Box(
-          modifier = Modifier
-            .size(10.dp)
-            .clip(CircleShape)
-            .background(NotificationOrange)
-        )
-        Text(
-          text = notice.title,
-          style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-          color = OneUiTextPrimary
-        )
-      }
+      Text(
+        text = notice.title,
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        color = OneUiTextPrimary
+      )
     },
     text = {
-      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-          text = notice.message,
-          style = MaterialTheme.typography.bodyMedium,
-          color = OneUiTextSecondary
-        )
-
-        Surface(
-          shape = RoundedCornerShape(14.dp),
-          color = Color(0xFF26282E),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(modifier = Modifier.padding(14.dp)) {
-            Text(
-              text = "Target: ${notice.targetNumber}",
-              style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-              color = OneUiTextPrimary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-              text = "Voice calls connect directly over internet via Supabase Edge Functions & LiveKit WebRTC.",
-              style = MaterialTheme.typography.bodySmall,
-              color = OneUiTextSecondary
-            )
-          }
-        }
-      }
+      Text(
+        text = notice.message,
+        style = MaterialTheme.typography.bodyMedium,
+        color = OneUiTextSecondary
+      )
     },
     confirmButton = {
-      if (onPreviewCall != null) {
-        Button(
-          onClick = { onPreviewCall(notice.targetNumber, notice.targetName) },
-          colors = ButtonDefaults.buttonColors(containerColor = CallGreen),
-          shape = RoundedCornerShape(12.dp),
-          modifier = Modifier.testTag("preview_call_button")
-        ) {
-          Text("Preview Call UI", color = Color.White, fontWeight = FontWeight.SemiBold)
-        }
-      } else {
-        Button(
-          onClick = onDismiss,
-          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF26282E)),
-          shape = RoundedCornerShape(12.dp),
-          modifier = Modifier.testTag("dismiss_notice_button")
-        ) {
-          Text("OK", color = Color.White)
-        }
-      }
-    },
-    dismissButton = {
-      if (onPreviewCall != null) {
-        OutlinedButton(
-          onClick = onDismiss,
-          shape = RoundedCornerShape(12.dp),
-          colors = ButtonDefaults.outlinedButtonColors(contentColor = OneUiTextPrimary),
-          modifier = Modifier.testTag("dismiss_notice_button")
-        ) {
-          Text("Understood")
-        }
+      Button(
+        onClick = onDismiss,
+        colors = ButtonDefaults.buttonColors(containerColor = CallGreen),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.testTag("dismiss_notice_button")
+      ) {
+        Text("OK", color = Color.White)
       }
     }
   )
