@@ -98,6 +98,10 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
 
   private val _loginIdentifier = MutableStateFlow("")
   val loginIdentifier: StateFlow<String> = _loginIdentifier.asStateFlow()
+  private val _loginDisplayName = MutableStateFlow("")
+  val loginDisplayName: StateFlow<String> = _loginDisplayName.asStateFlow()
+  private val _loginAvatarUrl = MutableStateFlow<String?>(null)
+  val loginAvatarUrl: StateFlow<String?> = _loginAvatarUrl.asStateFlow()
 
   private val _passwordInput = MutableStateFlow("")
   val passwordInput: StateFlow<String> = _passwordInput.asStateFlow()
@@ -235,16 +239,20 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
       _isAuthBusy.value = true
       _authError.value = null
       _authNotice.value = null
-      supabase.checkEmailExists(email).onSuccess { exists ->
+      supabase.checkEmailExists(email).onSuccess { account ->
         _passwordInput.value = ""
         _confirmPasswordInput.value = ""
-        if (exists) {
+        if (account.exists) {
           isCompletingRegistration = false
           _loginIdentifier.value = email
-          _authNotice.value = "An account already exists for this email. Enter your password to log in."
+          _loginDisplayName.value = account.displayName
+          _loginAvatarUrl.value = account.avatarUrl
+          _authNotice.value = null
           _currentScreen.value = ScreenState.LOGIN
         } else {
           isCompletingRegistration = true
+          _loginDisplayName.value = ""
+          _loginAvatarUrl.value = null
           _currentScreen.value = ScreenState.PASSWORD_SETUP
         }
       }.onFailure {
