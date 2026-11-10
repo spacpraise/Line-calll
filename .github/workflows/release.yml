@@ -1,0 +1,59 @@
+name: Publish Line Call release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: line-call-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      VERSION_NAME: ${{ github.ref_name }}
+      KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Check release signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 repository secret"; exit 1)
+          test -n "$STORE_PASSWORD" || (echo "Missing STORE_PASSWORD repository secret"; exit 1)
+          test -n "$KEY_PASSWORD" || (echo "Missing KEY_PASSWORD repository secret"; exit 1)
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+
+      - name: Run unit tests and build signed release APK
+        run: |
+          gradle --no-daemon --console=plain :app:testReleaseUnitTest :app:assembleRelease --stacktrace
+
+      - name: Publish GitHub release and attach APK
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            app/build/outputs/apk/release/app-release.apk \
+            --title "Line Call $VERSION_NAME" \
+            --generate-notes
