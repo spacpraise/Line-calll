@@ -175,6 +175,47 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
+  suspend fun requestEmailChange(newEmail: String): Result<Unit> = withContext(Dispatchers.IO) {
+    runCatching {
+      val cleanEmail = newEmail.trim().lowercase()
+      require(android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+        "Enter a valid email address."
+      }
+      execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
+          .headers(userHeaders())
+          .put(JSONObject().put("email", cleanEmail).toString().toRequestBody(jsonType))
+          .build()
+      )
+    }
+  }
+
+  suspend fun saveAvatar(user: UserAccount, jpegBytes: ByteArray): Result<UserAccount> = withContext(Dispatchers.IO) {
+    runCatching {
+      require(jpegBytes.isNotEmpty()) { "The selected photo could not be read." }
+      val objectPath = "${user.id}/profile.jpg"
+      execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/storage/v1/object/avatars/$objectPath")
+          .headers(userHeaders())
+          .header("Content-Type", "image/jpeg")
+          .header("x-upsert", "true")
+          .post(jpegBytes.toRequestBody("image/jpeg".toMediaType()))
+          .build()
+      )
+      val publicUrl = "${BackendConfig.SUPABASE_URL}/storage/v1/object/public/avatars/$objectPath?v=${System.currentTimeMillis()}"
+      execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}")
+          .headers(userHeaders())
+          .patch(JSONObject().put("avatar_url", publicUrl).toString().toRequestBody(jsonType))
+          .build()
+      )
+      user.copy(avatarUrl = publicUrl)
+    }
+  }
+
   suspend fun callFunction(payload: JSONObject): JSONObject = withContext(Dispatchers.IO) {
     val accessToken = freshAccessTokenBlocking()
     execute(
@@ -286,9 +327,19 @@ class LineCallSupabaseClient(context: Context) {
     }
     val profilePhone = row.optString("phone_number").takeIf { it.isNotBlank() && it != "null" }.orEmpty()
     val profileName = row.optString("display_name").takeIf { it.isNotBlank() && it != "null" }.orEmpty()
+    val profileEmail = row.optString("email", email).ifBlank { email }
+    if (email.isNotBlank() && profileEmail != email) {
+      execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.$id")
+          .headers(userHeaders())
+          .patch(JSONObject().put("email", email).toString().toRequestBody(jsonType))
+          .build()
+      )
+    }
     return UserAccount(
       id = id,
-      email = row.optString("email", email),
+      email = email.ifBlank { profileEmail },
       phoneNumber = profilePhone,
       isPhoneVerified = row.optBoolean("phone_verified", false),
       displayName = profileName,
