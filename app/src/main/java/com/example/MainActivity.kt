@@ -291,8 +291,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       }
       ScreenState.WELCOME -> {
         WelcomeScreen(
-          onGetStarted = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) },
-          onLogIn = { viewModel.navigateTo(ScreenState.LOGIN) }
+          onGetStarted = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) }
         )
       }
 
@@ -325,6 +324,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           identifier = loginIdentifier,
           password = passwordInput,
           error = authError,
+          notice = viewModel.authNotice.collectAsStateWithLifecycle().value,
           busy = isAuthBusy,
           onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
