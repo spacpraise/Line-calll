@@ -417,6 +417,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
             modifier = Modifier
               .fillMaxSize()
               .padding(innerPadding)
+              .padding(bottom = if (selectedTab == MainTab.KEYPAD) 104.dp else 0.dp)
           ) {
             when (selectedTab) {
               MainTab.KEYPAD -> {
@@ -424,6 +425,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
                   enteredNumber = enteredNumber,
                   selectedCountry = selectedCountry,
                   callHistory = callHistory,
+                  contacts = contacts,
                   onNumberChanged = { viewModel.setEnteredNumber(it) },
                   onCall = { runWithMicrophonePermission { viewModel.onCallButtonPressed() } },
                   onSelectSuggestion = { runWithMicrophonePermission { viewModel.callRecent(it) } },
