@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.core.content.ContextCompat
@@ -228,6 +229,30 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
       .background(OneUiDarkBackground)
   ) {
     when (currentScreen) {
+      ScreenState.BOOTING -> {
+        androidx.compose.foundation.layout.Column(
+          modifier = Modifier.fillMaxSize(),
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+        ) {
+          androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(com.example.R.drawable.ic_launcher_linecall_1794083310223),
+            contentDescription = "Line Call",
+            modifier = Modifier.size(104.dp)
+          )
+          androidx.compose.material3.Text(
+            text = "Line Call",
+            color = androidx.compose.ui.graphics.Color.White,
+            style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(top = 18.dp, bottom = 18.dp)
+          )
+          androidx.compose.material3.CircularProgressIndicator(
+            color = com.example.ui.theme.CallGreen,
+            strokeWidth = 2.dp,
+            modifier = Modifier.size(26.dp)
+          )
+        }
+      }
       ScreenState.WELCOME -> {
         WelcomeScreen(
           onGetStarted = { viewModel.navigateTo(ScreenState.EMAIL_REGISTRATION) },

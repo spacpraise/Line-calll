@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 enum class ScreenState {
+  BOOTING,
   WELCOME,
   EMAIL_REGISTRATION,
   PASSWORD_SETUP,
@@ -63,7 +64,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val userProfileService = UserProfileService(authService, supabase)
   val callingService = CallingService(application, callRecordDao, userProfileService, supabase, viewModelScope)
 
-  private val _currentScreen = MutableStateFlow(ScreenState.WELCOME)
+  private val _currentScreen = MutableStateFlow(ScreenState.BOOTING)
   val currentScreen: StateFlow<ScreenState> = _currentScreen.asStateFlow()
 
   private val _selectedTab = MutableStateFlow(MainTab.KEYPAD)
@@ -176,6 +177,8 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           _currentScreen.value = ScreenState.MAIN_APP
           callingService.startIncomingCallPolling()
         }
+      } else {
+        _currentScreen.value = ScreenState.WELCOME
       }
     }
 
