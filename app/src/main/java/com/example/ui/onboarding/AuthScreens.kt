@@ -79,7 +79,6 @@ fun LoginScreen(
   onPasswordChanged: (String) -> Unit,
   onLogin: () -> Unit,
   onBack: () -> Unit,
-  onRegister: () -> Unit,
   onForgotPassword: () -> Unit
 ) {
   val focusManager = LocalFocusManager.current
@@ -275,21 +274,7 @@ fun LoginScreen(
         Text("Forgot password?", color = CallGreen, fontWeight = FontWeight.SemiBold)
       }
 
-      TextButton(
-        onClick = {
-          focusManager.clearFocus(force = true)
-          onRegister()
-        },
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("login_create_account_btn")
-      ) {
-        Text(
-          text = "Don't have an account? Create one",
-          color = CallGreen,
-          style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-        )
-      }
+
     }
   }
 }
