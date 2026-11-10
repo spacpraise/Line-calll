@@ -4,6 +4,7 @@ import android.app.Application
 import android.media.AudioManager
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.media.ToneGenerator
 import com.example.data.local.CallRecordDao
 import com.example.data.model.ActiveCallSession
 import com.example.data.model.CallRecord
@@ -59,6 +60,8 @@ class CallingService(
   private val audioManager = application.getSystemService(AudioManager::class.java)
   private var liveKitRoom: Room? = null
   private var incomingRingtone: Ringtone? = null
+  private var ringbackTone: ToneGenerator? = null
+  private var ringbackJob: Job? = null
   private var timerJob: Job? = null
   private var incomingPollJob: Job? = null
   private var outgoingPollJob: Job? = null
@@ -119,6 +122,14 @@ class CallingService(
       return CallInitiationResult.BackendNotConnected(e164PhoneNumber, "Finish your current call before starting another.")
     }
 
+    val pendingId = "pending-${UUID.randomUUID()}"
+    val pendingSession = ActiveCallSession(
+      callId = pendingId, contactName = contactName, phoneNumber = e164PhoneNumber,
+      state = CallSessionState.DIALING, isIncoming = false
+    )
+    // Render the call screen before waiting for the network request.
+    _activeCall.value = pendingSession
+    _callEvents.emit(CallEvent.CallStarted(pendingSession))
     return try {
       val response = supabase.callFunction(
         JSONObject().put("action", "initiate").put("phone_number", e164PhoneNumber)
@@ -127,21 +138,17 @@ class CallingService(
         callId = response.getString("call_id"),
         contactName = response.optString("display_name").takeIf { it.isNotBlank() && it != "null" } ?: contactName,
         phoneNumber = response.optString("phone_number", e164PhoneNumber),
-        state = CallSessionState.DIALING,
-        isIncoming = false
+        state = CallSessionState.DIALING, isIncoming = false
       )
-      _activeCall.value = session
+      if (_activeCall.value?.callId == pendingId) _activeCall.value = session
       outgoingPollJob?.cancel()
       outgoingPollJob = coroutineScope.launch(Dispatchers.IO) { monitorOutgoingCall(session) }
-      _callEvents.emit(CallEvent.CallStarted(session))
       CallInitiationResult.Started(session)
     } catch (error: Exception) {
+      if (_activeCall.value?.callId == pendingId) stopCallSession()
       val message = error.message ?: "Unable to start the call."
-      if (message.contains("not registered", ignoreCase = true)) {
-        CallInitiationResult.UserNotRegistered(e164PhoneNumber)
-      } else {
-        CallInitiationResult.BackendNotConnected(e164PhoneNumber, message)
-      }
+      if (message.contains("not registered", ignoreCase = true)) CallInitiationResult.UserNotRegistered(e164PhoneNumber)
+      else CallInitiationResult.BackendNotConnected(e164PhoneNumber, message)
     }
   }
 
@@ -153,11 +160,18 @@ class CallingService(
         )
         val status = response.optJSONObject("call")?.optString("status").orEmpty()
         when (status) {
+          "ringing" -> {
+            _activeCall.value = _activeCall.value?.takeIf { it.callId == session.callId }
+              ?.copy(state = CallSessionState.RINGING)
+            startRingbackTone()
+          }
           "accepted" -> {
+            stopRingbackTone()
             connectToLiveKit(session.callId, session)
             return
           }
           "declined", "missed", "ended", "failed" -> {
+            stopRingbackTone()
             callRecordDao.insertCallRecord(
               CallRecord(
                 phoneNumber = session.phoneNumber,
@@ -331,6 +345,27 @@ class CallingService(
     incomingRingtone = null
   }
 
+  private fun startRingbackTone() {
+    if (ringbackJob?.isActive == true) return
+    ringbackJob = coroutineScope.launch {
+      runCatching {
+        ringbackTone = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 65)
+        while (isActive && _activeCall.value?.state == CallSessionState.RINGING) {
+          ringbackTone?.startTone(ToneGenerator.TONE_SUP_RINGTONE, 1800)
+          delay(4000)
+        }
+      }
+    }
+  }
+
+  private fun stopRingbackTone() {
+    ringbackJob?.cancel()
+    ringbackJob = null
+    runCatching { ringbackTone?.stopTone() }
+    runCatching { ringbackTone?.release() }
+    ringbackTone = null
+  }
+
   private fun startDurationTimer() {
     timerJob?.cancel()
     timerJob = coroutineScope.launch {
@@ -347,6 +382,7 @@ class CallingService(
 
   private fun stopCallSession() {
     stopIncomingRingtone()
+    stopRingbackTone()
     timerJob?.cancel()
     timerJob = null
     outgoingPollJob?.cancel()

@@ -263,7 +263,7 @@ fun ActiveCallScreen(
   val timerString = String.format("%02d:%02d", minutes, seconds)
 
   val stateText = when (session.state) {
-    CallSessionState.DIALING -> "Dialing..."
+    CallSessionState.DIALING -> "Connecting..."
     CallSessionState.RINGING -> "Ringing..."
     CallSessionState.CONNECTED -> timerString
     CallSessionState.ENDED -> "Call Ended"
