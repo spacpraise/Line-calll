@@ -331,7 +331,7 @@ private fun OneUiNavTabItem(
       Icon(
         imageVector = icon,
         contentDescription = label,
-        tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+        tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.size(20.dp)
       )
       Spacer(modifier = Modifier.height(2.dp))
@@ -341,7 +341,7 @@ private fun OneUiNavTabItem(
           fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
           fontSize = 11.sp
         ),
-        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+        color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
       )
     }
   }
