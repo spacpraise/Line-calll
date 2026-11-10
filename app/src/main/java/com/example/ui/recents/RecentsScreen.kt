@@ -260,7 +260,7 @@ fun RecentsScreen(
       // Keep each call record independently lazy; long histories remain responsive.
       items(
         items = filteredHistory,
-        key = { "${it.phoneNumber}_${it.formattedTime}_${it.type.name}" }
+        key = { it.id }
       ) { record ->
         Surface(
           shape = RoundedCornerShape(16.dp),
