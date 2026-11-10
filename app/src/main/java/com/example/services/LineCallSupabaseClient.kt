@@ -264,12 +264,14 @@ class LineCallSupabaseClient(context: Context) {
       )
       return UserAccount(id, email, "", false, defaultName, null, true)
     }
+    val profilePhone = row.optString("phone_number").takeIf { it.isNotBlank() && it != "null" }.orEmpty()
+    val profileName = row.optString("display_name").takeIf { it.isNotBlank() && it != "null" }.orEmpty()
     return UserAccount(
       id = id,
       email = row.optString("email", email),
-      phoneNumber = row.optString("phone_number", ""),
+      phoneNumber = profilePhone,
       isPhoneVerified = row.optBoolean("phone_verified", false),
-      displayName = row.optString("display_name", ""),
+      displayName = profileName,
       avatarUrl = row.optString("avatar_url").takeIf { it.isNotBlank() && it != "null" },
       isRegisteredOnBackend = true
     )
