@@ -67,8 +67,8 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       this, requestBase, openIntent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
-    val answerPendingIntent = actionPendingIntent(callId, "answer", requestBase + 1)
-    val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2)
+    val answerPendingIntent = actionPendingIntent(callId, "answer", requestBase + 1, callerName, data["caller_phone"].orEmpty())
+    val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2, callerName, data["caller_phone"].orEmpty())
     val person = Person.Builder().setName(callerName).setImportant(true).build()
 
     val notification = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -90,10 +90,12 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
     notificationManager.notify(notificationId(callId), notification)
   }
 
-  private fun actionPendingIntent(callId: String, action: String, requestCode: Int): PendingIntent {
+  private fun actionPendingIntent(callId: String, action: String, requestCode: Int, callerName: String, callerPhone: String): PendingIntent {
     val intent = Intent(this, IncomingCallActionReceiver::class.java).apply {
       putExtra("linecall_call_id", callId)
       putExtra("linecall_call_action", action)
+      putExtra("linecall_caller_name", callerName)
+      putExtra("linecall_caller_phone", callerPhone)
     }
     return PendingIntent.getBroadcast(
       this, requestCode, intent,
@@ -134,7 +136,14 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
       "answer" -> {
         // A notification action is an explicit user gesture. Connect audio in a
         // foreground service instead of launching the app and asking again.
-        runCatching { IncomingCallActionService.startAnswer(context, callId) }
+        runCatching {
+          IncomingCallActionService.startAnswer(
+            context,
+            callId,
+            intent.getStringExtra("linecall_caller_name").orEmpty(),
+            intent.getStringExtra("linecall_caller_phone").orEmpty()
+          )
+        }
           .onFailure { android.util.Log.e("LineCallFCM", "Could not start background answer service.", it) }
       }
       "decline" -> {
@@ -150,6 +159,19 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
             if (completed) {
               context.getSystemService(NotificationManager::class.java)
                 .cancel(IncomingCallMessagingService.notificationId(callId))
+              runCatching {
+                com.example.data.local.LineCallDatabase.getDatabase(context.applicationContext)
+                  .callRecordDao().insertCallRecord(
+                    com.example.data.model.CallRecord(
+                      phoneNumber = intent.getStringExtra("linecall_caller_phone").orEmpty(),
+                      contactName = intent.getStringExtra("linecall_caller_name"),
+                      type = com.example.data.model.CallType.MISSED,
+                      durationSeconds = 0
+                    )
+                  )
+              }.onFailure {
+                android.util.Log.w("LineCallFCM", "Could not save declined incoming call to Recents.", it)
+              }
             } else {
               android.util.Log.w("LineCallFCM", "Decline action timed out; leaving notification available.")
             }
