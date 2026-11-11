@@ -74,15 +74,19 @@ jobs:
       - name: Run Android UI regression tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          # Use the current stable Android image; API 34's image repeatedly
+          # remained offline on the hosted runner during boot.
+          api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_2
           emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -wipe-data
+          # A fresh AVD is created for every job, so wiping its data is unnecessary.
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
             adb wait-for-device
+            adb devices -l
             gradle --console=plain --build-cache --configuration-cache :app:connectedDebugAndroidTest
 
       - name: Upload debug APK
