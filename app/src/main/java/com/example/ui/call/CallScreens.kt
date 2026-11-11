@@ -277,7 +277,6 @@ private fun HoldSwipeUpAction(
   val density = LocalDensity.current
   val view = LocalView.current
   val threshold = with(density) { 74.dp.toPx() }
-  val holding = remember { androidx.compose.runtime.mutableStateOf(false) }
 
   Column(
     horizontalAlignment = Alignment.CenterHorizontally,
@@ -294,7 +293,6 @@ private fun HoldSwipeUpAction(
         .pointerInput(threshold) {
           detectDragGesturesAfterLongPress(
             onDragStart = {
-              holding.value = true
               view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             },
             onDrag = { change, amount ->
@@ -305,7 +303,6 @@ private fun HoldSwipeUpAction(
             },
             onDragEnd = {
               val completed = offset.value <= -threshold
-              holding.value = false
               if (completed) {
                 view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                 onComplete()
@@ -316,7 +313,6 @@ private fun HoldSwipeUpAction(
               }
             },
             onDragCancel = {
-              holding.value = false
               scope.launch {
                 offset.animateTo(0f, spring(dampingRatio = 0.58f, stiffness = 520f))
               }
