@@ -257,7 +257,8 @@ fun LineCallApp(
   // Predictive Back handling
   BackHandler(enabled = activeCall != null) {
     focusManager.clearFocus(force = true)
-    viewModel.endCall()
+    if (activeCall?.state == CallSessionState.ENDED) viewModel.dismissEndedCall()
+    else viewModel.endCall()
   }
 
   BackHandler(enabled = activeCall == null && selectedContactDetail != null) {
