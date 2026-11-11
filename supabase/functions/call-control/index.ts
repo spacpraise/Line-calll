@@ -16,6 +16,138 @@ const json = (body: unknown, status = 200) =>
 const isE164 = (value: unknown): value is string =>
   typeof value === "string" && /^\+[1-9][0-9]{6,14}$/.test(value);
 
+const base64Url = (bytes: Uint8Array): string => {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+};
+
+async function getFirebaseAccessToken(serviceAccount: Record<string, string>): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64Url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const claims = base64Url(new TextEncoder().encode(JSON.stringify({
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: serviceAccount.token_uri || "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  })));
+  const unsigned = header + "." + claims;
+  const pem = serviceAccount.private_key.replace(/\\n/g, "\n").replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, "").replace(/\s/g, "");
+  const der = Uint8Array.from(atob(pem), (character) => character.charCodeAt(0));
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    der,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = new Uint8Array(await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    new TextEncoder().encode(unsigned),
+  ));
+  const assertion = unsigned + "." + base64Url(signature);
+  const tokenResponse = await fetch(serviceAccount.token_uri || "https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion,
+    }),
+  });
+  const tokenBody = await tokenResponse.json();
+  if (!tokenResponse.ok || !tokenBody.access_token) {
+    throw new Error("Firebase OAuth token request failed: " + JSON.stringify(tokenBody));
+  }
+  return tokenBody.access_token as string;
+}
+
+async function sendIncomingCallPush(
+  deviceToken: string,
+  call: { id: string; caller_phone: string; caller_name: string },
+): Promise<void> {
+  const rawAccount = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
+  if (!rawAccount) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON secret is missing");
+  const serviceAccount = JSON.parse(rawAccount) as Record<string, string>;
+  const projectId = serviceAccount.project_id;
+  if (!projectId || !serviceAccount.private_key || !serviceAccount.client_email) {
+    throw new Error("Firebase service-account JSON is incomplete");
+  }
+  const accessToken = await getFirebaseAccessToken(serviceAccount);
+  const response = await fetch(
+    "https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send",
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + accessToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: {
+          token: deviceToken,
+          data: {
+            type: "INCOMING_CALL",
+            call_id: call.id,
+            caller_phone: call.caller_phone,
+            caller_name: call.caller_name || call.caller_phone,
+          },
+          android: {
+            priority: "HIGH",
+            ttl: "45s",
+            collapse_key: "linecall-incoming",
+          },
+        },
+      }),
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error("FCM send failed (" + response.status + "): " + detail);
+  }
+}
+
+
+
+async function sendCallEndedPush(deviceToken: string, callId: string): Promise<void> {
+  const rawAccount = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
+  if (!rawAccount) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON secret is missing");
+  const serviceAccount = JSON.parse(rawAccount) as Record<string, string>;
+  const projectId = serviceAccount.project_id;
+  if (!projectId || !serviceAccount.private_key || !serviceAccount.client_email) {
+    throw new Error("Firebase service-account JSON is incomplete");
+  }
+  const accessToken = await getFirebaseAccessToken(serviceAccount);
+  const response = await fetch(
+    "https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send",
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + accessToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: {
+          token: deviceToken,
+          data: {
+            type: "CALL_ENDED",
+            call_id: callId,
+          },
+          android: {
+            priority: "HIGH",
+            ttl: "30s",
+            // Replace an undelivered incoming-call push with its cancellation.
+            collapse_key: "linecall-incoming",
+          },
+        },
+      }),
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error("FCM call-ended delivery failed (" + response.status + "): " + detail);
+  }
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -59,7 +191,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: recipient, error: lookupError } = await db
         .from("profiles")
-        .select("id,email,phone_number,display_name")
+        .select("id,email,phone_number,display_name,fcm_token")
         .eq("phone_number", phone)
         .maybeSingle();
       if (lookupError) throw lookupError;
@@ -73,6 +205,28 @@ Deno.serve(async (req: Request) => {
           user: { id: recipient.id, display_name: recipient.display_name, phone_number: recipient.phone_number },
         });
       }
+
+      // Accepted calls renew a short lease while both clients remain connected.
+      // If the app/process dies, a new call can clear the abandoned call after 3 minutes.
+      const staleLeaseBefore = new Date(Date.now() - 180_000).toISOString();
+      const { error: staleHeartbeatCleanupError } = await db
+        .from("calls")
+        .update({ status: "ended", ended_at: new Date().toISOString() })
+        .eq("status", "accepted")
+        .eq("heartbeat_enabled", true)
+        .lt("last_activity_at", staleLeaseBefore);
+      if (staleHeartbeatCleanupError) throw staleHeartbeatCleanupError;
+
+      // Older app versions do not send heartbeats, so keep their calls compatible
+      // and only clear abandoned legacy calls after 12 hours.
+      const staleLegacyBefore = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      const { error: staleLegacyCleanupError } = await db
+        .from("calls")
+        .update({ status: "ended", ended_at: new Date().toISOString() })
+        .eq("status", "accepted")
+        .eq("heartbeat_enabled", false)
+        .lt("accepted_at", staleLegacyBefore);
+      if (staleLegacyCleanupError) throw staleLegacyCleanupError;
 
       const { data: recipientActiveCalls, error: recipientActiveError } = await db
         .from("calls")
@@ -128,8 +282,23 @@ Deno.serve(async (req: Request) => {
         .single();
       if (insertError) throw insertError;
 
+      let pushSent = false;
+      if (recipient.fcm_token) {
+        try {
+          await sendIncomingCallPush(recipient.fcm_token, {
+            id: call.id,
+            caller_phone: caller.phone_number,
+            caller_name: caller.display_name ?? caller.phone_number,
+          });
+          pushSent = true;
+        } catch (pushError) {
+          console.error("Incoming-call FCM delivery failed", pushError);
+        }
+      }
+
       return json({
         call_id: call.id,
+        push_sent: pushSent,
         room_name: call.room_name,
         status: call.status,
         phone_number: recipient.phone_number,
@@ -182,6 +351,16 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Call not found" }, 404);
     }
 
+    if (action === "heartbeat") {
+      if (call.status !== "accepted") return json({ error: "This call is no longer active." }, 409);
+      const { error } = await db.from("calls")
+        .update({ last_activity_at: new Date().toISOString(), heartbeat_enabled: true })
+        .eq("id", callId)
+        .eq("status", "accepted");
+      if (error) throw error;
+      return json({ heartbeat: true });
+    }
+
     if (action === "status") {
       let status = call.status;
       if (status === "ringing" && (Date.now() - new Date(call.created_at).getTime()) / 1000 > 45) {
@@ -201,6 +380,7 @@ Deno.serve(async (req: Request) => {
       const { error } = await db.from("calls").update({
         status: "accepted",
         accepted_at: new Date().toISOString(),
+        last_activity_at: new Date().toISOString(),
       }).eq("id", callId);
       if (error) throw error;
       return json({ accepted: true, call_id: callId });
@@ -222,12 +402,35 @@ Deno.serve(async (req: Request) => {
       const duration = call.accepted_at
         ? Math.max(0, Math.floor((now.getTime() - new Date(call.accepted_at).getTime()) / 1000))
         : 0;
-      const { error } = await db.from("calls").update({
-        status: "ended",
-        ended_at: now.toISOString(),
-        duration_seconds: duration,
-      }).eq("id", callId);
-      if (error) throw error;
+      const wasActive = call.status === "ringing" || call.status === "accepted";
+      if (wasActive) {
+        const { error } = await db.from("calls").update({
+          status: "ended",
+          ended_at: now.toISOString(),
+          duration_seconds: duration,
+        }).eq("id", callId);
+        if (error) throw error;
+
+        // Notify the other participant's device to stop ringing and dismiss
+        // its incoming-call notification.
+        const otherUserId = call.caller_id === user.id ? call.recipient_id : call.caller_id;
+        const { data: otherProfile, error: profileError } = await db
+          .from("profiles")
+          .select("fcm_token")
+          .eq("id", otherUserId)
+          .maybeSingle();
+        if (profileError) {
+          console.error("Could not load other participant FCM token", profileError);
+        } else if (otherProfile?.fcm_token) {
+          try {
+            await sendCallEndedPush(otherProfile.fcm_token, callId);
+          } catch (pushError) {
+            // Keep the server end action successful; receiver-side status polling
+            // remains a fallback when the recipient app is running.
+            console.error("Call-ended FCM delivery failed", pushError);
+          }
+        }
+      }
       return json({ ended: true, duration_seconds: duration });
     }
 

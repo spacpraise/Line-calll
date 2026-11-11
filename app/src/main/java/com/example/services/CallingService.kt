@@ -28,6 +28,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 sealed class CallInitiationResult {
   data class Started(val session: ActiveCallSession) : CallInitiationResult()
@@ -71,6 +72,7 @@ class CallingService(
   private var outgoingPollJob: Job? = null
   private var incomingWatchJob: Job? = null
   private var callHeartbeatJob: Job? = null
+  private val cancelledInitiationIds = ConcurrentHashMap.newKeySet<String>()
 
   fun validateNumber(e164: String): Boolean = userProfileService.validateE164(e164)
 
@@ -145,11 +147,26 @@ class CallingService(
         phoneNumber = response.optString("phone_number", e164PhoneNumber),
         state = CallSessionState.DIALING, isIncoming = false
       )
+      if (cancelledInitiationIds.remove(pendingId)) {
+        // The user hung up before the initiate request returned. End the real
+        // server call now that its ID is known; never start its ringback monitor.
+        closeServerCall(session.callId)
+        callRecordDao.insertCallRecord(
+          CallRecord(
+            phoneNumber = session.phoneNumber,
+            contactName = session.contactName,
+            type = CallType.OUTGOING,
+            durationSeconds = 0
+          )
+        )
+        return CallInitiationResult.Started(session)
+      }
       if (_activeCall.value?.callId == pendingId) _activeCall.value = session
       outgoingPollJob?.cancel()
       outgoingPollJob = coroutineScope.launch(Dispatchers.IO) { monitorOutgoingCall(session) }
       CallInitiationResult.Started(session)
     } catch (error: Exception) {
+      cancelledInitiationIds.remove(pendingId)
       if (_activeCall.value?.callId == pendingId) stopCallSession()
       val message = error.message ?: "Unable to start the call."
       if (message.contains("not registered", ignoreCase = true)) CallInitiationResult.UserNotRegistered(e164PhoneNumber)
@@ -319,13 +336,26 @@ class CallingService(
     if (endingCallId == current.callId) return
     endingCallId = current.callId
     stopIncomingRingtone()
+    val duration = current.durationSeconds
+
+    if (current.callId.startsWith("pending-")) {
+      // The call-control initiate request is still in flight and has not given
+      // us the server call ID yet. Remember the cancellation for its response.
+      cancelledInitiationIds.add(current.callId)
+      stopCallSession()
+      coroutineScope.launch { _callEvents.emit(CallEvent.CallEnded(duration)) }
+      return
+    }
+
+    // End local UI/audio immediately. Network delivery continues in the
+    // background so a slow request cannot keep this phone's call screen ringing.
+    stopCallSession()
     coroutineScope.launch(Dispatchers.IO) {
-      val duration = current.durationSeconds
       runCatching {
         supabase.callFunction(JSONObject().put("action", "end").put("call_id", current.callId))
+      }.onFailure {
+        android.util.Log.e("LineCall", "Could not send remote call-end signal.", it)
       }
-      audioManager.isSpeakerphoneOn = false
-      audioManager.mode = AudioManager.MODE_NORMAL
       callRecordDao.insertCallRecord(
         CallRecord(
           phoneNumber = current.phoneNumber,
@@ -335,7 +365,6 @@ class CallingService(
         )
       )
       _callEvents.emit(CallEvent.CallEnded(duration))
-      stopCallSession()
     }
   }
 

@@ -42,12 +42,19 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
   override fun onMessageReceived(message: RemoteMessage) {
     super.onMessageReceived(message)
     val data = message.data
-    if (data["type"] != "INCOMING_CALL") return
     val callId = data["call_id"]?.takeIf { it.isNotBlank() } ?: return
+    val notificationManager = getSystemService(NotificationManager::class.java)
+
+    // Process cancellation even when the app is foregrounded so an existing
+    // lock-screen or shade notification is dismissed immediately.
+    if (data["type"] == "CALL_ENDED") {
+      notificationManager.cancel(notificationId(callId))
+      return
+    }
+    if (data["type"] != "INCOMING_CALL") return
     if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
 
     val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: data["caller_phone"] ?: "Line Call user"
-    val notificationManager = getSystemService(NotificationManager::class.java)
     createCallChannel(notificationManager)
 
     val requestBase = callId.hashCode()
