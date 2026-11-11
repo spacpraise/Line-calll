@@ -72,6 +72,7 @@ class CallingService(
   private var outgoingPollJob: Job? = null
   private var incomingWatchJob: Job? = null
   private var callHeartbeatJob: Job? = null
+  private var endedCallJob: Job? = null
   private val cancelledInitiationIds = ConcurrentHashMap.newKeySet<String>()
 
   fun validateNumber(e164: String): Boolean = userProfileService.validateE164(e164)
@@ -202,14 +203,7 @@ class CallingService(
                 durationSeconds = 0
               )
             )
-            _callEvents.emit(CallEvent.Error(
-              when (status) {
-                "declined" -> "The person declined your call."
-                "missed" -> "The person did not answer."
-                else -> "The call has ended."
-              }
-            ))
-            stopCallSession()
+            showEndedCall(_activeCall.value ?: session)
             return
           }
         }
@@ -256,7 +250,7 @@ class CallingService(
           durationSeconds = 0
         )
       )
-      stopCallSession()
+      showEndedCall(current)
     }
   }
 
@@ -291,13 +285,11 @@ class CallingService(
         when (event) {
           is RoomEvent.ParticipantDisconnected -> {
             if (_activeCall.value?.callId == callId) {
-              _callEvents.emit(CallEvent.Error("The other person ended the call."))
               endCall()
             }
           }
           is RoomEvent.Disconnected -> {
             if (_activeCall.value?.callId == callId) {
-              _callEvents.emit(CallEvent.Error("The call connection was lost."))
               endCall()
             }
           }
@@ -338,18 +330,18 @@ class CallingService(
     stopIncomingRingtone()
     val duration = current.durationSeconds
 
+    showEndedCall(current)
+
     if (current.callId.startsWith("pending-")) {
       // The call-control initiate request is still in flight and has not given
       // us the server call ID yet. Remember the cancellation for its response.
       cancelledInitiationIds.add(current.callId)
-      stopCallSession()
       coroutineScope.launch { _callEvents.emit(CallEvent.CallEnded(duration)) }
       return
     }
 
     // End local UI/audio immediately. Network delivery continues in the
     // background so a slow request cannot keep this phone's call screen ringing.
-    stopCallSession()
     coroutineScope.launch(Dispatchers.IO) {
       runCatching {
         supabase.callFunction(JSONObject().put("action", "end").put("call_id", current.callId))
@@ -364,7 +356,6 @@ class CallingService(
           durationSeconds = duration
         )
       )
-      _callEvents.emit(CallEvent.CallEnded(duration))
     }
   }
 
@@ -389,7 +380,7 @@ class CallingService(
               durationSeconds = 0
             )
           )
-          stopCallSession()
+          showEndedCall(session)
           return@launch
         }
       }
@@ -461,7 +452,38 @@ class CallingService(
     }
   }
 
-  private fun stopCallSession() {
+  private fun showEndedCall(session: ActiveCallSession) {
+    endedCallJob?.cancel()
+    _activeCall.value = session.copy(state = CallSessionState.ENDED)
+    stopCallSession(keepEndedSession = true)
+    _activeCall.value = session.copy(state = CallSessionState.ENDED)
+    endedCallJob = coroutineScope.launch {
+      repeat(3) {
+        runCatching {
+          val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 55)
+          tone.startTone(ToneGenerator.TONE_PROP_BEEP, 140)
+          delay(420)
+          tone.release()
+        }
+      }
+      delay(3_500)
+      if (_activeCall.value?.callId == session.callId &&
+        _activeCall.value?.state == CallSessionState.ENDED
+      ) {
+        _activeCall.value = null
+      }
+    }
+  }
+
+  fun dismissEndedCall() {
+    if (_activeCall.value?.state == CallSessionState.ENDED) {
+      endedCallJob?.cancel()
+      endedCallJob = null
+      _activeCall.value = null
+    }
+  }
+
+  private fun stopCallSession(keepEndedSession: Boolean = false) {
     callHeartbeatJob?.cancel()
     callHeartbeatJob = null
     stopIncomingRingtone()
@@ -479,7 +501,7 @@ class CallingService(
     endingCallId = null
     if (room != null) coroutineScope.launch { runCatching { room.disconnect() } }
     LineCallOngoingCallService.stop(application)
-    _activeCall.value = null
+    if (!keepEndedSession) _activeCall.value = null
     audioManager.isSpeakerphoneOn = false
     audioManager.mode = AudioManager.MODE_NORMAL
   }
