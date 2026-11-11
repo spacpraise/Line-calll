@@ -451,7 +451,23 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
               .fillMaxSize()
               .padding(innerPadding)
           ) {
-            when (selectedTab) {
+            androidx.compose.animation.AnimatedContent(
+              targetState = selectedTab,
+              transitionSpec = {
+                (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)) +
+                  androidx.compose.animation.slideInHorizontally(
+                    animationSpec = androidx.compose.animation.core.tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                    initialOffsetX = { width -> width / 18 }
+                  )) togetherWith
+                  (androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(110)) +
+                    androidx.compose.animation.slideOutHorizontally(
+                      animationSpec = androidx.compose.animation.core.tween(160),
+                      targetOffsetX = { width -> -width / 24 }
+                    ))
+              },
+              label = "main_tab_transition"
+            ) { tab ->
+              when (tab) {
               MainTab.KEYPAD -> {
                 KeypadScreen(
                   modifier = Modifier.fillMaxSize().padding(bottom = 112.dp),
@@ -487,6 +503,7 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
                   onContactClick = { viewModel.selectContactDetail(it) },
                   onProfileClick = { viewModel.navigateTo(ScreenState.SETTINGS) }
                 )
+              }
               }
             }
 
