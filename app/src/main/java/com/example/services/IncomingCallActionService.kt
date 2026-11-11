@@ -11,10 +11,8 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import androidx.core.app.Person
 import com.example.MainActivity
 import com.example.R
-import com.google.firebase.messaging.RemoteMessage
 import io.livekit.android.LiveKit
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
@@ -70,6 +68,8 @@ class IncomingCallActionService : Service() {
       val user = api.restoreSession()
         ?: throw IllegalStateException("Your Line Call session has expired. Open the app and sign in again.")
       api.callFunction(JSONObject().put("action", "accept").put("call_id", id))
+      getSystemService(NotificationManager::class.java)
+        .cancel(IncomingCallMessagingService.notificationId(id))
 
       val credentials = api.callFunction(
         JSONObject().put("action", "token").put("call_id", id)
