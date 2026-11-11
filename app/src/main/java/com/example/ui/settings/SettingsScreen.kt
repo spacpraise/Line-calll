@@ -61,6 +61,7 @@ import coil.compose.AsyncImage
 import com.example.data.model.UserAccount
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
+import com.example.ui.theme.AppThemeMode
 
 @Composable
 fun SettingsScreen(
@@ -71,6 +72,8 @@ fun SettingsScreen(
   onAvatarSelected: (android.net.Uri) -> Unit,
   onSignOut: () -> Unit,
   onBack: () -> Unit,
+  themeMode: AppThemeMode,
+  onThemeModeChange: (AppThemeMode) -> Unit,
   modifier: Modifier = Modifier
 ) {
   var editField by remember { mutableStateOf<String?>(null) }
@@ -156,6 +159,50 @@ fun SettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
             ProfileDetailRow("Email address", currentUser?.email.orEmpty(),
               onEdit = { openEditor("email", currentUser?.email.orEmpty()) })
+          }
+        }
+
+        Text("APPEARANCE", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+          color = MaterialTheme.colorScheme.secondary)
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(18.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+          Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("App theme", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+            Text(
+              when (themeMode) {
+                AppThemeMode.SYSTEM -> "Follows your phone's appearance setting"
+                AppThemeMode.LIGHT -> "Always use light appearance"
+                AppThemeMode.DARK -> "Always use dark appearance"
+              },
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.secondary
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+              listOf(
+                AppThemeMode.SYSTEM to "System",
+                AppThemeMode.LIGHT to "Light",
+                AppThemeMode.DARK to "Dark"
+              ).forEach { (mode, label) ->
+                val selected = themeMode == mode
+                Surface(
+                  onClick = { onThemeModeChange(mode) },
+                  modifier = Modifier.weight(1f),
+                  shape = RoundedCornerShape(13.dp),
+                  color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                  contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                ) {
+                  Text(
+                    label,
+                    modifier = Modifier.padding(vertical = 12.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                  )
+                }
+              }
+            }
           }
         }
 
