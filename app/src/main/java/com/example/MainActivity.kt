@@ -638,7 +638,8 @@ fun LineCallApp(
             session = session,
             onMuteToggle = { viewModel.toggleMute() },
             onSpeakerToggle = { viewModel.toggleSpeaker() },
-            onEndCall = { viewModel.endCall() }
+            onEndCall = { viewModel.endCall() },
+            onRecall = { viewModel.recallCall(session) }
           )
         }
       }
