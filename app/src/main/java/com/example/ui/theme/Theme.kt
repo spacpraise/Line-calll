@@ -10,6 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+/** User-selectable appearance; SYSTEM follows Android's current appearance setting. */
+enum class AppThemeMode { SYSTEM, LIGHT, DARK }
+
 private val DarkColorScheme = darkColorScheme(
   primary = CallGreen,
   onPrimary = Color.White,
@@ -64,9 +67,14 @@ private val LineCallShapes = Shapes(
 
 @Composable
 fun LineCallTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
+  mode: AppThemeMode = AppThemeMode.SYSTEM,
   content: @Composable () -> Unit,
 ) {
+  val darkTheme = when (mode) {
+    AppThemeMode.SYSTEM -> isSystemInDarkTheme()
+    AppThemeMode.LIGHT -> false
+    AppThemeMode.DARK -> true
+  }
   MaterialTheme(
     colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
     typography = Typography,
