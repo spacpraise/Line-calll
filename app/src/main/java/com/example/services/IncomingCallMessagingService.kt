@@ -81,8 +81,9 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       .setOngoing(true)
       .setAutoCancel(false)
       .setTimeoutAfter(45_000L)
+      // Keep the call on the lock screen/shade. Do not auto-launch MainActivity;
+      // Answer and Decline must work directly from the notification actions.
       .setContentIntent(fullScreenPendingIntent)
-      .setFullScreenIntent(fullScreenPendingIntent, true)
       .setOnlyAlertOnce(true)
       .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, declinePendingIntent, answerPendingIntent))
       .build()
