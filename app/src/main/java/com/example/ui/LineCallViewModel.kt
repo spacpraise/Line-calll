@@ -681,6 +681,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   fun acceptIncomingCall() = callingService.acceptIncomingCall()
   fun declineIncomingCall() = callingService.declineIncomingCall()
   fun endCall() = callingService.endCall()
+  fun dismissEndedCall() = callingService.dismissEndedCall()
   fun toggleMute() = callingService.toggleMute()
   fun toggleSpeaker() = callingService.toggleSpeaker()
 
