@@ -13,6 +13,9 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
+import com.example.data.local.LineCallDatabase
+import com.example.data.model.CallRecord
+import com.example.data.model.CallType
 import io.livekit.android.LiveKit
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
@@ -36,6 +39,9 @@ class IncomingCallActionService : Service() {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private var room: Room? = null
   private var callId: String? = null
+  private var callerName: String? = null
+  private var callerPhone: String = ""
+  private var connectedAtMillis: Long? = null
   private var backend: LineCallSupabaseClient? = null
   private var finished = false
 
@@ -57,6 +63,8 @@ class IncomingCallActionService : Service() {
     }
     if (callId == requestedCallId && room != null) return START_STICKY
     callId = requestedCallId
+    callerName = intent?.getStringExtra(EXTRA_CALLER_NAME)
+    callerPhone = intent?.getStringExtra(EXTRA_CALLER_PHONE).orEmpty()
     startAsForeground(buildNotification(requestedCallId, "Answering call…", ongoing = true))
     scope.launch { answerCall(requestedCallId) }
     return START_NOT_STICKY
@@ -82,6 +90,7 @@ class IncomingCallActionService : Service() {
         liveKitRoom.connect(credentials.getString("livekit_url"), credentials.getString("token"))
         liveKitRoom.localParticipant.setMicrophoneEnabled(true)
       }
+      connectedAtMillis = System.currentTimeMillis()
 
       getSystemService(NotificationManager::class.java)
         .notify(notificationId(id), buildNotification(id, "Connected · Tap to return", ongoing = true))
@@ -127,6 +136,23 @@ class IncomingCallActionService : Service() {
     }
     runCatching { room?.disconnect() }
     room = null
+    val connectedAt = connectedAtMillis
+    connectedAtMillis = null
+    if (connectedAt != null) {
+      val duration = ((System.currentTimeMillis() - connectedAt) / 1000L).toInt().coerceAtLeast(0)
+      runCatching {
+        LineCallDatabase.getDatabase(applicationContext).callRecordDao().insertCallRecord(
+          CallRecord(
+            phoneNumber = callerPhone,
+            contactName = callerName,
+            type = CallType.INCOMING,
+            durationSeconds = duration
+          )
+        )
+      }.onFailure {
+        android.util.Log.w(TAG, "Could not save notification-answered call to Recents.", it)
+      }
+    }
     if (!id.isNullOrBlank()) {
       getSystemService(NotificationManager::class.java).cancel(notificationId(id))
     }
@@ -205,14 +231,18 @@ class IncomingCallActionService : Service() {
     const val ACTION_ANSWER = "com.example.linecall.ANSWER"
     const val ACTION_END = "com.example.linecall.END"
     const val EXTRA_CALL_ID = "linecall_call_id"
+    const val EXTRA_CALLER_NAME = "linecall_caller_name"
+    const val EXTRA_CALLER_PHONE = "linecall_caller_phone"
     private const val CHANNEL_ID = "line_call_answered_call"
     private const val FOREGROUND_NOTIFICATION_ID = 4103
     private const val TAG = "LineCallBgCall"
 
-    fun startAnswer(context: Context, callId: String) {
+    fun startAnswer(context: Context, callId: String, callerName: String, callerPhone: String) {
       val intent = Intent(context, IncomingCallActionService::class.java).apply {
         action = ACTION_ANSWER
         putExtra(EXTRA_CALL_ID, callId)
+        putExtra(EXTRA_CALLER_NAME, callerName)
+        putExtra(EXTRA_CALLER_PHONE, callerPhone)
       }
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
       else context.startService(intent)
