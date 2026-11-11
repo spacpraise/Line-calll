@@ -3,9 +3,25 @@ name: Android build
 on:
   push:
     branches: [main]
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - ".github/workflows/android-build.yml"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
   pull_request:
     branches: [main]
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - ".github/workflows/android-build.yml"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
 
+# A newer commit on the same branch/PR cancels the older run, including its
+# emulator job, so UI tests are spent only on the newest revision.
 concurrency:
   group: android-build-${{ github.ref }}
   cancel-in-progress: true
@@ -14,21 +30,26 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-and-unit-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-      - name: Set up Gradle
+
+      # setup-gradle caches downloaded dependencies and Gradle User Home
+      # between runs. gradle.properties also enables Gradle's build/config cache.
+      - name: Set up Gradle and restore caches
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.3.1"
+
       - name: Generate CI debug keystore
         run: |
           keytool -genkeypair -v \
@@ -40,8 +61,16 @@ jobs:
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
-      - name: Run unit tests and build APK
-        run: gradle --no-daemon --console=plain :app:testDebugUnitTest :app:assembleDebug --stacktrace
+
+      # Build the app and instrumentation-test APK before booting the emulator.
+      # This avoids compiling test code while the emulator is waiting.
+      - name: Run unit tests and prebuild APKs
+        run: |
+          gradle --console=plain --build-cache --configuration-cache \
+            :app:testDebugUnitTest \
+            :app:assembleDebug \
+            :app:assembleDebugAndroidTest
+
       - name: Run Android UI regression tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -54,7 +83,8 @@ jobs:
           disable-animations: true
           script: |
             adb wait-for-device
-            gradle --no-daemon --console=plain :app:connectedDebugAndroidTest
+            gradle --console=plain --build-cache --configuration-cache :app:connectedDebugAndroidTest
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
