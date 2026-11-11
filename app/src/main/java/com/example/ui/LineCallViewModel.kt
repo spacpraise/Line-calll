@@ -200,29 +200,36 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         }
       }
     }
-    viewModelScope.launch {
-      var restoredUser: UserAccount? = null
-      // Do not interpret a temporary network failure as a sign-out. Keep the
-      // startup screen in place and retry while an encrypted refresh token exists.
-      while (restoredUser == null && supabase.hasStoredSession()) {
-        try {
-          restoredUser = authService.restoreSession()
-        } catch (error: Exception) {
-          Log.w("LineCallAuth", "Session restoration failed temporarily; retrying.", error)
-          delay(3_000L)
+    // Use the encrypted local session to choose the first screen immediately.
+    // Network refresh/profile loading happens after the main UI is already visible.
+    val hasSession = supabase.hasStoredSession()
+    _currentScreen.value = if (hasSession) ScreenState.MAIN_APP else ScreenState.WELCOME
+
+    if (hasSession) {
+      viewModelScope.launch {
+        var restoredUser: UserAccount? = null
+        while (restoredUser == null && supabase.hasStoredSession()) {
+          try {
+            restoredUser = authService.restoreSession()
+            if (restoredUser == null) {
+              _currentScreen.value = ScreenState.WELCOME
+              return@launch
+            }
+          } catch (error: Exception) {
+            // A temporary network failure must not send a returning user to onboarding.
+            Log.w("LineCallAuth", "Session restoration failed temporarily; retrying in background.", error)
+            delay(3_000L)
+          }
         }
-      }
-      if (restoredUser != null) {
-        userProfileService.setUser(restoredUser)
-        _emailInput.value = restoredUser.email
-        _phoneInput.value = restoredUser.phoneNumber
-        _displayNameInput.value = restoredUser.displayName
-        // A valid restored session always returns to the app. Missing profile
-        // details can be completed later from Settings, not through onboarding.
-        _currentScreen.value = ScreenState.MAIN_APP
-        startIncomingCallPollingIfForeground()
-      } else {
-        _currentScreen.value = ScreenState.WELCOME
+        if (restoredUser != null) {
+          userProfileService.setUser(restoredUser)
+          _emailInput.value = restoredUser.email
+          _phoneInput.value = restoredUser.phoneNumber
+          _displayNameInput.value = restoredUser.displayName
+          startIncomingCallPollingIfForeground()
+        } else {
+          _currentScreen.value = ScreenState.WELCOME
+        }
       }
     }
 
