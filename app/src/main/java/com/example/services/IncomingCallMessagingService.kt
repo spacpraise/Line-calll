@@ -20,6 +20,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
 
 class IncomingCallMessagingService : FirebaseMessagingService() {
   override fun onNewToken(token: String) {
@@ -120,15 +122,37 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
 
 class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
-    val callId = intent.getStringExtra("linecall_call_id") ?: return
-    val action = intent.getStringExtra("linecall_call_action") ?: return
-    val manager = context.getSystemService(NotificationManager::class.java)
-    manager.cancel(IncomingCallMessagingService.notificationId(callId))
-    val launch = Intent(context, MainActivity::class.java).apply {
-      putExtra("linecall_call_id", callId)
-      putExtra("linecall_call_action", action)
-      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    val callId = intent.getStringExtra("linecall_call_id")?.takeIf { it.isNotBlank() } ?: return
+    when (intent.getStringExtra("linecall_call_action")) {
+      "answer" -> {
+        // A notification action is an explicit user gesture. Connect audio in a
+        // foreground service instead of launching the app and asking again.
+        runCatching { IncomingCallActionService.startAnswer(context, callId) }
+          .onFailure { android.util.Log.e("LineCallFCM", "Could not start background answer service.", it) }
+      }
+      "decline" -> {
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+          try {
+            val backend = LineCallSupabaseClient(context.applicationContext)
+            val completed = withTimeoutOrNull(12_000L) {
+              backend.restoreSession()
+              backend.callFunction(JSONObject().put("action", "decline").put("call_id", callId))
+              true
+            } == true
+            if (completed) {
+              context.getSystemService(NotificationManager::class.java)
+                .cancel(IncomingCallMessagingService.notificationId(callId))
+            } else {
+              android.util.Log.w("LineCallFCM", "Decline action timed out; leaving notification available.")
+            }
+          } catch (error: Exception) {
+            android.util.Log.e("LineCallFCM", "Could not decline call from notification.", error)
+          } finally {
+            pending.finish()
+          }
+        }
+      }
     }
-    context.startActivity(launch)
   }
 }
