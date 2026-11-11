@@ -64,6 +64,7 @@ import com.example.ui.onboarding.ForgotPasswordScreen
 import com.example.ui.onboarding.NewPasswordScreen
 import com.example.ui.recents.RecentsScreen
 import com.example.ui.settings.SettingsScreen
+import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.LineCallTheme
 import com.example.update.LineCallUpdateManager
 import kotlinx.coroutines.flow.first
@@ -74,13 +75,31 @@ class MainActivity : ComponentActivity() {
     private set
   var resumeCount by mutableStateOf(0)
     private set
+  var themeMode by mutableStateOf(AppThemeMode.SYSTEM)
+    private set
+
+  fun updateThemeMode(mode: AppThemeMode) {
+    themeMode = mode
+    getSharedPreferences("line_call_preferences", MODE_PRIVATE)
+      .edit().putString("theme_mode", mode.name).apply()
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
     if (pendingIncomingCallIntent != null) setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
+    themeMode = runCatching {
+      AppThemeMode.valueOf(
+        getSharedPreferences("line_call_preferences", MODE_PRIVATE)
+          .getString("theme_mode", AppThemeMode.SYSTEM.name) ?: AppThemeMode.SYSTEM.name
+      )
+    }.getOrDefault(AppThemeMode.SYSTEM)
     enableEdgeToEdge()
-    setContent { LineCallTheme { LineCallApp() } }
+    setContent {
+      LineCallTheme(mode = themeMode) {
+        LineCallApp(themeMode = themeMode, onThemeModeChange = ::updateThemeMode)
+      }
+    }
     // WorkManager initialization is deferred until after the first frame so it
     // cannot hold up the launch animation or first screen draw.
     window.decorView.post { LineCallUpdateManager.schedule(this) }
@@ -124,7 +143,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
+fun LineCallApp(
+  themeMode: AppThemeMode,
+  onThemeModeChange: (AppThemeMode) -> Unit,
+  viewModel: LineCallViewModel = viewModel()
+) {
   val context = LocalContext.current
   val hostActivity = context as? MainActivity
   val pendingCallIntent = hostActivity?.pendingIncomingCallIntent
@@ -426,7 +449,9 @@ fun LineCallApp(viewModel: LineCallViewModel = viewModel()) {
           onUpdateEmail = { viewModel.updateProfileEmail(it) },
           onAvatarSelected = { viewModel.updateProfileAvatar(it) },
           onSignOut = { viewModel.signOut() },
-          onBack = { viewModel.navigateTo(ScreenState.MAIN_APP) }
+          onBack = { viewModel.navigateTo(ScreenState.MAIN_APP) },
+          themeMode = themeMode,
+          onThemeModeChange = onThemeModeChange
         )
       }
 
