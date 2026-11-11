@@ -12,7 +12,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -237,7 +237,7 @@ fun IncomingCallScreen(
           ) {
             HoldSwipeUpAction(
               label = "Decline",
-              hint = "Hold and swipe up",
+              hint = "Swipe to answer",
               icon = Icons.Rounded.CallEnd,
               color = CallRed,
               tag = "decline_call_button",
@@ -248,7 +248,7 @@ fun IncomingCallScreen(
             )
             HoldSwipeUpAction(
               label = "Answer",
-              hint = "Hold and swipe up",
+              hint = "Swipe to decline",
               icon = Icons.Rounded.Phone,
               color = CallGreen,
               tag = "accept_call_button",
@@ -277,7 +277,7 @@ private fun HoldSwipeUpAction(
   val scope = rememberCoroutineScope()
   val density = LocalDensity.current
   val view = LocalView.current
-  val threshold = with(density) { 74.dp.toPx() }
+  val threshold = with(density) { 42.dp.toPx() }
 
   Column(
     horizontalAlignment = Alignment.CenterHorizontally,
@@ -292,19 +292,21 @@ private fun HoldSwipeUpAction(
         .background(color)
         .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
         .pointerInput(threshold) {
-          detectDragGesturesAfterLongPress(
+          var totalDrag = 0f
+          detectDragGestures(
             onDragStart = {
+              totalDrag = 0f
               view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             },
             onDrag = { change, amount ->
               change.consume()
+              totalDrag += kotlin.math.hypot(amount.x, amount.y)
               scope.launch {
-                offset.snapTo((offset.value + amount.y).coerceIn(-threshold * 1.45f, 0f))
+                offset.snapTo((offset.value + amount.y).coerceIn(-threshold, threshold))
               }
             },
             onDragEnd = {
-              val completed = offset.value <= -threshold
-              if (completed) {
+              if (totalDrag >= threshold) {
                 view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                 onComplete()
               } else {
@@ -325,7 +327,7 @@ private fun HoldSwipeUpAction(
     ) {
       Icon(
         imageVector = icon,
-        contentDescription = "$label: hold and swipe up",
+        contentDescription = "$label: swipe to activate",
         tint = Color.White,
         modifier = Modifier.size(34.dp)
       )
