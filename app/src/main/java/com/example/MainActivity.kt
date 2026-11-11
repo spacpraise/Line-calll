@@ -80,8 +80,10 @@ class MainActivity : ComponentActivity() {
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
     if (pendingIncomingCallIntent != null) setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
     enableEdgeToEdge()
-    LineCallUpdateManager.schedule(this)
     setContent { LineCallTheme { LineCallApp() } }
+    // WorkManager initialization is deferred until after the first frame so it
+    // cannot hold up the launch animation or first screen draw.
+    window.decorView.post { LineCallUpdateManager.schedule(this) }
     if (intent.getBooleanExtra("linecall_install_update", false)) {
       window.decorView.post { LineCallUpdateManager.installPending(this) }
     }
@@ -101,7 +103,7 @@ class MainActivity : ComponentActivity() {
     super.onResume()
     resumeCount += 1
     LineCallUpdateManager.reconcileInstalledVersion(this)
-    LineCallUpdateManager.schedule(this)
+    window.decorView.post { LineCallUpdateManager.schedule(this) }
   }
 
   fun setCallWindowMode(showOnLockScreen: Boolean, wakeScreen: Boolean) {
