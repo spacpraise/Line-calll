@@ -237,7 +237,7 @@ fun IncomingCallScreen(
           ) {
             HoldSwipeUpAction(
               label = "Decline",
-              hint = "Swipe to answer",
+              hint = "Swipe to decline",
               icon = Icons.Rounded.CallEnd,
               color = CallRed,
               tag = "decline_call_button",
