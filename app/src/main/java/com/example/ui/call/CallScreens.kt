@@ -352,6 +352,7 @@ fun ActiveCallScreen(
   onMuteToggle: () -> Unit,
   onSpeakerToggle: () -> Unit,
   onEndCall: () -> Unit,
+  onRecall: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val view = LocalView.current
@@ -534,68 +535,91 @@ fun ActiveCallScreen(
           horizontalAlignment = Alignment.CenterHorizontally,
           verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            ActiveCallControl(
-              label = if (session.isMuted) "Unmute" else "Mute",
-              icon = if (session.isMuted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
-              selected = session.isMuted,
-              testTag = "toggle_mute_button",
-              onClick = {
-                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                onMuteToggle()
+          if (session.state == CallSessionState.ENDED) {
+            Surface(
+              onClick = onRecall,
+              shape = RoundedCornerShape(28.dp),
+              color = CallGreen,
+              shadowElevation = 10.dp,
+              modifier = Modifier.fillMaxWidth(0.78f).height(58.dp).testTag("recall_call_button")
+            ) {
+              Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(Icons.Rounded.Phone, contentDescription = null, tint = Color.White)
+                Text(
+                  "Call again",
+                  modifier = Modifier.padding(start = 10.dp),
+                  color = Color.White,
+                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
               }
-            )
-            ActiveCallControl(
-              label = if (session.isSpeakerOn) "Speaker" else "Earpiece",
-              icon = if (session.isSpeakerOn) Icons.Rounded.VolumeUp else Icons.Rounded.VolumeDown,
-              selected = session.isSpeakerOn,
-              testTag = "toggle_speaker_button",
-              onClick = {
-                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                onSpeakerToggle()
-              }
-            )
-          }
-
-          val endInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-          val endPressed by endInteraction.collectIsPressedAsState()
-          val endScale by androidx.compose.animation.core.animateFloatAsState(
-            targetValue = if (endPressed) 0.90f else 1f,
-            animationSpec = spring(dampingRatio = 0.58f, stiffness = 520f),
-            label = "end_call_press_scale"
-          )
-          Surface(
-            onClick = {
-              view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-              onEndCall()
-            },
-            interactionSource = endInteraction,
-            shape = CircleShape,
-            color = CallRed,
-            shadowElevation = 12.dp,
-            modifier = Modifier.size(76.dp).graphicsLayer {
-              scaleX = endScale
-              scaleY = endScale
-            }.testTag("end_call_button")
-          ) {
-            Box(contentAlignment = Alignment.Center) {
-              Icon(
-                imageVector = Icons.Rounded.CallEnd,
-                contentDescription = "End call",
-                tint = Color.White,
-                modifier = Modifier.size(34.dp)
+            }
+          } else {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceEvenly,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              ActiveCallControl(
+                label = if (session.isMuted) "Unmute" else "Mute",
+                icon = if (session.isMuted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
+                selected = session.isMuted,
+                testTag = "toggle_mute_button",
+                onClick = {
+                  view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                  onMuteToggle()
+                }
+              )
+              ActiveCallControl(
+                label = if (session.isSpeakerOn) "Speaker" else "Earpiece",
+                icon = if (session.isSpeakerOn) Icons.Rounded.VolumeUp else Icons.Rounded.VolumeDown,
+                selected = session.isSpeakerOn,
+                testTag = "toggle_speaker_button",
+                onClick = {
+                  view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                  onSpeakerToggle()
+                }
               )
             }
+
+            val endInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            val endPressed by endInteraction.collectIsPressedAsState()
+            val endScale by androidx.compose.animation.core.animateFloatAsState(
+              targetValue = if (endPressed) 0.90f else 1f,
+              animationSpec = spring(dampingRatio = 0.58f, stiffness = 520f),
+              label = "end_call_press_scale"
+            )
+            Surface(
+              onClick = {
+                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                onEndCall()
+              },
+              interactionSource = endInteraction,
+              shape = CircleShape,
+              color = CallRed,
+              shadowElevation = 12.dp,
+              modifier = Modifier.size(76.dp).graphicsLayer {
+                scaleX = endScale
+                scaleY = endScale
+              }.testTag("end_call_button")
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Icon(
+                  imageVector = Icons.Rounded.CallEnd,
+                  contentDescription = "End call",
+                  tint = Color.White,
+                  modifier = Modifier.size(34.dp)
+                )
+              }
+            }
+            Text(
+              "End call",
+              style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
+            )
           }
-          Text(
-            "End call",
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
-          )
         }
       }
     }
