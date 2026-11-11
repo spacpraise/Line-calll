@@ -758,6 +758,18 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }
 
+  fun recallCall(session: ActiveCallSession) {
+    callingService.dismissEndedCall()
+    _enteredNumber.value = session.phoneNumber
+    viewModelScope.launch {
+      handleCallResult(
+        callingService.initiateCall(session.phoneNumber, session.contactName),
+        session.phoneNumber,
+        session.contactName
+      )
+    }
+  }
+
   private fun handleCallResult(result: CallInitiationResult, number: String, name: String?) {
     when (result) {
       is CallInitiationResult.Started -> Unit
