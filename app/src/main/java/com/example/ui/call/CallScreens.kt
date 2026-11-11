@@ -12,12 +12,11 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,7 +58,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -231,48 +229,34 @@ fun IncomingCallScreen(
           verticalArrangement = Arrangement.spacedBy(18.dp),
           modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)
         ) {
-          IncomingCallSlider(
-            onAnswer = {
-              view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-              onAccept()
-            },
-            onDecline = {
-              view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-              onDecline()
-            }
-          )
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
           ) {
-            IncomingCallAction(
+            HoldSwipeUpAction(
               label = "Decline",
+              hint = "Hold and swipe up",
               icon = Icons.Rounded.CallEnd,
               color = CallRed,
               tag = "decline_call_button",
-              onClick = {
+              onComplete = {
                 view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                 onDecline()
               }
             )
-            IncomingCallAction(
+            HoldSwipeUpAction(
               label = "Answer",
+              hint = "Hold and swipe up",
               icon = Icons.Rounded.Phone,
               color = CallGreen,
               tag = "accept_call_button",
-              onClick = {
+              onComplete = {
                 view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                 onAccept()
               }
             )
           }
-          Text(
-            "Slide to answer or decline, or use the buttons",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.42f),
-            textAlign = TextAlign.Center
-          )
         }
       }
     }
@@ -280,161 +264,85 @@ fun IncomingCallScreen(
 }
 
 @Composable
-private fun IncomingCallSlider(
-  onAnswer: () -> Unit,
-  onDecline: () -> Unit
+private fun HoldSwipeUpAction(
+  label: String,
+  hint: String,
+  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  color: Color,
+  tag: String,
+  onComplete: () -> Unit
 ) {
-  val drag = remember { Animatable(0f) }
+  val offset = remember { Animatable(0f) }
   val scope = rememberCoroutineScope()
   val density = LocalDensity.current
+  val view = LocalView.current
+  val threshold = with(density) { 74.dp.toPx() }
+  val holding = remember { androidx.compose.runtime.mutableStateOf(false) }
 
-  BoxWithConstraints(
-    modifier = Modifier.fillMaxWidth().height(76.dp),
-    contentAlignment = Alignment.Center
+  Column(
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(9.dp),
+    modifier = Modifier.width(132.dp)
   ) {
-    val maxDrag = with(density) { (maxWidth - 76.dp).toPx().coerceAtLeast(0f) / 2f }
-    val threshold = maxDrag * 0.72f
-
-    Row(
-      modifier = Modifier
-        .fillMaxSize()
-        .clip(RoundedCornerShape(40.dp))
-        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.075f))
-        .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f), RoundedCornerShape(40.dp)),
-      verticalAlignment = Alignment.CenterVertically
-    ) {
-      Box(
-        modifier = Modifier.weight(1f).fillMaxSize()
-          .background(CallRed.copy(alpha = 0.10f)),
-        contentAlignment = Alignment.Center
-      ) {
-        Text(
-          "←  DECLINE",
-          style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.8.sp
-          ),
-          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
-        )
-      }
-      Box(
-        modifier = Modifier.weight(1f).fillMaxSize()
-          .background(CallGreen.copy(alpha = 0.10f)),
-        contentAlignment = Alignment.Center
-      ) {
-        Text(
-          "ANSWER  →",
-          style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.8.sp
-          ),
-          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
-        )
-      }
-    }
-
     Box(
       modifier = Modifier
-        .offset { IntOffset(drag.value.roundToInt(), 0) }
-        .size(64.dp)
+        .size(82.dp)
+        .offset { IntOffset(0, offset.value.roundToInt()) }
         .clip(CircleShape)
-        .background(
-          Brush.linearGradient(
-            colors = listOf(Color(0xFF344B3C), CallGreen)
-          )
-        )
-        .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.32f), CircleShape)
-        .pointerInput(maxDrag, threshold) {
-          detectDragGestures(
+        .background(color)
+        .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
+        .pointerInput(threshold) {
+          detectDragGesturesAfterLongPress(
+            onDragStart = {
+              holding.value = true
+              view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            },
             onDrag = { change, amount ->
               change.consume()
               scope.launch {
-                drag.snapTo((drag.value + amount.x).coerceIn(-maxDrag, maxDrag))
+                offset.snapTo((offset.value + amount.y).coerceIn(-threshold * 1.45f, 0f))
               }
             },
             onDragEnd = {
-              val position = drag.value
-              when {
-                position >= threshold -> {
-                  onAnswer()
-                }
-                position <= -threshold -> {
-                  onDecline()
-                }
-                else -> scope.launch {
-                  drag.animateTo(
-                    targetValue = 0f,
-                    animationSpec = spring(dampingRatio = 0.62f, stiffness = 420f)
-                  )
+              val completed = offset.value <= -threshold
+              holding.value = false
+              if (completed) {
+                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                onComplete()
+              } else {
+                scope.launch {
+                  offset.animateTo(0f, spring(dampingRatio = 0.58f, stiffness = 520f))
                 }
               }
             },
             onDragCancel = {
+              holding.value = false
               scope.launch {
-                drag.animateTo(
-                  targetValue = 0f,
-                  animationSpec = spring(dampingRatio = 0.62f, stiffness = 420f)
-                )
+                offset.animateTo(0f, spring(dampingRatio = 0.58f, stiffness = 520f))
               }
             }
           )
-        },
+        }
+        .testTag(tag),
       contentAlignment = Alignment.Center
     ) {
       Icon(
-        imageVector = Icons.Rounded.Phone,
-        contentDescription = "Slide right to answer or left to decline",
+        imageVector = icon,
+        contentDescription = "$label: hold and swipe up",
         tint = Color.White,
-        modifier = Modifier.size(27.dp)
+        modifier = Modifier.size(34.dp)
       )
     }
-  }
-}
-
-@Composable
-private fun IncomingCallAction(
-  label: String,
-  icon: androidx.compose.ui.graphics.vector.ImageVector,
-  color: Color,
-  tag: String,
-  onClick: () -> Unit
-) {
-  val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-  val pressed by interactionSource.collectIsPressedAsState()
-  val scale by androidx.compose.animation.core.animateFloatAsState(
-    targetValue = if (pressed) 0.91f else 1f,
-    animationSpec = androidx.compose.animation.core.spring(
-      dampingRatio = 0.58f,
-      stiffness = 520f
-    ),
-    label = "incoming_action_press"
-  )
-  Column(horizontalAlignment = Alignment.CenterHorizontally) {
-    Surface(
-      onClick = onClick,
-      interactionSource = interactionSource,
-      shape = CircleShape,
-      color = color,
-      shadowElevation = 12.dp,
-      modifier = Modifier.size(76.dp).graphicsLayer {
-        scaleX = scale
-        scaleY = scale
-      }.testTag(tag)
-    ) {
-      Box(contentAlignment = Alignment.Center) {
-        Icon(
-          imageVector = icon,
-          contentDescription = label,
-          tint = Color.White,
-          modifier = Modifier.size(32.dp)
-        )
-      }
-    }
-    Spacer(Modifier.height(10.dp))
     Text(
-      label,
+      text = label,
       style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-      color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f)
+      color = MaterialTheme.colorScheme.onBackground
+    )
+    Text(
+      text = hint,
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.48f),
+      textAlign = TextAlign.Center
     )
   }
 }
