@@ -25,6 +25,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 /**
@@ -77,8 +78,10 @@ class IncomingCallActionService : Service() {
       )
       val liveKitRoom = LiveKit.create(applicationContext)
       room = liveKitRoom
-      liveKitRoom.connect(credentials.getString("livekit_url"), credentials.getString("token"))
-      liveKitRoom.localParticipant.setMicrophoneEnabled(true)
+      withContext(Dispatchers.IO) {
+        liveKitRoom.connect(credentials.getString("livekit_url"), credentials.getString("token"))
+        liveKitRoom.localParticipant.setMicrophoneEnabled(true)
+      }
 
       getSystemService(NotificationManager::class.java)
         .notify(notificationId(id), buildNotification(id, "Connected · Tap to return", ongoing = true))
