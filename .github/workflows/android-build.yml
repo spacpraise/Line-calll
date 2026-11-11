@@ -31,8 +31,10 @@ permissions:
 
 jobs:
   build-and-unit-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Pin to the established runner image. ubuntu-latest moved to 26.04 and
+    # the Android emulator failed to complete boot on that image.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -63,7 +65,6 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       # Build the app and instrumentation-test APK before booting the emulator.
-      # This avoids compiling test code while the emulator is waiting.
       - name: Run unit tests and prebuild APKs
         run: |
           gradle --console=plain --build-cache --configuration-cache \
@@ -74,14 +75,11 @@ jobs:
       - name: Run Android UI regression tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          # Use the current stable Android image; API 34's image repeatedly
-          # remained offline on the hosted runner during boot.
           api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_2
           emulator-boot-timeout: 600
-          # A fresh AVD is created for every job, so wiping its data is unnecessary.
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
