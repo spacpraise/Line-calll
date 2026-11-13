@@ -181,7 +181,8 @@ begin
   set status='ended', ended_at=coalesce(ended_at,now()), state_version=state_version+1
   where status='accepted' and heartbeat_enabled=false
     and coalesce(accepted_at,created_at) < now()-interval '12 hours';
-  get diagnostics affected = affected + row_count;
+  get diagnostics v_rows = row_count;
+  affected := affected + v_rows;
   return affected;
 end $$;
 revoke all on function public.sweep_stale_line_calls() from public, anon, authenticated;
