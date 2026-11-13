@@ -89,7 +89,6 @@ class IncomingCallLifecycleService : Service() {
 
     persistState()
     startForegroundCallNotification()
-    startRingtone()
     lifecycleJob = serviceScope.launch { monitorCall(callId, expiryAtMs) }
     return START_NOT_STICKY
   }
@@ -192,6 +191,18 @@ class IncomingCallLifecycleService : Service() {
       stopLifecycle(callId)
       return
     }
+
+    val initialStatus = withTimeoutOrNull(4_000L) {
+      runCatching {
+        backend.callFunction(JSONObject().put("action", "status").put("call_id", callId))
+          .optJSONObject("call")?.optString("status").orEmpty()
+      }.getOrDefault("")
+    }.orEmpty()
+    if (initialStatus != "ringing") {
+      stopLifecycle(callId)
+      return
+    }
+    startRingtone()
 
     realtimeJob = CallRealtimeClient(backend).start(
       userId = user.id,

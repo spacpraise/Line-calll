@@ -56,8 +56,23 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
     }
     if (data["type"] != "INCOMING_CALL") return
 
-    // FCM can be delayed, duplicated, or arrive after Answer/Decline. Confirm
-    // the authoritative server state before displaying a ringing surface.
+    // Start the short foreground service synchronously inside the high-priority
+    // FCM delivery window. It posts its CallStyle notification immediately,
+    // then validates server state before it begins local ringtone playback.
+    val expiresAtMs = data["ring_expires_at_ms"]?.toLongOrNull()
+      ?: (System.currentTimeMillis() + MAX_RING_DURATION_MS)
+    val callerPhone = data["caller_phone"]?.takeIf { it.isNotBlank() } ?: "Unknown number"
+    val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: callerPhone
+    val avatarUrl = data["caller_avatar_url"]?.takeIf { it.startsWith("https://") }
+    if (message.priority == RemoteMessage.PRIORITY_HIGH &&
+      expiresAtMs > System.currentTimeMillis() &&
+      IncomingCallLifecycleService.start(
+        applicationContext, callId, callerName, callerPhone, avatarUrl, expiresAtMs
+      )
+    ) return
+
+    // If Android does not allow an FGS start (or FCM was downgraded), retain
+    // the normal CallStyle notification fallback with its channel ringtone.
     CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
       try {
         val backend = LineCallSupabaseClient(applicationContext)
@@ -67,20 +82,8 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
             .optJSONObject("call")?.optString("status")
         } ?: return@launch
         if (status != "ringing") return@launch
-        val expiresAtMs = data["ring_expires_at_ms"]?.toLongOrNull()
-          ?: (System.currentTimeMillis() + MAX_RING_DURATION_MS)
         val remainingRingMs = (expiresAtMs - System.currentTimeMillis()).coerceAtMost(MAX_RING_DURATION_MS)
         if (remainingRingMs <= 0L) return@launch
-        val callerPhone = data["caller_phone"]?.takeIf { it.isNotBlank() } ?: "Unknown number"
-        val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: callerPhone
-        val avatarUrl = data["caller_avatar_url"]?.takeIf { it.startsWith("https://") }
-        if (message.priority == RemoteMessage.PRIORITY_HIGH &&
-          IncomingCallLifecycleService.start(
-            applicationContext, callId, callerName, callerPhone, avatarUrl, expiresAtMs
-          )
-        ) return@launch
-      val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: callerPhone
-      val avatarUrl = data["caller_avatar_url"]?.takeIf { it.startsWith("https://") }
       createCallChannel(notificationManager)
   
       val requestBase = callId.hashCode()
