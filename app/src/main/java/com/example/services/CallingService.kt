@@ -2,12 +2,15 @@ package com.example.services
 
 import android.app.Application
 import android.media.AudioManager
+import android.media.AudioDeviceInfo
+import android.os.Build
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.media.ToneGenerator
 import com.example.data.local.CallRecordDao
 import com.example.data.model.ActiveCallSession
 import com.example.data.model.CallRecord
+import com.example.data.model.CallAudioRoute
 import com.example.data.model.CallSessionState
 import com.example.data.model.CallType
 import io.livekit.android.LiveKit
@@ -59,6 +62,11 @@ class CallingService(
 
   private val _callEvents = MutableSharedFlow<CallEvent>()
   val callEvents: SharedFlow<CallEvent> = _callEvents.asSharedFlow()
+
+  private val _audioRoutes = MutableStateFlow<List<CallAudioRoute>>(emptyList())
+  val audioRoutes: StateFlow<List<CallAudioRoute>> = _audioRoutes.asStateFlow()
+  private val _selectedAudioRouteId = MutableStateFlow<Int?>(null)
+  val selectedAudioRouteId: StateFlow<Int?> = _selectedAudioRouteId.asStateFlow()
 
   private val audioManager = application.getSystemService(AudioManager::class.java)
   private var liveKitRoom: Room? = null
@@ -302,7 +310,7 @@ class CallingService(
     val room = LiveKit.create(application.applicationContext)
     liveKitRoom = room
     audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-    audioManager.isSpeakerphoneOn = false
+    applyDefaultAudioRoute()
 
     room.connect(serverUrl, participantToken)
     room.localParticipant.setMicrophoneEnabled(true)
@@ -344,12 +352,69 @@ class CallingService(
     }
   }
 
+  fun refreshAudioRoutes() {
+    val devices = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      audioManager.availableCommunicationDevices
+    } else {
+      audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList()
+    }
+    val routes = devices.mapNotNull { device ->
+      val type = when (device.type) {
+        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Earpiece"
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
+        AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER -> "Bluetooth LE"
+        AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired headset"
+        AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE -> "USB audio"
+        else -> return@mapNotNull null
+      }
+      val friendlyName = device.productName?.toString()?.takeIf { it.isNotBlank() }
+      CallAudioRoute(device.id, if (type.startsWith("Bluetooth") && friendlyName != null) friendlyName else type, type)
+    }.distinctBy { it.id }
+    _audioRoutes.value = routes
+    _selectedAudioRouteId.value = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      audioManager.communicationDevice?.id
+    } else {
+      routes.firstOrNull { it.type == "Speaker" && audioManager.isSpeakerphoneOn }?.id
+    }
+  }
+
+  private fun applyDefaultAudioRoute() {
+    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+    refreshAudioRoutes()
+    val preferred = _audioRoutes.value.firstOrNull { it.type.startsWith("Bluetooth") }
+      ?: _audioRoutes.value.firstOrNull { it.type == "Wired headset" || it.type == "USB audio" }
+      ?: _audioRoutes.value.firstOrNull { it.type == "Earpiece" }
+      ?: _audioRoutes.value.firstOrNull { it.type == "Speaker" }
+    if (preferred != null) selectAudioRoute(preferred.id)
+    else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.clearCommunicationDevice()
+    else audioManager.isSpeakerphoneOn = false
+  }
+
+  fun selectAudioRoute(deviceId: Int) {
+    val route = _audioRoutes.value.firstOrNull { it.id == deviceId } ?: return
+    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      val device = audioManager.availableCommunicationDevices.firstOrNull { it.id == deviceId } ?: return
+      if (audioManager.setCommunicationDevice(device)) _selectedAudioRouteId.value = deviceId
+    } else {
+      val bluetooth = route.type.startsWith("Bluetooth")
+      audioManager.isSpeakerphoneOn = route.type == "Speaker"
+      if (bluetooth) {
+        runCatching { audioManager.startBluetoothSco(); audioManager.isBluetoothScoOn = true }
+      } else {
+        runCatching { audioManager.stopBluetoothSco(); audioManager.isBluetoothScoOn = false }
+      }
+      _selectedAudioRouteId.value = deviceId
+    }
+    _activeCall.value = _activeCall.value?.copy(isSpeakerOn = route.type == "Speaker")
+  }
+
   fun toggleSpeaker() {
     val current = _activeCall.value ?: return
-    val speakerOn = !current.isSpeakerOn
-    _activeCall.value = current.copy(isSpeakerOn = speakerOn)
-    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-    audioManager.isSpeakerphoneOn = speakerOn
+    refreshAudioRoutes()
+    val speaker = _audioRoutes.value.firstOrNull { it.type == "Speaker" } ?: return
+    if (current.isSpeakerOn) applyDefaultAudioRoute() else selectAudioRoute(speaker.id)
   }
 
   fun endCall() {
@@ -531,7 +596,11 @@ class CallingService(
     if (room != null) coroutineScope.launch { runCatching { room.disconnect() } }
     LineCallOngoingCallService.stop(application)
     if (!keepEndedSession) _activeCall.value = null
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.clearCommunicationDevice()
+    runCatching { audioManager.stopBluetoothSco(); audioManager.isBluetoothScoOn = false }
     audioManager.isSpeakerphoneOn = false
     audioManager.mode = AudioManager.MODE_NORMAL
+    _selectedAudioRouteId.value = null
+    _audioRoutes.value = emptyList()
   }
 }
