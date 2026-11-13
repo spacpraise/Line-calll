@@ -352,7 +352,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "heartbeat") {
-      const { data, error } = await db.rpc("transition_line_call", { p_call_id: callId, p_action: "heartbeat", p_device_id: null });
+      const { data, error } = await authClient.rpc("transition_line_call", { p_call_id: callId, p_action: "heartbeat", p_device_id: null });
       if (error) throw error;
       return json(data);
     }
@@ -370,7 +370,7 @@ Deno.serve(async (req: Request) => {
       if (call.recipient_id !== user.id) return json({ error: "Only the recipient can accept this call." }, 403);
       const deviceId = typeof body.device_id === "string" ? body.device_id : "";
       if (deviceId.length < 8 || deviceId.length > 128) return json({ error: "A valid device ID is required to answer." }, 400);
-      const { data, error } = await db.rpc("transition_line_call", { p_call_id: callId, p_action: "accept", p_device_id: deviceId });
+      const { data, error } = await authClient.rpc("transition_line_call", { p_call_id: callId, p_action: "accept", p_device_id: deviceId });
       if (error) throw error;
       if (!data?.accepted) return json({ error: "This call is no longer available.", call: data }, 409);
       return json({ accepted: true, call_id: callId, status: data.status, idempotent: !!data.idempotent });
@@ -378,13 +378,13 @@ Deno.serve(async (req: Request) => {
 
     if (action === "decline") {
       if (call.recipient_id !== user.id) return json({ error: "Only the recipient can decline this call." }, 403);
-      const { data, error } = await db.rpc("transition_line_call", { p_call_id: callId, p_action: "decline", p_device_id: null });
+      const { data, error } = await authClient.rpc("transition_line_call", { p_call_id: callId, p_action: "decline", p_device_id: null });
       if (error) throw error;
       return json({ declined: !!data?.declined, status: data?.status, transitioned: !!data?.transitioned });
     }
 
     if (action === "end") {
-      const { data, error } = await db.rpc("transition_line_call", { p_call_id: callId, p_action: "end", p_device_id: null });
+      const { data, error } = await authClient.rpc("transition_line_call", { p_call_id: callId, p_action: "end", p_device_id: null });
       if (error) throw error;
       if (data?.transitioned) {
         const otherUserId = call.caller_id === user.id ? call.recipient_id : call.caller_id;
