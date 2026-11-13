@@ -158,6 +158,20 @@ object LineCallTelecom {
   }
 
   fun incomingAnswerIntent(context: Context, callId: String) = launchCallAction(context, callId, "answer")
-  fun incomingDeclineIntent(context: Context, callId: String) = launchCallAction(context, callId, "decline")
-  fun endIntent(context: Context, callId: String) = launchCallAction(context, callId, "end")
+
+  // Reject/end requests from Bluetooth, watches or car surfaces are sent through
+  // the existing receiver so they work without depending on a background activity launch.
+  private fun sendDisconnectAction(context: Context, callId: String, action: String) {
+    val intent = Intent(context, IncomingCallActionReceiver::class.java).apply {
+      putExtra("linecall_call_id", callId)
+      putExtra("linecall_call_action", action)
+    }
+    runCatching { context.sendBroadcast(intent) }
+      .onFailure { Log.w(TAG, "Could not dispatch Telecom disconnect action $action", it) }
+  }
+
+  fun incomingDeclineIntent(context: Context, callId: String) =
+    sendDisconnectAction(context, callId, "decline")
+  fun endIntent(context: Context, callId: String) =
+    sendDisconnectAction(context, callId, "end")
 }
