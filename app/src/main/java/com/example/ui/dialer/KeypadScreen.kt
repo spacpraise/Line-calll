@@ -45,6 +45,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -72,10 +74,12 @@ fun KeypadScreen(
 ) {
   val view = LocalView.current
   var fieldValue by remember { mutableStateOf(TextFieldValue(enteredNumber, TextRange(enteredNumber.length))) }
+  val numberFieldFocusRequester = remember { FocusRequester() }
   LaunchedEffect(enteredNumber) {
     if (enteredNumber != fieldValue.text) {
       fieldValue = TextFieldValue(enteredNumber, TextRange(enteredNumber.length))
     }
+    if (enteredNumber.isNotBlank()) numberFieldFocusRequester.requestFocus()
   }
   val queryDigits = enteredNumber.filter { it.isDigit() }
   val matchingContacts = remember(queryDigits, contacts) {
@@ -140,7 +144,7 @@ fun KeypadScreen(
         onValueChange = { fieldValue = it; onNumberChanged(it.text) },
         readOnly = true, singleLine = true, cursorBrush = SolidColor(CallGreen),
         textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center),
-        modifier = Modifier.fillMaxWidth().testTag("dialer_number_display"),
+        modifier = Modifier.fillMaxWidth().focusRequester(numberFieldFocusRequester).testTag("dialer_number_display"),
         decorationBox = { inner -> Box(contentAlignment = Alignment.Center) {
           if (fieldValue.text.isEmpty()) Text("Enter phone number", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp)
           inner()
