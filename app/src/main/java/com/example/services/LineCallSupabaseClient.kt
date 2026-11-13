@@ -465,15 +465,10 @@ private class SecureSessionStore(context: Context) {
   }.getOrNull()
 
   fun hasValidStoredRefreshToken(): Boolean {
-    val stored = prefs.contains("refresh_token")
-    if (!stored) return false
-    val token = get("refresh_token")
-    if (token.isNullOrBlank()) {
-      // The encrypted value can no longer be decrypted (for example, after key loss).
-      clear()
-      return false
-    }
-    return true
+    // This is called while the first screen is being created. Only inspect the
+    // inexpensive preference index here; Android Keystore decryption belongs
+    // in restoreSession(), which already runs on Dispatchers.IO.
+    return prefs.contains("refresh_token")
   }
 
   fun remove(name: String) {
