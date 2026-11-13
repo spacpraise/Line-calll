@@ -76,12 +76,12 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
       }
       val fullScreenPendingIntent = PendingIntent.getActivity(
-        this, requestBase, openIntent,
+        this@IncomingCallMessagingService, requestBase, openIntent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
       )
       // Answer opens the app directly. The app's single CallingService accepts
       // and connects the call; no second LiveKit room is created in a helper service.
-      val answerIntent = Intent(this, MainActivity::class.java).apply {
+      val answerIntent = Intent(this@IncomingCallMessagingService, MainActivity::class.java).apply {
         putExtra("linecall_call_id", callId)
         putExtra("linecall_call_action", "answer")
         putExtra("linecall_caller_name", callerName)
