@@ -45,6 +45,8 @@ import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ActiveCallSession
+import com.example.data.model.CallAudioRoute
 import com.example.data.model.CallSessionState
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
@@ -352,11 +355,17 @@ fun ActiveCallScreen(
   session: ActiveCallSession,
   onMuteToggle: () -> Unit,
   onSpeakerToggle: () -> Unit,
+  audioRoutes: List<CallAudioRoute> = emptyList(),
+  selectedAudioRouteId: Int? = null,
+  onRefreshAudioRoutes: () -> Unit = {},
+  onAudioRouteSelected: (Int) -> Unit = {},
   onEndCall: () -> Unit,
   onRecall: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val view = LocalView.current
+  var showAudioSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
+  val selectedAudioRoute = audioRoutes.firstOrNull { it.id == selectedAudioRouteId }
   val minutes = session.durationSeconds / 60
   val seconds = session.durationSeconds % 60
   val timerString = String.format("%02d:%02d", minutes, seconds)
@@ -506,13 +515,14 @@ fun ActiveCallScreen(
                   onMuteToggle()
                 }
                 ActiveCallControl(
-                  label = if (session.isSpeakerOn) "Speaker on" else "Speaker",
-                  icon = if (session.isSpeakerOn) Icons.Rounded.VolumeUp else Icons.Rounded.VolumeDown,
-                  selected = session.isSpeakerOn,
-                  testTag = "toggle_speaker_button"
+                  label = "Audio",
+                  icon = Icons.Rounded.VolumeUp,
+                  selected = selectedAudioRouteId != null,
+                  testTag = "call_audio_route_button"
                 ) {
                   view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                  onSpeakerToggle()
+                  onRefreshAudioRoutes()
+                  showAudioSheet = true
                 }
                 ActiveCallControl(
                   label = "Record",
@@ -542,6 +552,55 @@ fun ActiveCallScreen(
             }
           }
         }
+      }
+    }
+  }
+
+  if (showAudioSheet) {
+    ModalBottomSheet(
+      onDismissRequest = { showAudioSheet = false },
+      sheetState = rememberModalBottomSheetState(),
+      containerColor = MaterialTheme.colorScheme.surface
+    ) {
+      Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        Text("Audio output", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+        Text("Choose where you want to hear this call.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        if (audioRoutes.isEmpty()) {
+          Text("No external audio devices are currently available.", modifier = Modifier.padding(vertical = 18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+          audioRoutes.forEach { route ->
+            Surface(
+              onClick = {
+                onAudioRouteSelected(route.id)
+                showAudioSheet = false
+              },
+              shape = RoundedCornerShape(16.dp),
+              color = if (route.id == selectedAudioRouteId) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+              ) {
+                Icon(
+                  imageVector = if (route.id == selectedAudioRouteId) Icons.Rounded.CheckCircle else Icons.Rounded.VolumeUp,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.onSurface
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                  Text(route.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+                  Text(route.type, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (route.id == selectedAudioRouteId) Text("Active", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+              }
+            }
+          }
+        }
+        Spacer(Modifier.height(20.dp))
       }
     }
   }
