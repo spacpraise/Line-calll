@@ -139,7 +139,7 @@ class CallingService(
       val account = runCatching { supabase.restoreSession() }.getOrNull() ?: return@launch
       realtimeClient.start(
         userId = account.id,
-        scope = coroutineScope,
+        scope = this,
         onEvent = { record ->
           coroutineScope.launch { handleRealtimeCallEvent(record) }
         },
