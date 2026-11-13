@@ -16,6 +16,7 @@ enum class CallSessionState {
   IDLE,
   DIALING,
   RINGING,
+  ACCEPTING,
   CONNECTED,
   ENDED
 }
