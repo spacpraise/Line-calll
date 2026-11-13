@@ -225,6 +225,11 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         }
       }
     }
+    viewModelScope.launch {
+      callingService.activeCall.collect {
+        publishPresenceNow()
+      }
+    }
     // Use the encrypted local session to choose the first screen immediately.
     // Network refresh/profile loading happens after the main UI is already visible.
     val hasSession = supabase.hasStoredSession()
@@ -810,7 +815,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     try {
       val matchedByPhone = HashMap<String, org.json.JSONObject>()
       val matchedByEmail = HashMap<String, org.json.JSONObject>()
-      local.chunked(400).forEach { batch ->
+      local.chunked(250).forEach { batch ->
         val rows = supabase.discoverContacts(
           batch.map { it.phoneNumber }.filter { it.startsWith("+") }.distinct(),
           batch.map { it.email.trim().lowercase() }.filter { it.contains("@") }.distinct()
@@ -861,6 +866,15 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }
 
+  private fun publishPresenceNow() {
+    if (!appIsForeground || userProfileService.currentUser.value == null) return
+    viewModelScope.launch(Dispatchers.IO) {
+      val state = if (callingService.activeCall.value?.state == com.example.data.model.CallSessionState.CONNECTED) "in_call" else "online"
+      runCatching { supabase.updatePresence(presenceDeviceId, state) }
+        .onFailure { Log.w("LineCallPresence", "Presence update failed.", it) }
+    }
+  }
+
   fun addContact(name: String, phoneNumber: String) {
     val cleanPhone = if (phoneNumber.startsWith("+")) phoneNumber
     else userProfileService.formatToE164(_selectedCountry.value.dialCode, phoneNumber)
@@ -872,6 +886,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           avatarInitials = name.trim().take(2).uppercase()
         )
       )
+      refreshRegisteredContacts()
     }
   }
 
