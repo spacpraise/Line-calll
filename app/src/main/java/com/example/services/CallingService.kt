@@ -83,6 +83,12 @@ class CallingService(
   private var callHeartbeatJob: Job? = null
   private var endedCallJob: Job? = null
   private val cancelledInitiationIds = ConcurrentHashMap.newKeySet<String>()
+  private val connectingCallIds = ConcurrentHashMap.newKeySet<String>()
+  private val seenRealtimeEventIds = ConcurrentHashMap.newKeySet<String>()
+  private val lastRealtimeVersions = ConcurrentHashMap<String, Long>()
+  private val realtimeClient = CallRealtimeClient(supabase)
+  private var realtimeJob: Job? = null
+  @Volatile private var realtimeConnected = false
 
   fun validateNumber(e164: String): Boolean = userProfileService.validateE164(e164)
 
@@ -92,6 +98,7 @@ class CallingService(
   }
 
   fun startIncomingCallPolling() {
+    ensureRealtimeSignalingStarted()
     if (incomingPollJob?.isActive == true) return
     incomingPollJob = coroutineScope.launch(Dispatchers.IO) {
       while (isActive) {
@@ -114,14 +121,118 @@ class CallingService(
             }
           }
         }
-        delay(2500)
+        // Realtime is the primary path. Poll less often while the socket is healthy,
+        // but retain a short fallback interval whenever the socket is unavailable.
+        delay(if (realtimeConnected) 10_000L else 2_500L)
       }
+    }
+  }
+
+  private fun ensureRealtimeSignalingStarted() {
+    if (realtimeJob?.isActive == true) return
+    realtimeJob = coroutineScope.launch(Dispatchers.IO) {
+      val account = runCatching { supabase.restoreSession() }.getOrNull() ?: return@launch
+      realtimeClient.start(
+        userId = account.id,
+        scope = coroutineScope,
+        onEvent = { record ->
+          coroutineScope.launch { handleRealtimeCallEvent(record) }
+        },
+        onConnectionChanged = { connected -> realtimeConnected = connected }
+      ).join()
     }
   }
 
   fun stopIncomingCallPolling() {
     incomingPollJob?.cancel()
     incomingPollJob = null
+    realtimeJob?.cancel()
+    realtimeJob = null
+    realtimeConnected = false
+  }
+
+  private suspend fun handleRealtimeCallEvent(event: JSONObject) {
+    val eventId = event.optString("id")
+    if (eventId.isNotBlank() && !seenRealtimeEventIds.add(eventId)) return
+    val callId = event.optString("call_id").takeIf { it.isNotBlank() && it != "null" }
+    val eventType = event.optString("event_type")
+    if (callId != null) {
+      val version = event.optLong("state_version", 0L)
+      val previous = lastRealtimeVersions[callId] ?: Long.MIN_VALUE
+      if (version < previous) return
+      if (version > previous) lastRealtimeVersions[callId] = version
+    }
+    val current = _activeCall.value
+    when (eventType) {
+      "incoming_call" -> {
+        if (current == null && callId != null) {
+          val payload = event.optJSONObject("payload") ?: JSONObject()
+          val phone = payload.optString("caller_phone")
+          val session = ActiveCallSession(
+            callId = callId,
+            contactName = null,
+            phoneNumber = phone,
+            state = CallSessionState.RINGING,
+            isIncoming = true
+          )
+          if (_activeCall.compareAndSet(null, session)) {
+            startIncomingRingtone()
+            watchIncomingCall(session)
+            _callEvents.emit(CallEvent.CallStarted(session))
+          }
+        }
+      }
+      "ringing_confirmation" -> {
+        if (callId != null && current?.callId == callId && !current.isIncoming) {
+          _activeCall.value = current.copy(state = CallSessionState.RINGING)
+          startRingbackTone()
+        }
+      }
+      "call_accepted" -> {
+        if (callId != null && current?.callId == callId) {
+          if (current.isIncoming) {
+            if (current.state == CallSessionState.RINGING) {
+              stopIncomingRingtone()
+              showEndedCall(current) // another device on this account answered
+            }
+          } else if (current.state != CallSessionState.CONNECTED) {
+            stopRingbackTone()
+            connectToLiveKit(callId, current)
+          }
+        }
+      }
+      "call_declined", "call_ended", "caller_cancelled" -> {
+        if (callId != null && current?.callId == callId) {
+          stopIncomingRingtone()
+          stopRingbackTone()
+          if (current.isIncoming && current.state == CallSessionState.RINGING) {
+            saveCallRecord(CallRecord(
+              phoneNumber = current.phoneNumber,
+              contactName = current.contactName,
+              type = CallType.MISSED,
+              durationSeconds = 0
+            ))
+          }
+          showEndedCall(current)
+        }
+      }
+      "recipient_busy" -> {
+        if (current != null && !current.isIncoming && current.state != CallSessionState.ENDED) {
+          stopRingbackTone()
+          _callEvents.emit(CallEvent.Error("The person you're calling is currently busy."))
+          showEndedCall(current)
+        }
+      }
+      "connection_established" -> {
+        android.util.Log.i("LineCall", "Realtime: media connection established for $callId")
+      }
+      "connection_lost" -> {
+        android.util.Log.w("LineCall", "Realtime: media connection lost for $callId")
+      }
+      "reconnection_completed" -> {
+        android.util.Log.i("LineCall", "Realtime: media reconnection completed for $callId")
+      }
+    }
   }
 
   suspend fun initiateCall(
@@ -227,7 +338,7 @@ class CallingService(
         stopCallSession()
         return
       }
-      delay(1800)
+      delay(if (realtimeConnected) 10_000L else 1_800L)
     }
   }
 
@@ -304,6 +415,9 @@ class CallingService(
   }
 
   private suspend fun connectToLiveKit(callId: String, session: ActiveCallSession) {
+    if (liveKitRoom != null && _activeCall.value?.callId == callId) return
+    if (!connectingCallIds.add(callId)) return
+    try {
     val credentials = supabase.callFunction(
       JSONObject()
         .put("action", "token")
@@ -319,6 +433,10 @@ class CallingService(
     applyDefaultAudioRoute()
 
     room.connect(serverUrl, participantToken)
+    runCatching {
+      supabase.callFunction(JSONObject().put("action", "signal")
+        .put("call_id", callId).put("signal_type", "connection_established"))
+    }
     room.localParticipant.setMicrophoneEnabled(true)
     LineCallOngoingCallService.start(application)
 
@@ -326,6 +444,18 @@ class CallingService(
     liveKitEventsJob = coroutineScope.launch {
       room.events.collect { event ->
         when (event) {
+          is RoomEvent.Reconnecting -> {
+            coroutineScope.launch(Dispatchers.IO) {
+              runCatching { supabase.callFunction(JSONObject().put("action", "signal")
+                .put("call_id", callId).put("signal_type", "connection_lost")) }
+            }
+          }
+          is RoomEvent.Reconnected -> {
+            coroutineScope.launch(Dispatchers.IO) {
+              runCatching { supabase.callFunction(JSONObject().put("action", "signal")
+                .put("call_id", callId).put("signal_type", "reconnection_completed")) }
+            }
+          }
           is RoomEvent.ParticipantDisconnected -> {
             if (_activeCall.value?.callId == callId) {
               endCall()
@@ -345,6 +475,9 @@ class CallingService(
       _activeCall.value = session.copy(state = CallSessionState.CONNECTED)
       startDurationTimer()
       startCallHeartbeat(callId)
+    }
+    } finally {
+      connectingCallIds.remove(callId)
     }
   }
 
@@ -465,7 +598,7 @@ class CallingService(
       while (isActive && _activeCall.value?.callId == session.callId &&
         _activeCall.value?.state == CallSessionState.RINGING
       ) {
-        delay(1800)
+        delay(if (realtimeConnected) 10_000L else 1_800L)
         val status = runCatching {
           supabase.callFunction(JSONObject().put("action", "status").put("call_id", session.callId))
             .optJSONObject("call")?.optString("status").orEmpty()
