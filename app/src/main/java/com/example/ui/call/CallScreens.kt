@@ -512,7 +512,7 @@ fun ActiveCallScreen(
                 ) {
                   view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                   onSpeakerToggle()
-                },
+                }
                 ActiveCallControl(
                   label = "Record",
                   icon = Icons.Rounded.FiberManualRecord,
