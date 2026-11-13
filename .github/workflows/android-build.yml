@@ -44,6 +44,11 @@ jobs:
   build-and-unit-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    env:
+      KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'upload' }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -59,21 +64,28 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Generate CI debug keystore
+      - name: Load the permanent Android signing key
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          keytool -genkeypair -v \
-            -keystore debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
+          test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 repository secret"; exit 1)
+          test -n "$STORE_PASSWORD" || (echo "Missing STORE_PASSWORD repository secret"; exit 1)
+          test -n "$KEY_PASSWORD" || (echo "Missing KEY_PASSWORD repository secret"; exit 1)
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          keytool -certreq -alias "$KEY_ALIAS" -file "$RUNNER_TEMP/linecall-signing-check.csr" \
+            -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" >/dev/null
+          rm -f "$RUNNER_TEMP/linecall-signing-check.csr"
+          echo "Permanent signing key validated."
       # Fast default path: package the APK without emulator or test-runner setup.
       - name: Build preview APK
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebug
+
+      - name: Remove signing key from runner
+        if: always()
+        run: rm -f "$KEYSTORE_PATH"
 
       # Keep JVM tests available on PRs and on-demand, without slowing every APK build.
       - name: Run unit tests
