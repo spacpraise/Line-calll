@@ -531,7 +531,7 @@ class CallingService(
     }
 
     if (_activeCall.value?.callId == callId && _activeCall.value?.state != CallSessionState.ENDED) {
-      LineCallTelecom.setActiveAfterRemoteAnswer()
+      if (!session.isIncoming) LineCallTelecom.setActiveAfterRemoteAnswer()
       _activeCall.value = session.copy(state = CallSessionState.CONNECTED)
       _connectionState.value = CallConnectionState.CONNECTED
       startDurationTimer()
