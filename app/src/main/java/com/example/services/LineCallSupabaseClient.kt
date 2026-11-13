@@ -238,6 +238,12 @@ class LineCallSupabaseClient(context: Context) {
     (0 until contacts.length()).mapNotNull { contacts.optJSONObject(it) }
   }
 
+  suspend fun cleanupOldCallSignalingData() = withContext(Dispatchers.IO) {
+    val payload = JSONObject().put("action", "cleanup")
+    execute(Request.Builder().url("${BackendConfig.SUPABASE_URL}/functions/v1/contact-discovery")
+      .headers(userHeaders()).post(payload.toString().toRequestBody(jsonType)).build())
+  }
+
   suspend fun updatePresence(deviceId: String, state: String) = withContext(Dispatchers.IO) {
     val payload = JSONObject().put("action", "presence").put("device_id", deviceId)
       .put("state", if (state == "in_call") "in_call" else "online")
