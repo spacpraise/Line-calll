@@ -96,6 +96,9 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       // Keep the call on the lock screen/shade. Do not auto-launch MainActivity;
       // Answer and Decline must work directly from the notification actions.
       .setContentIntent(fullScreenPendingIntent)
+      // Android launches the incoming-call UI over the lock screen when the
+      // user/device allows full-screen notifications for this app.
+      .setFullScreenIntent(fullScreenPendingIntent, true)
       .setOnlyAlertOnce(true)
       .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, declinePendingIntent, answerPendingIntent))
       .build()
