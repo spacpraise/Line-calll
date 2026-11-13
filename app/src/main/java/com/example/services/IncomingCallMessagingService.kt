@@ -65,6 +65,10 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
             .optJSONObject("call")?.optString("status")
         } ?: return@launch
         if (status != "ringing") return@launch
+        val expiresAtMs = data["ring_expires_at_ms"]?.toLongOrNull()
+          ?: (System.currentTimeMillis() + MAX_RING_DURATION_MS)
+        val remainingRingMs = (expiresAtMs - System.currentTimeMillis()).coerceAtMost(MAX_RING_DURATION_MS)
+        if (remainingRingMs <= 0L) return@launch
         val callerPhone = data["caller_phone"]?.takeIf { it.isNotBlank() } ?: "Unknown number"
       val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: callerPhone
       val avatarUrl = data["caller_avatar_url"]?.takeIf { it.startsWith("https://") }
@@ -102,15 +106,15 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
         .putLong("ring_started_at", System.currentTimeMillis()).apply()
       val notificationBuilder = NotificationCompat.Builder(this@IncomingCallMessagingService, CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher)
-        .setContentTitle("Incoming Line Call")
-        .setContentText("Line Call · $callerPhone")
+        .setContentTitle(callerName)
+        .setContentText("Incoming call · $callerPhone")
         .setSubText(callerPhone)
         .setCategory(NotificationCompat.CATEGORY_CALL)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         .setOngoing(true)
         .setAutoCancel(false)
-        .setTimeoutAfter(MAX_RING_DURATION_MS)
+        .setTimeoutAfter(remainingRingMs)
         // Keep the call on the lock screen/shade. Do not auto-launch MainActivity;
         // Answer and Decline must work directly from the notification actions.
         .setContentIntent(fullScreenPendingIntent)

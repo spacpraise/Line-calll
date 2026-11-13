@@ -65,7 +65,7 @@ async function getFirebaseAccessToken(serviceAccount: Record<string, string>): P
 
 async function sendIncomingCallPush(
   deviceToken: string,
-  call: { id: string; caller_phone: string; caller_name: string; caller_avatar_url?: string | null },
+  call: { id: string; caller_phone: string; caller_name: string; caller_avatar_url?: string | null; expires_at: string },
 ): Promise<void> {
   const rawAccount = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
   if (!rawAccount) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON secret is missing");
@@ -92,6 +92,7 @@ async function sendIncomingCallPush(
             caller_phone: call.caller_phone,
             caller_name: call.caller_name || call.caller_phone,
             caller_avatar_url: call.caller_avatar_url || "",
+            ring_expires_at_ms: String(new Date(call.expires_at).getTime()),
           },
           android: {
             priority: "HIGH",
@@ -287,7 +288,7 @@ Deno.serve(async (req: Request) => {
           status: "ringing",
           expires_at: new Date(Date.now() + 60_000).toISOString(),
         })
-        .select("id,room_name,status,created_at,caller_phone,recipient_phone")
+        .select("id,room_name,status,created_at,expires_at,caller_phone,recipient_phone")
         .single();
       if (insertError) throw insertError;
 
@@ -299,6 +300,7 @@ Deno.serve(async (req: Request) => {
             caller_phone: caller.phone_number,
             caller_name: caller.display_name ?? caller.phone_number,
             caller_avatar_url: caller.avatar_url ?? null,
+            expires_at: call.expires_at,
           });
           pushSent = true;
         } catch (pushError) {
@@ -395,13 +397,6 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await authClient.rpc("transition_line_call", { p_call_id: callId, p_action: "accept", p_device_id: deviceId });
       if (error) throw error;
       if (!data?.accepted) return json({ error: "This call is no longer available.", call: data }, 409);
-      if (data?.transitioned) {
-        const { data: recipientProfile } = await db.from("profiles").select("fcm_token").eq("id", call.recipient_id).maybeSingle();
-        if (recipientProfile?.fcm_token) {
-          try { await sendCallEndedPush(recipientProfile.fcm_token, callId); }
-          catch (pushError) { console.error("Could not clear answered call notification", pushError); }
-        }
-      }
       return json({ accepted: true, call_id: callId, status: data.status, idempotent: !!data.idempotent });
     }
 
