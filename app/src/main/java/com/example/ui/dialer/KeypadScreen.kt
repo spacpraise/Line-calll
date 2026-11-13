@@ -100,12 +100,12 @@ fun KeypadScreen(
   }
 
   Column(
-    modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 8.dp),
+    modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 2.dp),
     horizontalAlignment = Alignment.CenterHorizontally
   ) {
     // Suggestions are shown only after the first digit and scroll independently.
     if (enteredNumber.isNotBlank() && (matchingContacts.isNotEmpty() || matchingHistory.isNotEmpty())) {
-      Column(Modifier.fillMaxWidth().height(104.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      Column(Modifier.fillMaxWidth().height(124.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         matchingContacts.forEach { contact ->
           Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
             fieldValue = TextFieldValue(contact.phoneNumber, TextRange(contact.phoneNumber.length))
@@ -135,16 +135,15 @@ fun KeypadScreen(
           }
         }
       }
-    } else { Spacer(Modifier.height(8.dp)) }
-    // Keep the number display directly above the keypad, not in the upper half.
-    Spacer(Modifier.weight(1f))
-    Box(Modifier.fillMaxWidth().height(54.dp), contentAlignment = Alignment.Center) {
+    } else { Spacer(Modifier.height(2.dp)) }
+    // Keep a fixed number-display slot; hiding the text must not move the keypad.
+    Box(Modifier.fillMaxWidth().height(42.dp), contentAlignment = Alignment.Center) {
       BasicTextField(
         value = fieldValue,
         onValueChange = { fieldValue = it; onNumberChanged(it.text) },
         readOnly = true, singleLine = true, cursorBrush = SolidColor(CallGreen),
         textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center),
-        modifier = Modifier.fillMaxWidth().focusRequester(numberFieldFocusRequester).testTag("dialer_number_display"),
+        modifier = Modifier.fillMaxWidth().focusRequester(numberFieldFocusRequester).graphicsLayer { alpha = if (enteredNumber.isNotBlank()) 0f else 1f }.testTag("dialer_number_display"),
         decorationBox = { inner -> Box(contentAlignment = Alignment.Center) {
           if (fieldValue.text.isEmpty()) Text("Enter phone number", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp)
           inner()
@@ -208,7 +207,7 @@ fun KeypadScreen(
         }
       }
     }
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(1.dp))
   }
 }
 
