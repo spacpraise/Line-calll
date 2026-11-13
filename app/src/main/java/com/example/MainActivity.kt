@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
 
   fun updateThemeMode(mode: AppThemeMode) {
     themeMode = mode
-    getSharedPreferences("line_call_preferences", MODE_PRIVATE)
+    getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE)
       .edit().putString("theme_mode", mode.name).apply()
   }
 
