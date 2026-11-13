@@ -7,11 +7,11 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.graphics.BitmapFactory
+import androidx.core.graphics.drawable.IconCompat
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ProcessLifecycleOwner
 import com.example.MainActivity
 import com.example.R
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -49,6 +49,7 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
     // lock-screen or shade notification is dismissed immediately.
     if (data["type"] == "CALL_ENDED") {
       notificationManager.cancel(notificationId(callId))
+      getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("active_call_id").remove("ring_started_at").apply()
       return
     }
     if (data["type"] != "INCOMING_CALL") return
@@ -64,9 +65,9 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
             .optJSONObject("call")?.optString("status")
         } ?: return@launch
         if (status != "ringing") return@launch
-        if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@launch
-  
-      val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: data["caller_phone"] ?: "Line Call user"
+        val callerPhone = data["caller_phone"]?.takeIf { it.isNotBlank() } ?: "Unknown number"
+      val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: callerPhone
+      val avatarUrl = data["caller_avatar_url"]?.takeIf { it.startsWith("https://") }
       createCallChannel(notificationManager)
   
       val requestBase = callId.hashCode()
@@ -93,29 +94,31 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
       )
       val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2, callerName, data["caller_phone"].orEmpty())
-      val person = Person.Builder().setName(callerName).setImportant(true).build()
-  
-      val notification = NotificationCompat.Builder(this@IncomingCallMessagingService, CHANNEL_ID)
+      val avatar = avatarUrl?.let { url -> runCatching { BitmapFactory.decodeStream(java.net.URL(url).openStream()) }.getOrNull() }
+      val personBuilder = Person.Builder().setName(callerName).setUri("tel:$callerPhone").setImportant(true)
+      if (avatar != null) personBuilder.setIcon(IconCompat.createWithBitmap(avatar))
+      val person = personBuilder.build()
+      getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("active_call_id", callId)
+        .putLong("ring_started_at", System.currentTimeMillis()).apply()
+      val notificationBuilder = NotificationCompat.Builder(this@IncomingCallMessagingService, CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher)
         .setContentTitle("Incoming Line Call")
-        .setContentText(callerName)
+        .setContentText("Line Call · $callerPhone")
+        .setSubText(callerPhone)
         .setCategory(NotificationCompat.CATEGORY_CALL)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         .setOngoing(true)
         .setAutoCancel(false)
-        .setTimeoutAfter(45_000L)
+        .setTimeoutAfter(MAX_RING_DURATION_MS)
         // Keep the call on the lock screen/shade. Do not auto-launch MainActivity;
         // Answer and Decline must work directly from the notification actions.
         .setContentIntent(fullScreenPendingIntent)
-        // Android launches the incoming-call UI over the lock screen when the
-        // user/device allows full-screen notifications for this app.
-        .setFullScreenIntent(fullScreenPendingIntent, true)
         .setOnlyAlertOnce(true)
+        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, declinePendingIntent, answerPendingIntent))
-        .build()
-  
-      notificationManager.notify(notificationId(callId), notification)
+      if (Build.VERSION.SDK_INT < 34 || notificationManager.canUseFullScreenIntent()) notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
+      notificationManager.notify(notificationId(callId), notificationBuilder.build())
       } catch (error: Exception) {
         android.util.Log.w("LineCallFCM", "Could not verify incoming call before notification.", error)
       }
@@ -157,7 +160,9 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
 
   companion object {
     const val CHANNEL_ID = "linecall_incoming_calls"
-    fun notificationId(callId: String): Int = callId.hashCode()
+    const val PREFS = "line_call_incoming_notification"
+    const val MAX_RING_DURATION_MS = 60_000L
+    fun notificationId(callId: String): Int = callId.hashCode().takeIf { it != 0 } ?: 4101
   }
 }
 
@@ -165,19 +170,20 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val callId = intent.getStringExtra("linecall_call_id")?.takeIf { it.isNotBlank() } ?: return
     when (intent.getStringExtra("linecall_call_action")) {
-      "decline" -> {
+      "decline", "end" -> {
         // Dismiss the local ringing surface immediately. The server update is
         // delivered asynchronously so network latency never leaves a dead
         // Answer/Decline notification on the user's screen.
         context.getSystemService(NotificationManager::class.java)
           .cancel(IncomingCallMessagingService.notificationId(callId))
+        context.getSharedPreferences(IncomingCallMessagingService.PREFS, Context.MODE_PRIVATE).edit().remove("active_call_id").remove("ring_started_at").apply()
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
           try {
             val backend = LineCallSupabaseClient(context.applicationContext)
             withTimeoutOrNull(12_000L) {
               backend.restoreSession()
-              backend.callFunction(JSONObject().put("action", "decline").put("call_id", callId))
+              backend.callFunction(JSONObject().put("action", if (intent.getStringExtra("linecall_call_action") == "end") "end" else "decline").put("call_id", callId))
               runCatching {
                 com.example.data.local.LineCallDatabase.getDatabase(context.applicationContext)
                   .callRecordDao().insertCallRecord(

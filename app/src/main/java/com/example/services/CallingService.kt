@@ -388,9 +388,11 @@ class CallingService(
       try {
         val deviceId = Settings.Secure.getString(application.contentResolver, Settings.Secure.ANDROID_ID)
           ?.takeIf { it.length >= 8 } ?: UUID.randomUUID().toString()
-        supabase.callFunction(
+        val accepted = supabase.callFunction(
           JSONObject().put("action", "accept").put("call_id", current.callId).put("device_id", deviceId)
         )
+        if (!accepted.optBoolean("accepted")) throw IllegalStateException("This call is no longer available to answer.")
+        LineCallOngoingCallService.start(application, current)
         connectToLiveKit(current.callId, current)
       } catch (error: Exception) {
         _callEvents.emit(CallEvent.Error(error.message ?: "Could not accept this call."))
@@ -452,7 +454,7 @@ class CallingService(
         .put("call_id", callId).put("signal_type", "connection_established"))
     }
     room.localParticipant.setMicrophoneEnabled(true)
-    LineCallOngoingCallService.start(application)
+    LineCallOngoingCallService.start(application, session)
 
     liveKitEventsJob?.cancel()
     liveKitEventsJob = coroutineScope.launch {
@@ -650,7 +652,8 @@ class CallingService(
     runCatching {
       val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
       incomingRingtone = RingtoneManager.getRingtone(application, ringtoneUri)
-      incomingRingtone?.play()
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) incomingRingtone?.isLooping = true
+    incomingRingtone?.play()
     }
   }
 
