@@ -158,3 +158,40 @@ drop trigger if exists calls_one_active_participant_guard on public.calls;
 create trigger calls_one_active_participant_guard
 before insert or update of caller_id, recipient_id, status on public.calls
 for each row execute function public.enforce_one_active_line_call();
+
+-- Periodic server-side sweeper guarantees abandoned calls become terminal even
+-- when neither participant opens the app again. Supabase projects with pg_cron
+-- enabled get a one-minute schedule; API requests remain a secondary fallback.
+create or replace function public.sweep_stale_line_calls()
+returns integer language plpgsql security definer set search_path=public,pg_temp as $$
+declare affected integer := 0;
+begin
+  update public.calls
+  set status='missed', ended_at=coalesce(ended_at,now()), state_version=state_version+1
+  where status='ringing' and coalesce(expires_at,created_at+interval '45 seconds') <= now();
+  get diagnostics affected = row_count;
+  update public.calls
+  set status='ended', ended_at=coalesce(ended_at,now()), state_version=state_version+1
+  where status='accepted' and heartbeat_enabled=true
+    and coalesce(last_activity_at,accepted_at,created_at) < now()-interval '3 minutes';
+  get diagnostics affected = affected + row_count;
+  update public.calls
+  set status='ended', ended_at=coalesce(ended_at,now()), state_version=state_version+1
+  where status='accepted' and heartbeat_enabled=false
+    and coalesce(accepted_at,created_at) < now()-interval '12 hours';
+  get diagnostics affected = affected + row_count;
+  return affected;
+end $$;
+revoke all on function public.sweep_stale_line_calls() from public, anon, authenticated;
+grant execute on function public.sweep_stale_line_calls() to service_role;
+
+do $schedule$
+begin
+  if exists (select 1 from pg_extension where extname='pg_cron') then
+    perform cron.schedule('line-call-stale-call-sweeper', '* * * * *',
+      'select public.sweep_stale_line_calls();');
+  end if;
+exception when others then
+  raise notice 'pg_cron scheduling unavailable; stale call sweeper must be scheduled from Supabase Cron.';
+end
+$schedule$;
