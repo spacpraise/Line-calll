@@ -164,17 +164,19 @@ for each row execute function public.enforce_one_active_line_call();
 -- enabled get a one-minute schedule; API requests remain a secondary fallback.
 create or replace function public.sweep_stale_line_calls()
 returns integer language plpgsql security definer set search_path=public,pg_temp as $$
-declare affected integer := 0;
+declare affected integer := 0; v_rows integer := 0;
 begin
   update public.calls
   set status='missed', ended_at=coalesce(ended_at,now()), state_version=state_version+1
   where status='ringing' and coalesce(expires_at,created_at+interval '45 seconds') <= now();
-  get diagnostics affected = row_count;
+  get diagnostics v_rows = row_count;
+  affected := affected + v_rows;
   update public.calls
   set status='ended', ended_at=coalesce(ended_at,now()), state_version=state_version+1
   where status='accepted' and heartbeat_enabled=true
     and coalesce(last_activity_at,accepted_at,created_at) < now()-interval '3 minutes';
-  get diagnostics affected = affected + row_count;
+  get diagnostics v_rows = row_count;
+  affected := affected + v_rows;
   update public.calls
   set status='ended', ended_at=coalesce(ended_at,now()), state_version=state_version+1
   where status='accepted' and heartbeat_enabled=false
