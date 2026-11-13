@@ -104,11 +104,14 @@ object LineCallTelecom {
     val control = callControlScope ?: return
     if (!telecomAnswered) {
       val result = control.answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)
-      if (result is androidx.core.telecom.CallControlResult.Error) Log.w(TAG, "Telecom answer failed: ${result.errorCode}")
+      if (result is androidx.core.telecom.CallControlResult.Error) {
+        Log.w(TAG, "Telecom answer failed: ${result.errorCode}")
+        return
+      }
     }
+    // Telecom's onAnswer callback already marks the call active when a remote
+    // surface answered it. A local answer uses answer(), which also activates it.
     telecomAnswered = false
-    val result = control.setActive()
-    if (result is androidx.core.telecom.CallControlResult.Error) Log.w(TAG, "Telecom activation failed: ${result.errorCode}")
   }
 
   suspend fun setActiveAfterRemoteAnswer() {

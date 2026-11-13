@@ -651,7 +651,6 @@ class CallingService(
     if (endingCallId == current.callId) return
     endingCallId = current.callId
     stopIncomingRingtone()
-    LineCallTelecom.disconnectLocal()
     val duration = current.durationSeconds
 
     showEndedCall(current)
@@ -817,6 +816,7 @@ class CallingService(
   private fun stopCallSession(keepEndedSession: Boolean = false) {
     callHeartbeatJob?.cancel()
     callHeartbeatJob = null
+    LineCallTelecom.disconnectLocal()
     stopIncomingRingtone()
     stopRingbackTone()
     timerJob?.cancel()
@@ -836,10 +836,12 @@ class CallingService(
       _activeCall.value = null
       _connectionState.value = CallConnectionState.IDLE
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.clearCommunicationDevice()
-    runCatching { audioManager.stopBluetoothSco(); audioManager.isBluetoothScoOn = false }
-    audioManager.isSpeakerphoneOn = false
-    audioManager.mode = AudioManager.MODE_NORMAL
+    if (!LineCallTelecom.hasActiveCall()) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.clearCommunicationDevice()
+      runCatching { audioManager.stopBluetoothSco(); audioManager.isBluetoothScoOn = false }
+      audioManager.isSpeakerphoneOn = false
+      audioManager.mode = AudioManager.MODE_NORMAL
+    }
     _selectedAudioRouteId.value = null
     _audioRoutes.value = emptyList()
   }
