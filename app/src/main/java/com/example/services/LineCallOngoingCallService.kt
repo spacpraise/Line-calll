@@ -1,5 +1,4 @@
 package com.example.services
-
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,87 +10,65 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import com.example.MainActivity
+import com.example.data.model.ActiveCallSession
 
-/** Keeps an active microphone call alive while the user switches apps or locks the screen. */
+/** Reuses the incoming notification ID and upgrades it to Android's ongoing CallStyle. */
 class LineCallOngoingCallService : Service() {
-  override fun onCreate() {
-    super.onCreate()
-    createChannel()
-  }
-
+  override fun onCreate() { super.onCreate(); createChannel() }
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val openApp = PendingIntent.getActivity(
-      this,
-      4102,
-      Intent(this, MainActivity::class.java).apply {
-        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-      },
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-
-    val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+    val callId = intent?.getStringExtra(EXTRA_CALL_ID).orEmpty()
+    if (callId.isBlank()) { stopSelf(startId); return START_NOT_STICKY }
+    val callerName = intent.getStringExtra(EXTRA_CALLER_NAME).orEmpty().ifBlank { intent.getStringExtra(EXTRA_CALLER_PHONE).orEmpty() }
+    val callerPhone = intent.getStringExtra(EXTRA_CALLER_PHONE).orEmpty()
+    val personBuilder = Person.Builder().setName(callerName.ifBlank { "Line Call" }).setImportant(true)
+    if (callerPhone.isNotBlank()) personBuilder.setUri("tel:$callerPhone")
+    val person = personBuilder.build()
+    val openApp = PendingIntent.getActivity(this, callId.hashCode(), Intent(this, MainActivity::class.java).apply {
+      putExtra("linecall_call_id", callId); putExtra("linecall_call_action", "open")
+      addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    val hangup = PendingIntent.getBroadcast(this, callId.hashCode() xor 0x4C43,
+      Intent(this, IncomingCallActionReceiver::class.java).apply {
+        putExtra("linecall_call_id", callId); putExtra("linecall_call_action", "end")
+      }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    val notification = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.sym_action_call)
-      .setContentTitle("Line Call")
-      .setContentText("Voice call in progress · Tap to return")
-      .setCategory(NotificationCompat.CATEGORY_CALL)
-      .setPriority(NotificationCompat.PRIORITY_LOW)
-      .setOngoing(true)
-      .setOnlyAlertOnce(true)
-      .setContentIntent(openApp)
-      .build()
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      startForeground(
-        NOTIFICATION_ID,
-        notification,
-        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-      )
-    } else {
-      startForeground(NOTIFICATION_ID, notification)
-    }
+      .setContentTitle(callerName.ifBlank { "Line Call" })
+      .setContentText(if (callerPhone.isBlank()) "Ongoing call · Tap to return" else callerPhone)
+      .setSubText("Line Call · Ongoing").setCategory(NotificationCompat.CATEGORY_CALL)
+      .setPriority(NotificationCompat.PRIORITY_HIGH).setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+      .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(openApp)
+      .setStyle(NotificationCompat.CallStyle.forOngoingCall(person, hangup)).build()
+    val id = IncomingCallMessagingService.notificationId(callId)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+    else startForeground(id, notification)
     return START_NOT_STICKY
   }
-
   override fun onBind(intent: Intent?): IBinder? = null
-
-  override fun onDestroy() {
-    stopForeground(STOP_FOREGROUND_REMOVE)
-    super.onDestroy()
-  }
-
+  override fun onDestroy() { stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy() }
   private fun createChannel() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     val manager = getSystemService(NotificationManager::class.java)
-    if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-    manager.createNotificationChannel(
-      NotificationChannel(
-        CHANNEL_ID,
-        "Active call",
-        NotificationManager.IMPORTANCE_LOW
-      ).apply {
-        description = "Keeps Line Call voice calls active in the background"
-        setSound(null, null)
-        enableVibration(false)
-      }
-    )
+    if (manager.getNotificationChannel(CHANNEL_ID) == null) manager.createNotificationChannel(
+      NotificationChannel(CHANNEL_ID, "Active call", NotificationManager.IMPORTANCE_LOW).apply {
+        description = "Ongoing Line Call voice calls"; setSound(null, null); enableVibration(false)
+        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+      })
   }
-
   companion object {
     private const val CHANNEL_ID = "line_call_active_call"
-    private const val NOTIFICATION_ID = 4102
-
-    fun start(context: Context) {
-      val intent = Intent(context, LineCallOngoingCallService::class.java)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.startForegroundService(intent)
-      } else {
-        context.startService(intent)
+    private const val EXTRA_CALL_ID = "linecall_call_id"
+    private const val EXTRA_CALLER_NAME = "linecall_caller_name"
+    private const val EXTRA_CALLER_PHONE = "linecall_caller_phone"
+    fun start(context: Context, session: ActiveCallSession) {
+      val intent = Intent(context, LineCallOngoingCallService::class.java).apply {
+        putExtra(EXTRA_CALL_ID, session.callId); putExtra(EXTRA_CALLER_NAME, session.contactName.orEmpty())
+        putExtra(EXTRA_CALLER_PHONE, session.phoneNumber)
       }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent) else context.startService(intent)
     }
-
-    fun stop(context: Context) {
-      context.stopService(Intent(context, LineCallOngoingCallService::class.java))
-    }
+    fun stop(context: Context) { context.stopService(Intent(context, LineCallOngoingCallService::class.java)) }
   }
 }
