@@ -66,11 +66,13 @@ class IncomingCallLifecycleService : Service() {
     // A duplicate FCM/Realtime delivery for the same call updates its metadata,
     // but never creates a second ringtone or a second notification.
     if (activeCallId == callId && lifecycleJob?.isActive == true) {
+      callerName = intent.getStringExtra(EXTRA_CALLER_NAME).orEmpty().ifBlank { callerName }
+      callerPhone = intent.getStringExtra(EXTRA_CALLER_PHONE).orEmpty().ifBlank { callerPhone }
+      callerAvatarUrl = intent.getStringExtra(EXTRA_AVATAR_URL)?.takeIf { it.startsWith("https://") } ?: callerAvatarUrl
       val incomingExpiry = intent.getLongExtra(EXTRA_EXPIRES_AT, expiryAtMs)
-      if (incomingExpiry in 1 until expiryAtMs) {
-        expiryAtMs = incomingExpiry
-        updateNotification()
-      }
+      if (incomingExpiry in 1 until expiryAtMs) expiryAtMs = incomingExpiry
+      persistState()
+      updateNotification()
       return START_NOT_STICKY
     }
 
