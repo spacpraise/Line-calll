@@ -207,15 +207,20 @@ class CallingService(
         }
       }
       "call_declined", "call_ended", "caller_cancelled" -> {
-        if (callId != null && current?.callId == callId) {
+        if (callId != null && current?.callId == callId && current.state != CallSessionState.ENDED) {
           stopIncomingRingtone()
           stopRingbackTone()
-          if (current.isIncoming && current.state == CallSessionState.RINGING) {
+          // The device that pressed Decline/End records locally. Other devices
+          // record the remote terminal event exactly once here.
+          if (!(current.isIncoming && current.state == CallSessionState.ACCEPTING)) {
+            val payload = event.optJSONObject("payload") ?: JSONObject()
+            val missedIncoming = current.isIncoming && current.state == CallSessionState.RINGING
             saveCallRecord(CallRecord(
               phoneNumber = current.phoneNumber,
               contactName = current.contactName,
-              type = CallType.MISSED,
-              durationSeconds = 0
+              type = if (missedIncoming) CallType.MISSED
+                else if (current.isIncoming) CallType.INCOMING else CallType.OUTGOING,
+              durationSeconds = if (missedIncoming) 0 else payload.optInt("duration_seconds", current.durationSeconds)
             ))
           }
           showEndedCall(current)
