@@ -198,7 +198,12 @@ fun LineCallApp(
       val callId = pendingCallIntent.getStringExtra("linecall_call_id")
       val action = pendingCallIntent.getStringExtra("linecall_call_action")
       if (!callId.isNullOrBlank() && !action.isNullOrBlank()) {
-        viewModel.handleIncomingCallAction(action, callId)
+        viewModel.handleIncomingCallAction(
+          action,
+          callId,
+          pendingCallIntent.getStringExtra("linecall_caller_name"),
+          pendingCallIntent.getStringExtra("linecall_caller_phone").orEmpty()
+        )
         // Keep the lock-screen call window active until polling restores this exact call.
         withTimeoutOrNull(20_000L) {
           viewModel.activeCall.first { it?.callId == callId }
