@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
@@ -79,6 +80,8 @@ fun ContactsScreen(
   onSearchQueryChanged: (String) -> Unit,
   onContactClick: (Contact) -> Unit,
   onProfileClick: () -> Unit,
+  onImportContacts: () -> Unit,
+  syncStatus: String,
   modifier: Modifier = Modifier
 ) {
   var showBannerTip by remember { mutableStateOf(true) }
@@ -272,6 +275,17 @@ fun ContactsScreen(
           }
         }
 
+        TextButton(onClick = onImportContacts, modifier = Modifier.fillMaxWidth()) {
+          Text("Import phone contacts", color = MaterialTheme.colorScheme.primary)
+        }
+        if (syncStatus.isNotBlank()) {
+          Text(
+            text = syncStatus,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+          )
+        }
         Spacer(modifier = Modifier.height(18.dp))
       }
     }
@@ -434,11 +448,34 @@ fun ContactListRow(
       )
     }
 
-    Text(
-      text = contact.name,
-      style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-      color = MaterialTheme.colorScheme.onSurface,
-      modifier = Modifier.weight(1f)
-    )
+    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      Text(
+        text = contact.name,
+        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
+      Text(
+        text = contact.phoneNumber,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
+    }
+    if (contact.isRegistered) {
+      Icon(
+        imageVector = Icons.Rounded.CheckCircle,
+        contentDescription = "Registered Line Call account",
+        tint = Color(0xFF22C55E),
+        modifier = Modifier.size(18.dp)
+      )
+    }
+    when (contact.presence) {
+      "online" -> Box(Modifier.size(9.dp).clip(CircleShape).background(Color(0xFF22C55E)))
+      "in_call" -> Text("In call", color = MaterialTheme.colorScheme.tertiary, fontSize = 10.sp)
+      else -> Unit
+    }
   }
 }
