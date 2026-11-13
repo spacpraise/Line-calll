@@ -4,6 +4,7 @@ import android.app.Application
 import android.media.AudioManager
 import android.media.AudioDeviceInfo
 import android.os.Build
+import android.provider.Settings
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.media.ToneGenerator
@@ -255,16 +256,19 @@ class CallingService(
 
   fun acceptIncomingCall() {
     val current = _activeCall.value ?: return
-    if (!current.isIncoming || current.state !in setOf(CallSessionState.RINGING, CallSessionState.ACCEPTING)) return
+    if (!current.isIncoming || current.state != CallSessionState.RINGING) return
     stopIncomingRingtone()
     incomingWatchJob?.cancel()
     _activeCall.value = current.copy(state = CallSessionState.ACCEPTING)
     coroutineScope.launch(Dispatchers.IO) {
       try {
-        supabase.callFunction(JSONObject().put("action", "accept").put("call_id", current.callId))
+        val deviceId = Settings.Secure.getString(application.contentResolver, Settings.Secure.ANDROID_ID)
+          ?.takeIf { it.length >= 8 } ?: UUID.randomUUID().toString()
+        supabase.callFunction(
+          JSONObject().put("action", "accept").put("call_id", current.callId).put("device_id", deviceId)
+        )
         connectToLiveKit(current.callId, current)
       } catch (error: Exception) {
-        closeServerCall(current.callId)
         _callEvents.emit(CallEvent.Error(error.message ?: "Could not accept this call."))
         stopCallSession()
       }
@@ -273,6 +277,8 @@ class CallingService(
 
   fun declineIncomingCall() {
     val current = _activeCall.value ?: return
+    if (!current.isIncoming || current.state != CallSessionState.RINGING) return
+    _activeCall.value = current.copy(state = CallSessionState.ACCEPTING)
     stopIncomingRingtone()
     incomingWatchJob?.cancel()
     coroutineScope.launch(Dispatchers.IO) {
