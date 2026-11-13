@@ -639,9 +639,9 @@ fun LineCallApp(
             showFullScreenPermissionPrompt = false
             if (Build.VERSION.SDK_INT >= 34) {
               runCatching {
-                startActivity(Intent(
+                context.startActivity(Intent(
                   android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
-                  android.net.Uri.parse("package:$packageName")
+                  android.net.Uri.parse("package:${context.packageName}")
                 ))
               }
             }
