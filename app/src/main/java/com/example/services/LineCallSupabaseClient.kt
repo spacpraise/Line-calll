@@ -24,7 +24,7 @@ import javax.crypto.spec.GCMParameterSpec
  * Small REST client for Supabase Auth, PostgREST and Edge Functions.
  * The publishable key is intentionally a client-side key; access is restricted by RLS.
  */
-data class AccountLookupResult(val exists: Boolean, val displayName: String = "", val avatarUrl: String? = null)
+data class AccountLookupResult(val exists: Boolean, val displayName: String = "", val avatarUrl: String? = null)\n\ndata class RealtimeCredentials(val supabaseUrl: String, val anonKey: String, val accessToken: String)
 
 class LineCallSupabaseClient(context: Context) {
   private val http = OkHttpClient.Builder().build()
@@ -256,6 +256,15 @@ class LineCallSupabaseClient(context: Context) {
     execute(Request.Builder().url("${BackendConfig.SUPABASE_URL}/functions/v1/contact-discovery")
       .headers(userHeaders()).post(payload.toString().toRequestBody(jsonType)).build())
   }
+  suspend fun realtimeCredentials(): RealtimeCredentials = withContext(Dispatchers.IO) {
+    check(isConfigured) { "Supabase is not configured." }
+    RealtimeCredentials(
+      supabaseUrl = BackendConfig.SUPABASE_URL,
+      anonKey = BackendConfig.SUPABASE_ANON_KEY,
+      accessToken = freshAccessTokenBlocking()
+    )
+  }
+
   suspend fun callFunction(payload: JSONObject): JSONObject = withContext(Dispatchers.IO) {
     val accessToken = freshAccessTokenBlocking()
     execute(
