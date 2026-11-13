@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.Manifest
 import android.app.Application
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -80,7 +81,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val authService = LineCallAuthService(supabase)
   val userProfileService = UserProfileService(authService, supabase)
   val callingService = CallingService(application, callRecordDao, userProfileService, supabase, viewModelScope)
-  private val presencePreferences = application.getSharedPreferences("line_call_presence", Application.MODE_PRIVATE)
+  private val presencePreferences = application.getSharedPreferences("line_call_presence", Context.MODE_PRIVATE)
   private val presenceDeviceId = presencePreferences.getString("device_id", null) ?: UUID.randomUUID().toString().also {
     presencePreferences.edit().putString("device_id", it).apply()
   }
@@ -214,6 +215,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         if (user != null) {
           syncFcmToken(user)
           syncRegisteredContacts()
+          cleanupOldCallSignalingDataIfDue()
           startPresenceHeartbeat()
         }
       }
@@ -838,6 +840,17 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     } catch (error: Exception) {
       Log.w("LineCallContacts", "Registered contact lookup failed; local contacts remain available.", error)
       _contactSyncStatus.value = "Couldn't refresh Line Call availability. Your phone contacts are still available."
+    }
+  }
+
+  private fun cleanupOldCallSignalingDataIfDue() {
+    val now = System.currentTimeMillis()
+    val lastCleanup = presencePreferences.getLong("last_call_signaling_cleanup", 0L)
+    if (now - lastCleanup < 24L * 60L * 60L * 1000L) return
+    viewModelScope.launch(Dispatchers.IO) {
+      runCatching { supabase.cleanupOldCallSignalingData() }
+        .onSuccess { presencePreferences.edit().putLong("last_call_signaling_cleanup", now).apply() }
+        .onFailure { Log.w("LineCallCleanup", "Old call signaling cleanup will retry later.", it) }
     }
   }
 
