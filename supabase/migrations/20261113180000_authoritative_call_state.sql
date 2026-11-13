@@ -198,3 +198,5 @@ exception when others then
   raise notice 'pg_cron scheduling unavailable; stale call sweeper must be scheduled from Supabase Cron.';
 end
 $schedule$;
+
+revoke all on function public.enforce_one_active_line_call() from public, anon, authenticated;
