@@ -30,8 +30,10 @@ object LineCallTelecom {
   @Volatile private var localDisconnect = false
   private val _availableEndpoints = MutableStateFlow<List<CallEndpointCompat>>(emptyList())
   private val _currentEndpoint = MutableStateFlow<CallEndpointCompat?>(null)
+  private val _isMuted = MutableStateFlow(false)
   val availableEndpoints = _availableEndpoints.asStateFlow()
   val currentEndpoint = _currentEndpoint.asStateFlow()
+  val isMuted = _isMuted.asStateFlow()
 
   @Synchronized private fun manager(context: Context): CallsManager {
     callsManager?.let { return it }
@@ -86,6 +88,7 @@ object LineCallTelecom {
           callControlScope = this
           launch { currentCallEndpoint.collect { _currentEndpoint.value = it } }
           launch { availableEndpoints.collect { _availableEndpoints.value = it } }
+          launch { isMuted.collect { _isMuted.value = it } }
         }
       } catch (error: Exception) {
         Log.w(TAG, "Core-Telecom registration failed; notification fallback remains available", error)
@@ -136,6 +139,7 @@ object LineCallTelecom {
       telecomAnswered = false
       _availableEndpoints.value = emptyList()
       _currentEndpoint.value = null
+      _isMuted.value = false
     }
   }
 

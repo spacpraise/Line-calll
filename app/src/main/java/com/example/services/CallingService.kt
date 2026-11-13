@@ -94,6 +94,31 @@ class CallingService(
   private var realtimeJob: Job? = null
   @Volatile private var realtimeConnected = false
 
+  init {
+    coroutineScope.launch {
+      LineCallTelecom.isMuted.collect { muted ->
+        if (_activeCall.value != null) {
+          runCatching { liveKitRoom?.localParticipant?.setMicrophoneEnabled(!muted) }
+        }
+      }
+    }
+    coroutineScope.launch {
+      LineCallTelecom.availableEndpoints.collect {
+        if (LineCallTelecom.hasActiveCall()) refreshAudioRoutes()
+      }
+    }
+    coroutineScope.launch {
+      LineCallTelecom.currentEndpoint.collect { endpoint ->
+        if (LineCallTelecom.hasActiveCall()) {
+          _selectedAudioRouteId.value = endpoint?.identifier?.hashCode()
+          _activeCall.value = _activeCall.value?.copy(
+            isSpeakerOn = endpoint?.type == androidx.core.telecom.CallEndpointCompat.TYPE_SPEAKER
+          )
+        }
+      }
+    }
+  }
+
   fun validateNumber(e164: String): Boolean = userProfileService.validateE164(e164)
 
   private suspend fun saveCallRecord(record: CallRecord) {
