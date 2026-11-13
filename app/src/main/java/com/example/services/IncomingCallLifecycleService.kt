@@ -13,6 +13,7 @@ import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
@@ -46,6 +47,7 @@ class IncomingCallLifecycleService : Service() {
   private var callerPhone: String = ""
   private var callerAvatarUrl: String? = null
   private var isStopping = false
+  private var ringingWakeLock: PowerManager.WakeLock? = null
 
   override fun onCreate() {
     super.onCreate()
@@ -90,7 +92,9 @@ class IncomingCallLifecycleService : Service() {
     }
 
     persistState()
+    isStopping = false
     startForegroundCallNotification()
+    acquireRingingWakeLock()
     lifecycleJob = serviceScope.launch { monitorCall(callId, expiryAtMs) }
     return START_NOT_STICKY
   }
@@ -187,58 +191,53 @@ class IncomingCallLifecycleService : Service() {
 
   private suspend fun monitorCall(callId: String, expiresAt: Long) {
     val backend = LineCallSupabaseClient(applicationContext)
-    val user = withTimeoutOrNull(5_000L) { runCatching { backend.restoreSession() }.getOrNull() }
-    if (user == null) {
-      android.util.Log.w(TAG, "No authenticated session for incoming call lifecycle")
-      stopLifecycle(callId)
-      return
-    }
+    var realtimeStarted = false
+    var avatarAttempted = false
 
-    val initialStatus = withTimeoutOrNull(4_000L) {
-      runCatching {
-        backend.callFunction(JSONObject().put("action", "status").put("call_id", callId))
-          .optJSONObject("call")?.optString("status").orEmpty()
-      }.getOrDefault("")
-    }.orEmpty()
-    if (initialStatus != "ringing") {
-      stopLifecycle(callId)
-      return
-    }
-    startRingtone()
-
-    realtimeJob = CallRealtimeClient(backend).start(
-      userId = user.id,
-      scope = serviceScope,
-      onEvent = { event ->
-        if (event.optString("call_id") == callId &&
-          event.optString("event_type") in TERMINAL_OR_ANSWER_EVENTS
-        ) {
-          stopLifecycle(callId)
-        }
-      },
-      onConnectionChanged = { connected ->
-        android.util.Log.d(TAG, "Incoming call Realtime connected=$connected")
-      }
-    )
-
-    // Realtime is the fast path; bounded status checks are the recovery path.
+    // A temporary network/authentication failure must not erase a valid incoming
+    // call surface. Keep the bounded notification alive and retry until the
+    // server confirms ringing, reports a terminal state, or the ring expires.
     while (serviceScope.isActive && activeCallId == callId) {
       val remaining = expiresAt - System.currentTimeMillis()
       if (remaining <= 0L) {
         stopLifecycle(callId)
         return
       }
-      val status = withTimeoutOrNull(4_000L) {
+
+      val user = withTimeoutOrNull(3_500L) {
+        runCatching { backend.restoreSession() }.getOrNull()
+      }
+      if (user != null && !realtimeStarted) {
+        realtimeStarted = true
+        realtimeJob = CallRealtimeClient(backend).start(
+          userId = user.id,
+          scope = serviceScope,
+          onEvent = { event ->
+            if (event.optString("call_id") == callId &&
+              event.optString("event_type") in TERMINAL_OR_ANSWER_EVENTS
+            ) stopLifecycle(callId)
+          },
+          onConnectionChanged = { connected ->
+            android.util.Log.d(TAG, "Incoming call Realtime connected=$connected")
+          }
+        )
+      }
+
+      val status = withTimeoutOrNull(3_500L) {
         runCatching {
           backend.callFunction(JSONObject().put("action", "status").put("call_id", callId))
             .optJSONObject("call")?.optString("status").orEmpty()
         }.getOrDefault("")
-      }.orEmpty()
-      if (status.isNotBlank() && status != "ringing") {
+      }.orEmpty().lowercase()
+
+      if (status in TERMINAL_CALL_STATUSES) {
         stopLifecycle(callId)
         return
       }
-      if (callerAvatarUrl != null) {
+      if (status == "ringing" && ringtone == null) startRingtone()
+
+      if (!avatarAttempted && callerAvatarUrl != null) {
+        avatarAttempted = true
         val url = callerAvatarUrl
         callerAvatarUrl = null
         val bitmap = withTimeoutOrNull(3_000L) {
@@ -251,8 +250,31 @@ class IncomingCallLifecycleService : Service() {
         }
         if (bitmap != null && activeCallId == callId) updateNotification(bitmap)
       }
+
       delay(minOf(2_500L, (expiresAt - System.currentTimeMillis()).coerceAtLeast(100L)))
     }
+  }
+
+  private fun acquireRingingWakeLock() {
+    runCatching {
+      val powerManager = getSystemService(PowerManager::class.java)
+      ringingWakeLock = powerManager.newWakeLock(
+        PowerManager.PARTIAL_WAKE_LOCK,
+        "LineCall:IncomingRinging"
+      ).apply {
+        setReferenceCounted(false)
+        acquire(IncomingCallMessagingService.MAX_RING_DURATION_MS + 5_000L)
+      }
+    }.onFailure {
+      android.util.Log.w(TAG, "Could not acquire bounded incoming-call wake lock", it)
+    }
+  }
+
+  private fun releaseRingingWakeLock() {
+    runCatching {
+      ringingWakeLock?.let { if (it.isHeld) it.release() }
+    }
+    ringingWakeLock = null
   }
 
   private fun persistState() {
@@ -281,6 +303,7 @@ class IncomingCallLifecycleService : Service() {
     realtimeJob = null
     runCatching { ringtone?.stop() }
     ringtone = null
+    releaseRingingWakeLock()
   }
 
   override fun onTimeout(startId: Int) {
@@ -331,6 +354,7 @@ class IncomingCallLifecycleService : Service() {
 
   companion object {
     private const val TAG = "LineCallIncoming"
+    private val TERMINAL_CALL_STATUSES = setOf("accepted", "declined", "missed", "ended", "failed", "cancelled", "canceled", "caller_cancelled", "recipient_busy", "connected")
     private val TERMINAL_OR_ANSWER_EVENTS = setOf(
       "call_accepted", "call_declined", "call_ended", "caller_cancelled",
       "recipient_busy", "call_missed", "call_failed", "accepted", "declined",
