@@ -1,0 +1,79 @@
+name: Publish Line Call release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to build and upload (for example v1.02)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: line-call-release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+      VERSION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+      KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      - name: Check release signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 repository secret"; exit 1)
+          test -n "$STORE_PASSWORD" || (echo "Missing STORE_PASSWORD repository secret"; exit 1)
+          test -n "$KEY_PASSWORD" || (echo "Missing KEY_PASSWORD repository secret"; exit 1)
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          echo "Validating keystore format, store password, alias, and private-key password before starting Gradle..."
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -alias upload >/dev/null
+          keytool -certreq -alias upload -file "$RUNNER_TEMP/linecall-signing-check.csr" \
+            -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" >/dev/null
+          rm -f "$RUNNER_TEMP/linecall-signing-check.csr"
+          echo "Keystore and upload private-key credentials are valid."
+
+      - name: Run unit tests and build signed release APK
+        run: |
+          gradle --no-daemon --console=plain :app:testDebugUnitTest :app:assembleRelease --stacktrace
+
+      - name: Publish APK to GitHub release
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$APK" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$APK" \
+              --title "Line Call ${VERSION_NAME#v}" \
+              --generate-notes
+          fi

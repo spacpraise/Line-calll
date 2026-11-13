@@ -1,0 +1,161 @@
+/*
+ * Tailwind v4 entry: config lives here, with no tailwind.config.js or PostCSS plugin.
+ * - Keep every @import in this top block, above @theme and the rest of the file. Install an
+ *   npm package before @importing its CSS. Never @import a remote URL (web fonts, CDN CSS): the
+ *   build resolves @import from the filesystem. Load those with a <link> in the head() of
+ *   src/routes/__root.tsx and name the family in a --font-* token in @theme inline below.
+ */
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The design lives in this file: oklch color tokens on the shadcn variables
+ * (--background, --foreground, --primary, --secondary, --muted, --accent, ...) plus
+ * new tokens as needed, font tokens, and custom styles and animations.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-call: var(--call);
+  --color-call-foreground: var(--call-foreground);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 1rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.15 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0 0);
+  --primary: oklch(0.68 0.19 150);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.965 0 0);
+  --secondary-foreground: oklch(0.15 0 0);
+  --muted: oklch(0.88 0 0);
+  --muted-foreground: oklch(0.52 0 0);
+  --accent: oklch(0.95 0.05 150);
+  --accent-foreground: oklch(0.42 0.13 150);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.925 0 0);
+  --input: oklch(0.925 0 0);
+  --ring: oklch(0.68 0.19 150);
+  --call: oklch(0.13 0.01 160);
+  --call-foreground: oklch(0.98 0 0);
+  --avatar-1: oklch(0.92 0.05 150);
+  --avatar-2: oklch(0.92 0 0);
+  --avatar-3: oklch(0.88 0.07 160);
+  --avatar-4: oklch(0.95 0.03 130);
+  --chart-1: oklch(0.68 0.19 150); --chart-2: oklch(0.5 0 0); --chart-3: oklch(0.3 0 0); --chart-4: oklch(0.8 0.1 150); --chart-5: oklch(0.7 0 0);
+  --sidebar: oklch(1 0 0); --sidebar-foreground: oklch(0.15 0 0); --sidebar-primary: oklch(0.68 0.19 150); --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.965 0 0); --sidebar-accent-foreground: oklch(0.15 0 0); --sidebar-border: oklch(0.925 0 0); --sidebar-ring: oklch(0.68 0.19 150);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility app-frame {
+  margin-inline: auto; display: flex; min-height: 100dvh; max-width: 480px; flex-direction: column;
+  background: var(--background);
+}
+@utility tap {
+  transition: transform 120ms ease, opacity 120ms ease, background-color 150ms ease;
+  &:active { transform: scale(0.92); opacity: 0.85; }
+}
+@utility key {
+  transition: transform 90ms ease, background-color 120ms ease;
+  &:active { transform: scale(0.9); background: var(--muted); }
+}
+@utility call-btn {
+  box-shadow: 0 10px 30px -8px color-mix(in oklab, var(--primary) 60%, transparent);
+}
+@utility answer-btn {
+  animation: nudge 1.6s ease-in-out infinite;
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 60%, transparent);
+}
+@utility call-screen {
+  margin-inline: auto; display: flex; min-height: 100dvh; max-width: 480px; flex-direction: column;
+  color: var(--call-foreground);
+  background: radial-gradient(120% 70% at 50% 0%, color-mix(in oklab, var(--primary) 28%, var(--call)) 0%, var(--call) 65%);
+}
+@utility ring-pulse {
+  position: absolute; inset: 0; border-radius: 9999px;
+  background: color-mix(in oklab, var(--primary) 45%, transparent);
+  animation: ring 2.4s ease-out infinite;
+}
+@keyframes ring { from { transform: scale(1); opacity: 0.7; } to { transform: scale(1.9); opacity: 0; } }
+@keyframes nudge { 0%,100% { transform: translateY(0); box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 55%, transparent);} 50% { transform: translateY(-6px); box-shadow: 0 0 0 14px transparent; } }
+@utility profile-hero {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--background) 100%);
+}

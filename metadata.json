@@ -1,0 +1,6 @@
+{
+  "name": "Line Call",
+  "description": "Internet-based voice calling application. Crystal-clear voice calls using phone numbers over the internet.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

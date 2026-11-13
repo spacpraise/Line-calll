@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Android Auto Backup copies the call-history and contact database to the user's Google backup. -->
+        <include domain="database" path="linecall_database" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="linecall_database" />
+    </device-transfer>
+</data-extraction-rules>
