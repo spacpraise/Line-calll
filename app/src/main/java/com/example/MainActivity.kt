@@ -260,6 +260,20 @@ fun LineCallApp(
     else Toast.makeText(context, "Contact access was not granted. You can still add or dial numbers manually.", Toast.LENGTH_LONG).show()
   }
 
+  LaunchedEffect(currentUser?.id) {
+    if (currentUser != null) {
+      val preferences = context.getSharedPreferences("line_call_preferences", MODE_PRIVATE)
+      if (!preferences.getBoolean("contact_import_prompted", false)) {
+        preferences.edit().putBoolean("contact_import_prompted", true).apply()
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+          viewModel.importDeviceContacts()
+        } else {
+          contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+        }
+      }
+    }
+  }
+
   fun requestContactImport() {
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
       viewModel.importDeviceContacts()
