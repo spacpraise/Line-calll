@@ -182,11 +182,27 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     .flowOn(Dispatchers.Default)
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-  val callHistory: StateFlow<List<CallRecord>> = callRecordDao.getAllCallRecords()
-    .distinctUntilChanged()
+  // The phone's saved address-book name always wins over the remote profile name.
+  // Apply this at the presentation stream so it also corrects older call-history rows.
+  val callHistory: StateFlow<List<CallRecord>> = combine(
+    callRecordDao.getAllCallRecords(), contactDao.getAllContacts()
+  ) { records, savedContacts ->
+    records.map { record ->
+      val localName = savedContacts.firstOrNull { it.phoneNumber == record.phoneNumber }?.name
+      if (!localName.isNullOrBlank() && localName != record.contactName) record.copy(contactName = localName)
+      else record
+    }
+  }.distinctUntilChanged()
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-  val activeCall: StateFlow<ActiveCallSession?> = callingService.activeCall
+  val activeCall: StateFlow<ActiveCallSession?> = combine(
+    callingService.activeCall, contactDao.getAllContacts()
+  ) { session, savedContacts ->
+    session?.let { call ->
+      val localName = savedContacts.firstOrNull { it.phoneNumber == call.phoneNumber }?.name
+      if (!localName.isNullOrBlank()) call.copy(contactName = localName) else call
+    }
+  }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
   private val _backendNotice = MutableStateFlow<BackendNoticeState?>(null)
   val backendNotice: StateFlow<BackendNoticeState?> = _backendNotice.asStateFlow()
