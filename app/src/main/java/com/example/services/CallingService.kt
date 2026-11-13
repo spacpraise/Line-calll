@@ -34,6 +34,8 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
+enum class CallConnectionState { IDLE, CONNECTING, CONNECTED, RECONNECTING, ENDED }
+
 sealed class CallInitiationResult {
   data class Started(val session: ActiveCallSession) : CallInitiationResult()
   data class InvalidNumber(val reason: String) : CallInitiationResult()
@@ -60,6 +62,8 @@ class CallingService(
 ) {
   private val _activeCall = MutableStateFlow<ActiveCallSession?>(null)
   val activeCall: StateFlow<ActiveCallSession?> = _activeCall.asStateFlow()
+  private val _connectionState = MutableStateFlow(CallConnectionState.IDLE)
+  val connectionState: StateFlow<CallConnectionState> = _connectionState.asStateFlow()
 
   private val _callEvents = MutableSharedFlow<CallEvent>()
   val callEvents: SharedFlow<CallEvent> = _callEvents.asSharedFlow()
@@ -225,12 +229,15 @@ class CallingService(
         }
       }
       "connection_established" -> {
+        if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.CONNECTED
         android.util.Log.i("LineCall", "Realtime: media connection established for $callId")
       }
       "connection_lost" -> {
+        if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.RECONNECTING
         android.util.Log.w("LineCall", "Realtime: media connection lost for $callId")
       }
       "reconnection_completed" -> {
+        if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.CONNECTED
         android.util.Log.i("LineCall", "Realtime: media reconnection completed for $callId")
       }
     }
@@ -418,6 +425,7 @@ class CallingService(
   private suspend fun connectToLiveKit(callId: String, session: ActiveCallSession) {
     if (liveKitRoom != null && _activeCall.value?.callId == callId) return
     if (!connectingCallIds.add(callId)) return
+    _connectionState.value = CallConnectionState.CONNECTING
     try {
     val credentials = supabase.callFunction(
       JSONObject()
@@ -446,12 +454,14 @@ class CallingService(
       room.events.collect { event ->
         when (event) {
           is RoomEvent.Reconnecting -> {
+            if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.RECONNECTING
             coroutineScope.launch(Dispatchers.IO) {
               runCatching { supabase.callFunction(JSONObject().put("action", "signal")
                 .put("call_id", callId).put("signal_type", "connection_lost")) }
             }
           }
           is RoomEvent.Reconnected -> {
+            if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.CONNECTED
             coroutineScope.launch(Dispatchers.IO) {
               runCatching { supabase.callFunction(JSONObject().put("action", "signal")
                 .put("call_id", callId).put("signal_type", "reconnection_completed")) }
@@ -472,10 +482,14 @@ class CallingService(
       }
     }
 
-    if (_activeCall.value?.callId == callId) {
+    if (_activeCall.value?.callId == callId && _activeCall.value?.state != CallSessionState.ENDED) {
       _activeCall.value = session.copy(state = CallSessionState.CONNECTED)
+      _connectionState.value = CallConnectionState.CONNECTED
       startDurationTimer()
       startCallHeartbeat(callId)
+    } else {
+      runCatching { room.disconnect() }
+      if (liveKitRoom === room) liveKitRoom = null
     }
     } finally {
       connectingCallIds.remove(callId)
@@ -694,6 +708,7 @@ class CallingService(
 
   private fun showEndedCall(session: ActiveCallSession) {
     endedCallJob?.cancel()
+    _connectionState.value = CallConnectionState.ENDED
     _activeCall.value = session.copy(state = CallSessionState.ENDED)
     stopCallSession(keepEndedSession = true)
     _activeCall.value = session.copy(state = CallSessionState.ENDED)
@@ -741,7 +756,10 @@ class CallingService(
     endingCallId = null
     if (room != null) coroutineScope.launch { runCatching { room.disconnect() } }
     LineCallOngoingCallService.stop(application)
-    if (!keepEndedSession) _activeCall.value = null
+    if (!keepEndedSession) {
+      _activeCall.value = null
+      _connectionState.value = CallConnectionState.IDLE
+    }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.clearCommunicationDevice()
     runCatching { audioManager.stopBluetoothSco(); audioManager.isBluetoothScoOn = false }
     audioManager.isSpeakerphoneOn = false
