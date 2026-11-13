@@ -204,6 +204,11 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+  val audioRoutes = callingService.audioRoutes
+  val selectedAudioRouteId = callingService.selectedAudioRouteId
+  fun refreshAudioRoutes() = callingService.refreshAudioRoutes()
+  fun selectAudioRoute(deviceId: Int) = callingService.selectAudioRoute(deviceId)
+
   private val _backendNotice = MutableStateFlow<BackendNoticeState?>(null)
   val backendNotice: StateFlow<BackendNoticeState?> = _backendNotice.asStateFlow()
 
