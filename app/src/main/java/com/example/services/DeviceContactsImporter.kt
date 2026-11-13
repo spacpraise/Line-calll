@@ -26,12 +26,12 @@ object DeviceContactsImporter {
     val result = LinkedHashMap<String, Contact>()
     resolver.query(
       ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-      arrayOf(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER),
+      arrayOf(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.Contacts.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER),
       null, null,
-      ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE NOCASE ASC"
+      ContactsContract.Contacts.DISPLAY_NAME + " COLLATE NOCASE ASC"
     )?.use { cursor ->
       val idColumn = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
-      val nameColumn = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+      val nameColumn = cursor.getColumnIndexOrThrow(ContactsContract.Contacts.DISPLAY_NAME)
       val numberColumn = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER)
       while (cursor.moveToNext()) {
         val contactId = cursor.getLong(idColumn)
