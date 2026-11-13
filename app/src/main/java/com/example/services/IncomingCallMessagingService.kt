@@ -64,6 +64,14 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
     val callerPhone = data["caller_phone"]?.takeIf { it.isNotBlank() } ?: "Unknown number"
     val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: callerPhone
     val avatarUrl = data["caller_avatar_url"]?.takeIf { it.startsWith("https://") }
+    LineCallTelecom.registerIncoming(
+      applicationContext, callId, callerName, callerPhone,
+      onAnswer = { LineCallTelecom.incomingAnswerIntent(applicationContext, callId) },
+      onDisconnect = { cause ->
+        if (cause == android.telecom.DisconnectCause.REJECTED) LineCallTelecom.incomingDeclineIntent(applicationContext, callId)
+        else LineCallTelecom.endIntent(applicationContext, callId)
+      }
+    )
     if (message.priority == RemoteMessage.PRIORITY_HIGH &&
       expiresAtMs > System.currentTimeMillis() &&
       IncomingCallLifecycleService.start(

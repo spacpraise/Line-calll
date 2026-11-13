@@ -119,6 +119,10 @@ class CallingService(
                 isIncoming = true
               )
               if (_activeCall.compareAndSet(null, session)) {
+                LineCallTelecom.registerIncoming(application, session.callId, session.contactName.orEmpty(), session.phoneNumber,
+                  onAnswer = { }, onDisconnect = { cause ->
+                    if (cause == android.telecom.DisconnectCause.REJECTED) declineIncomingCall() else endCall()
+                  })
                 startIncomingRingtone()
                 watchIncomingCall(session)
                 _callEvents.emit(CallEvent.CallStarted(session))
@@ -181,6 +185,10 @@ class CallingService(
             isIncoming = true
           )
           if (_activeCall.compareAndSet(null, session)) {
+            LineCallTelecom.registerIncoming(application, session.callId, session.contactName.orEmpty(), session.phoneNumber,
+              onAnswer = { }, onDisconnect = { cause ->
+                if (cause == android.telecom.DisconnectCause.REJECTED) declineIncomingCall() else endCall()
+              })
             startIncomingRingtone()
             watchIncomingCall(session)
             _callEvents.emit(CallEvent.CallStarted(session))
@@ -301,6 +309,7 @@ class CallingService(
         return CallInitiationResult.Started(session)
       }
       if (_activeCall.value?.callId == pendingId) _activeCall.value = session
+      LineCallTelecom.registerOutgoing(application, session.callId, session.contactName, session.phoneNumber) { endCall() }
       outgoingPollJob?.cancel()
       outgoingPollJob = coroutineScope.launch(Dispatchers.IO) { monitorOutgoingCall(session) }
       CallInitiationResult.Started(session)
@@ -398,6 +407,7 @@ class CallingService(
         )
         if (!accepted.optBoolean("accepted")) throw IllegalStateException("This call is no longer available to answer.")
         LineCallOngoingCallService.start(application, current)
+        LineCallTelecom.confirmAnswered()
         connectToLiveKit(current.callId, current)
       } catch (error: Exception) {
         _callEvents.emit(CallEvent.Error(error.message ?: "Could not accept this call."))
@@ -496,6 +506,7 @@ class CallingService(
     }
 
     if (_activeCall.value?.callId == callId && _activeCall.value?.state != CallSessionState.ENDED) {
+      LineCallTelecom.setActiveAfterRemoteAnswer()
       _activeCall.value = session.copy(state = CallSessionState.CONNECTED)
       _connectionState.value = CallConnectionState.CONNECTED
       startDurationTimer()
@@ -589,6 +600,7 @@ class CallingService(
     if (endingCallId == current.callId) return
     endingCallId = current.callId
     stopIncomingRingtone()
+    LineCallTelecom.disconnectLocal()
     val duration = current.durationSeconds
 
     showEndedCall(current)

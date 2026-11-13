@@ -95,6 +95,7 @@ secrets {
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
+  implementation("androidx.core:core-telecom:1.0.0")
   implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
   implementation("com.google.firebase:firebase-messaging")
   implementation("androidx.lifecycle:lifecycle-process:2.8.7")
