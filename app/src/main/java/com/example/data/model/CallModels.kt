@@ -1,5 +1,6 @@
 package com.example.data.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.text.SimpleDateFormat
@@ -63,7 +64,11 @@ data class Contact(
   val isFavorite: Boolean = false,
   val gradientIndex: Int = 0,
   val note: String = "",
-  val createdAt: Long = System.currentTimeMillis()
+  val createdAt: Long = System.currentTimeMillis(),
+  @ColumnInfo(defaultValue = "''") val email: String = "",
+  @ColumnInfo(defaultValue = "NULL") val registeredUserId: String? = null,
+  @ColumnInfo(defaultValue = "0") val isRegistered: Boolean = false,
+  @ColumnInfo(defaultValue = "'offline'") val presence: String = "offline"
 )
 
 data class UserAccount(
