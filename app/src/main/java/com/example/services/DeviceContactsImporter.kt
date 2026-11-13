@@ -58,7 +58,7 @@ object DeviceContactsImporter {
     val countryDigits = dialCode.filter(Char::isDigit)
     val normalized = when {
       countryDigits.isNotBlank() && digits.startsWith(countryDigits) -> "+$digits"
-      countryDigits.isNotBlank() && digits.startsWith("0") -> "+$countryDigits\${digits.dropWhile { it == '0' }}"
+      countryDigits.isNotBlank() && digits.startsWith("0") -> "+$countryDigits" + digits.dropWhile { it == '0' }
       else -> PhoneNumberFormatter.formatToE164(dialCode, digits)
     }
     return normalized.takeIf(PhoneNumberFormatter::isValidE164)
