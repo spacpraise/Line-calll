@@ -547,7 +547,7 @@ fun LineCallApp(
               when (tab) {
               MainTab.KEYPAD -> {
                 KeypadScreen(
-                  modifier = Modifier.fillMaxSize().padding(bottom = if (enteredNumber.isBlank()) 112.dp else 24.dp),
+                  modifier = Modifier.fillMaxSize().padding(bottom = 112.dp),
                   enteredNumber = enteredNumber,
                   selectedCountry = selectedCountry,
                   callHistory = callHistory,
