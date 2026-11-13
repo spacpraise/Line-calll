@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
     }
     themeMode = runCatching {
       AppThemeMode.valueOf(
-        getSharedPreferences("line_call_preferences", MODE_PRIVATE)
+        getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE)
           .getString("theme_mode", AppThemeMode.SYSTEM.name) ?: AppThemeMode.SYSTEM.name
       )
     }.getOrDefault(AppThemeMode.SYSTEM)
@@ -262,7 +262,7 @@ fun LineCallApp(
 
   LaunchedEffect(currentUser?.id) {
     if (currentUser != null) {
-      val preferences = context.getSharedPreferences("line_call_preferences", MODE_PRIVATE)
+      val preferences = context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE)
       if (!preferences.getBoolean("contact_import_prompted", false)) {
         preferences.edit().putBoolean("contact_import_prompted", true).apply()
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
