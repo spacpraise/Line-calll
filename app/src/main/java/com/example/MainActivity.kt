@@ -194,6 +194,7 @@ fun LineCallApp(
   val activeCall by viewModel.activeCall.collectAsStateWithLifecycle()
   val backendNotice by viewModel.backendNotice.collectAsStateWithLifecycle()
   val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+  val contactSyncStatus by viewModel.contactSyncStatus.collectAsStateWithLifecycle()
 
   val selectedContactDetail by viewModel.selectedContactDetail.collectAsStateWithLifecycle()
   val showAddContactScreen by viewModel.showAddContactScreen.collectAsStateWithLifecycle()
@@ -250,6 +251,21 @@ fun LineCallApp(
   ) { granted ->
     if (granted) pendingMicrophoneAction?.invoke()
     else Toast.makeText(context, "Microphone access is needed to make voice calls.", Toast.LENGTH_LONG).show()
+  }
+
+  val contactsPermissionLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.RequestPermission()
+  ) { granted ->
+    if (granted) viewModel.importDeviceContacts()
+    else Toast.makeText(context, "Contact access was not granted. You can still add or dial numbers manually.", Toast.LENGTH_LONG).show()
+  }
+
+  fun requestContactImport() {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+      viewModel.importDeviceContacts()
+    } else {
+      contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+    }
   }
 
   fun runWithMicrophonePermission(action: () -> Unit) {
@@ -517,7 +533,7 @@ fun LineCallApp(
               when (tab) {
               MainTab.KEYPAD -> {
                 KeypadScreen(
-                  modifier = Modifier.fillMaxSize().padding(bottom = 112.dp),
+                  modifier = Modifier.fillMaxSize().padding(bottom = if (enteredNumber.isBlank()) 112.dp else 24.dp),
                   enteredNumber = enteredNumber,
                   selectedCountry = selectedCountry,
                   callHistory = callHistory,
@@ -548,18 +564,22 @@ fun LineCallApp(
                   searchQuery = contactSearchQuery,
                   onSearchQueryChanged = { viewModel.updateContactSearch(it) },
                   onContactClick = { viewModel.selectContactDetail(it) },
-                  onProfileClick = { viewModel.navigateTo(ScreenState.SETTINGS) }
+                  onProfileClick = { viewModel.navigateTo(ScreenState.SETTINGS) },
+                  onImportContacts = { requestContactImport() },
+                  syncStatus = contactSyncStatus
                 )
               }
               }
             }
 
             // Floating Capsule Bottom Navigation Bar (Image 1, 2, 4, 6)
-            OneUiFloatingBottomNav(
-              selectedTab = selectedTab,
-              onTabSelected = { viewModel.selectTab(it) },
-              modifier = Modifier.align(Alignment.BottomCenter)
-            )
+            if (!(selectedTab == MainTab.KEYPAD && enteredNumber.isNotBlank())) {
+              OneUiFloatingBottomNav(
+                selectedTab = selectedTab,
+                onTabSelected = { viewModel.selectTab(it) },
+                modifier = Modifier.align(Alignment.BottomCenter)
+              )
+            }
           }
         }
       }
