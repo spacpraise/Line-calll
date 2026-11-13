@@ -102,7 +102,10 @@ class MainActivity : ComponentActivity() {
     }
     // WorkManager initialization is deferred until after the first frame so it
     // cannot hold up the launch animation or first screen draw.
-    window.decorView.post { LineCallUpdateManager.schedule(this) }
+    window.decorView.post {
+      LineCallUpdateManager.reconcileInstalledVersion(this)
+      LineCallUpdateManager.schedule(this)
+    }
     if (intent.getBooleanExtra("linecall_install_update", false)) {
       window.decorView.post { LineCallUpdateManager.installPending(this) }
     }
@@ -121,8 +124,6 @@ class MainActivity : ComponentActivity() {
   override fun onResume() {
     super.onResume()
     resumeCount += 1
-    LineCallUpdateManager.reconcileInstalledVersion(this)
-    window.decorView.post { LineCallUpdateManager.schedule(this) }
   }
 
   fun setCallWindowMode(showOnLockScreen: Boolean, wakeScreen: Boolean) {
