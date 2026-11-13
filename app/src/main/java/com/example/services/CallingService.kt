@@ -120,7 +120,7 @@ class CallingService(
               )
               if (_activeCall.compareAndSet(null, session)) {
                 LineCallTelecom.registerIncoming(application, session.callId, session.contactName.orEmpty(), session.phoneNumber,
-                  onAnswer = { }, onDisconnect = { cause ->
+                  onAnswer = { LineCallTelecom.incomingAnswerIntent(application, session.callId) }, onDisconnect = { cause ->
                     if (cause == android.telecom.DisconnectCause.REJECTED) declineIncomingCall() else endCall()
                   })
                 startIncomingRingtone()
@@ -531,6 +531,22 @@ class CallingService(
   }
 
   fun refreshAudioRoutes() {
+    if (LineCallTelecom.hasActiveCall()) {
+      val endpoints = LineCallTelecom.availableEndpoints.value
+      _audioRoutes.value = endpoints.map { endpoint ->
+        val type = when (endpoint.type) {
+          androidx.core.telecom.CallEndpointCompat.TYPE_EARPIECE -> "Earpiece"
+          androidx.core.telecom.CallEndpointCompat.TYPE_SPEAKER -> "Speaker"
+          androidx.core.telecom.CallEndpointCompat.TYPE_BLUETOOTH -> "Bluetooth"
+          androidx.core.telecom.CallEndpointCompat.TYPE_WIRED_HEADSET -> "Wired headset"
+          androidx.core.telecom.CallEndpointCompat.TYPE_STREAMING -> "External audio"
+          else -> "Audio device"
+        }
+        CallAudioRoute(endpoint.identifier.hashCode(), endpoint.name.toString().ifBlank { type }, type)
+      }
+      _selectedAudioRouteId.value = LineCallTelecom.currentEndpoint.value?.identifier?.hashCode()
+      return
+    }
     val devices = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       audioManager.availableCommunicationDevices
     } else {
@@ -571,6 +587,16 @@ class CallingService(
 
   fun selectAudioRoute(deviceId: Int) {
     val route = _audioRoutes.value.firstOrNull { it.id == deviceId } ?: return
+    if (LineCallTelecom.hasActiveCall()) {
+      val endpoint = LineCallTelecom.endpointForLegacyId(deviceId) ?: return
+      coroutineScope.launch {
+        runCatching { LineCallTelecom.requestEndpointChange(endpoint) }
+          .onSuccess { _selectedAudioRouteId.value = deviceId }
+          .onFailure { _callEvents.emit(CallEvent.Error("Could not change call audio device.")) }
+      }
+      _activeCall.value = _activeCall.value?.copy(isSpeakerOn = route.type == "Speaker")
+      return
+    }
     audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       val device = audioManager.availableCommunicationDevices.firstOrNull { it.id == deviceId } ?: return

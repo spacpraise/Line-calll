@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.telecom.DisconnectCause
+import android.os.Build
 import android.util.Log
 import androidx.core.telecom.CallAttributesCompat
 import androidx.core.telecom.CallControlScope
@@ -53,6 +54,8 @@ object LineCallTelecom {
 
   private fun register(context: Context, callId: String, displayName: String, phone: String,
     direction: Int, onAnswer: () -> Unit, onDisconnect: (Int) -> Unit) {
+    // Core-Telecom supports Android 8.0+; retain the existing call UI/notification path below that.
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     if (callId.isBlank() || activeCallId == callId) return
     if (activeCallId != null) {
       Log.w(TAG, "Ignoring Telecom registration while another call is active")
@@ -63,7 +66,7 @@ object LineCallTelecom {
       try {
         val attributes = CallAttributesCompat(
           displayName.ifBlank { phone.ifBlank { "Line Call" } },
-          Uri.parse("tel:$phone"),
+          Uri.parse(if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.O_MR1) "sip:$phone" else "tel:$phone"),
           direction,
           CallAttributesCompat.CALL_TYPE_AUDIO_CALL,
           0
