@@ -372,18 +372,12 @@ Deno.serve(async (req: Request) => {
 
     if (action === "accept") {
       if (call.recipient_id !== user.id) return json({ error: "Only the recipient can accept this call." }, 403);
-      if (call.status !== "ringing") return json({ error: "This call is no longer ringing." }, 409);
-      if ((Date.now() - new Date(call.created_at).getTime()) / 1000 > 45) {
-        await db.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", callId);
-        return json({ error: "This call has expired." }, 409);
-      }
-      const { error } = await db.from("calls").update({
-        status: "accepted",
-        accepted_at: new Date().toISOString(),
-        last_activity_at: new Date().toISOString(),
-      }).eq("id", callId);
+      const deviceId = typeof body.device_id === "string" ? body.device_id : "";
+      if (deviceId.length < 8 || deviceId.length > 128) return json({ error: "A valid device ID is required to answer." }, 400);
+      const { data, error } = await db.rpc("transition_line_call", { p_call_id: callId, p_action: "accept", p_device_id: deviceId });
       if (error) throw error;
-      return json({ accepted: true, call_id: callId });
+      if (!data?.accepted) return json({ error: "This call is no longer available.", call: data }, 409);
+      return json({ accepted: true, call_id: callId, status: data.status, idempotent: !!data.idempotent });
     }
 
     if (action === "decline") {
