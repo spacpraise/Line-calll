@@ -89,7 +89,7 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
       }
       val answerPendingIntent = PendingIntent.getActivity(
-        this, requestBase + 1, answerIntent,
+        this@IncomingCallMessagingService, requestBase + 1, answerIntent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
       )
       val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2, callerName, data["caller_phone"].orEmpty())
