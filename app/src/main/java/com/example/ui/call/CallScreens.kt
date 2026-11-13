@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CallEnd
+import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Phone
@@ -511,6 +512,14 @@ fun ActiveCallScreen(
                 ) {
                   view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                   onSpeakerToggle()
+                },
+                ActiveCallControl(
+                  label = "Record",
+                  icon = Icons.Rounded.FiberManualRecord,
+                  selected = false,
+                  testTag = "record_call_button"
+                ) {
+                  // Recording is a visual placeholder for a later local recorder implementation.
                 }
               }
               Surface(
