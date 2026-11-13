@@ -663,17 +663,36 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }
 
-  fun handleIncomingCallAction(action: String, callId: String) {
+  fun handleIncomingCallAction(
+    action: String,
+    callId: String,
+    callerName: String? = null,
+    callerPhone: String = ""
+  ) {
     if (action != "answer" && action != "decline") return
     viewModelScope.launch {
-      repeat(40) {
-        val session = callingService.activeCall.value
-        if (session?.callId == callId && session.isIncoming) {
-          if (action == "answer") callingService.acceptIncomingCall()
-          else callingService.declineIncomingCall()
+      // Session restoration runs in parallel with first-frame rendering. Wait
+      // for the locally stored login to be restored, then answer using the
+      // same CallingService used by every in-app call.
+      repeat(80) {
+        if (userProfileService.currentUser.value != null) {
+          if (action == "answer") {
+            callingService.answerIncomingCallById(callId, callerName, callerPhone)
+          } else {
+            val session = callingService.activeCall.value
+            if (session?.callId == callId && session.isIncoming) callingService.declineIncomingCall()
+          }
           return@launch
         }
-        delay(500)
+        delay(250)
+      }
+      if (action == "answer") {
+        _backendNotice.value = BackendNoticeState(
+          title = "Could not answer call",
+          message = "Your Line Call session could not be restored. Open the app and sign in again.",
+          targetNumber = callerPhone,
+          targetName = callerName
+        )
       }
     }
   }
