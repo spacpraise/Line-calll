@@ -73,7 +73,7 @@ object LineCallTelecom {
         )
         manager(context).addCall(
           attributes,
-          onAnswerCall = {
+          onAnswerCall = { _ ->
             telecomAnswered = true
             onAnswer()
           },
