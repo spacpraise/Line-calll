@@ -58,7 +58,7 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
     CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
       try {
         val backend = LineCallSupabaseClient(applicationContext)
-        val user = withTimeoutOrNull(5_000L) { backend.restoreSession() } ?: return@launch
+        withTimeoutOrNull(5_000L) { backend.restoreSession() } ?: return@launch
         val status = withTimeoutOrNull(5_000L) {
           backend.callFunction(JSONObject().put("action", "status").put("call_id", callId))
             .optJSONObject("call")?.optString("status")
@@ -70,7 +70,7 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       createCallChannel(notificationManager)
   
       val requestBase = callId.hashCode()
-      val openIntent = Intent(this, MainActivity::class.java).apply {
+      val openIntent = Intent(this@IncomingCallMessagingService, MainActivity::class.java).apply {
         putExtra("linecall_call_id", callId)
         putExtra("linecall_call_action", "open")
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -95,7 +95,7 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2, callerName, data["caller_phone"].orEmpty())
       val person = Person.Builder().setName(callerName).setImportant(true).build()
   
-      val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+      val notification = NotificationCompat.Builder(this@IncomingCallMessagingService, CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher)
         .setContentTitle("Incoming Line Call")
         .setContentText(callerName)
