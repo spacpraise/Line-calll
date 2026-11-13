@@ -331,6 +331,11 @@ class IncomingCallLifecycleService : Service() {
 
   companion object {
     private const val TAG = "LineCallIncoming"
+    private val TERMINAL_OR_ANSWER_EVENTS = setOf(
+      "call_accepted", "call_declined", "call_ended", "caller_cancelled",
+      "recipient_busy", "call_missed", "call_failed", "accepted", "declined",
+      "ended", "missed", "failed"
+    )
     private const val CHANNEL_ID = "linecall_incoming_lifecycle"
     private const val ACTION_START = "com.aistudio.linecall.action.START_INCOMING"
     private const val EXTRA_CALL_ID = "linecall_call_id"
