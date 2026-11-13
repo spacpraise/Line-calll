@@ -27,6 +27,7 @@ import com.example.services.CallingService
 import com.example.services.DeviceContactsImporter
 import com.example.services.LineCallAuthService
 import com.example.services.LineCallSupabaseClient
+import com.example.services.LocalBackupScheduler
 import com.example.services.UserProfileService
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -770,6 +771,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     viewModelScope.launch {
       val updated = contact.copy(isFavorite = !contact.isFavorite)
       contactDao.updateContact(updated)
+      LocalBackupScheduler.request(getApplication<Application>())
       if (_selectedContactDetail.value?.id == contact.id) {
         _selectedContactDetail.value = updated
       }
@@ -800,6 +802,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
             presence = existing?.presence ?: "offline"
           ))
         }
+        LocalBackupScheduler.request(app)
         _contactSyncStatus.value = "Imported ${imported.size} phone contacts."
         refreshRegisteredContacts()
       }.onFailure { error ->
@@ -829,6 +832,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           row.optString("email").takeIf { it.isNotBlank() && it != "null" }?.lowercase()?.let { matchedByEmail[it] = row }
         }
       }
+      var contactsChanged = false
       local.forEach { contact ->
         val match = matchedByPhone[contact.phoneNumber] ?: matchedByEmail[contact.email.trim().lowercase()]
         val updated = if (match != null) contact.copy(
@@ -836,8 +840,12 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           registeredUserId = match.optString("user_id").takeIf { it.isNotBlank() && it != "null" },
           presence = match.optString("presence", "offline")
         ) else contact.copy(isRegistered = false, registeredUserId = null, presence = "offline")
-        if (updated != contact) contactDao.updateContact(updated)
+        if (updated != contact) {
+          contactDao.updateContact(updated)
+          contactsChanged = true
+        }
       }
+      if (contactsChanged) LocalBackupScheduler.request(getApplication<Application>())
       _contactSyncStatus.value = "Contacts are up to date."
     } catch (error: Exception) {
       Log.w("LineCallContacts", "Registered contact lookup failed; local contacts remain available.", error)
@@ -914,12 +922,16 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           avatarInitials = name.trim().take(2).uppercase()
         )
       )
+      LocalBackupScheduler.request(getApplication<Application>())
       refreshRegisteredContacts()
     }
   }
 
   fun deleteContact(contact: Contact) {
-    viewModelScope.launch { contactDao.deleteContact(contact) }
+    viewModelScope.launch {
+      contactDao.deleteContact(contact)
+      LocalBackupScheduler.request(getApplication<Application>())
+    }
   }
 
   fun callContact(contact: Contact) {
@@ -958,7 +970,10 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   }
 
   fun clearCallHistory() {
-    viewModelScope.launch { callRecordDao.clearAllCallRecords() }
+    viewModelScope.launch {
+      callRecordDao.clearAllCallRecords()
+      LocalBackupScheduler.request(getApplication<Application>())
+    }
   }
 
   fun signOut() {
