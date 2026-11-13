@@ -67,7 +67,19 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       this, requestBase, openIntent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
-    val answerPendingIntent = actionPendingIntent(callId, "answer", requestBase + 1, callerName, data["caller_phone"].orEmpty())
+    // Answer opens the app directly. The app's single CallingService accepts
+    // and connects the call; no second LiveKit room is created in a helper service.
+    val answerIntent = Intent(this, MainActivity::class.java).apply {
+      putExtra("linecall_call_id", callId)
+      putExtra("linecall_call_action", "answer")
+      putExtra("linecall_caller_name", callerName)
+      putExtra("linecall_caller_phone", data["caller_phone"].orEmpty())
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+    val answerPendingIntent = PendingIntent.getActivity(
+      this, requestBase + 1, answerIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
     val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2, callerName, data["caller_phone"].orEmpty())
     val person = Person.Builder().setName(callerName).setImportant(true).build()
 
@@ -134,19 +146,6 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val callId = intent.getStringExtra("linecall_call_id")?.takeIf { it.isNotBlank() } ?: return
     when (intent.getStringExtra("linecall_call_action")) {
-      "answer" -> {
-        // A notification action is an explicit user gesture. Connect audio in a
-        // foreground service instead of launching the app and asking again.
-        runCatching {
-          IncomingCallActionService.startAnswer(
-            context,
-            callId,
-            intent.getStringExtra("linecall_caller_name").orEmpty(),
-            intent.getStringExtra("linecall_caller_phone").orEmpty()
-          )
-        }
-          .onFailure { android.util.Log.e("LineCallFCM", "Could not start background answer service.", it) }
-      }
       "decline" -> {
         // Dismiss the local ringing surface immediately. The server update is
         // delivered asynchronously so network latency never leaves a dead
