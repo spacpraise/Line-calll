@@ -30,6 +30,17 @@ Deno.serve(async (req: Request) => {
     if (!body || typeof body !== "object") return json({ error: "Invalid request." }, 400);
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
+    if (body.action === "cleanup") {
+      // The app keeps its own call history in Room and Android Auto Backup.
+      // Supabase stores only short-lived call coordination rows; remove rows older than 30 days.
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { error, count } = await admin.from("calls")
+        .delete({ count: "exact" })
+        .lt("created_at", cutoff);
+      if (error) throw error;
+      return json({ cleaned: count ?? 0, retention_days: 30 });
+    }
+
     if (body.action === "presence" || body.action === "offline") {
       const deviceId = typeof body.device_id === "string" ? body.device_id : "";
       if (deviceId.length < 8 || deviceId.length > 128) return json({ error: "Invalid device identifier." }, 400);
