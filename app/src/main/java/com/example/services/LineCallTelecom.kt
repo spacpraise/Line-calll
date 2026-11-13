@@ -75,15 +75,15 @@ object LineCallTelecom {
         )
         manager(context).addCall(
           attributes,
-          onAnswerCall = { _ ->
+          { _: Int ->
             telecomAnswered = true
             onAnswer()
           },
-          onSetCallDisconnected = { cause ->
+          { cause: DisconnectCause ->
             if (localDisconnect) localDisconnect = false else onDisconnect(cause.code)
           },
-          onSetCallActive = { },
-          onSetCallInactive = { }
+          { },
+          { }
         ) {
           callControlScope = this
           launch { currentCallEndpoint.collect { _currentEndpoint.value = it } }
