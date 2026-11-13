@@ -384,40 +384,18 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "end") {
-      const now = new Date();
-      const duration = call.accepted_at
-        ? Math.max(0, Math.floor((now.getTime() - new Date(call.accepted_at).getTime()) / 1000))
-        : 0;
-      const wasActive = call.status === "ringing" || call.status === "accepted";
-      if (wasActive) {
-        const { error } = await db.from("calls").update({
-          status: "ended",
-          ended_at: now.toISOString(),
-          duration_seconds: duration,
-        }).eq("id", callId).in("status", ["ringing", "accepted"]);
-        if (error) throw error;
-
-        // Notify the other participant's device to stop ringing and dismiss
-        // its incoming-call notification.
+      const { data, error } = await db.rpc("transition_line_call", { p_call_id: callId, p_action: "end", p_device_id: null });
+      if (error) throw error;
+      if (data?.transitioned) {
         const otherUserId = call.caller_id === user.id ? call.recipient_id : call.caller_id;
-        const { data: otherProfile, error: profileError } = await db
-          .from("profiles")
-          .select("fcm_token")
-          .eq("id", otherUserId)
-          .maybeSingle();
-        if (profileError) {
-          console.error("Could not load other participant FCM token", profileError);
-        } else if (otherProfile?.fcm_token) {
-          try {
-            await sendCallEndedPush(otherProfile.fcm_token, callId);
-          } catch (pushError) {
-            // Keep the server end action successful; receiver-side status polling
-            // remains a fallback when the recipient app is running.
-            console.error("Call-ended FCM delivery failed", pushError);
-          }
+        const { data: otherProfile, error: profileError } = await db.from("profiles").select("fcm_token").eq("id", otherUserId).maybeSingle();
+        if (profileError) console.error("Could not load other participant FCM token", profileError);
+        else if (otherProfile?.fcm_token) {
+          try { await sendCallEndedPush(otherProfile.fcm_token, callId); }
+          catch (pushError) { console.error("Call-ended FCM delivery failed", pushError); }
         }
       }
-      return json({ ended: true, duration_seconds: duration });
+      return json({ ended: !!data?.ended, status: data?.status, duration_seconds: data?.duration_seconds });
     }
 
     if (action === "token") {
