@@ -120,7 +120,7 @@ class CallRealtimeClient(private val supabase: LineCallSupabaseClient) {
       socket = http.newWebSocket(request, listener)
       val didJoin = withTimeoutOrNull(12_000L) { joined.await() } ?: false
       if (!didJoin) {
-        socket.cancel()
+        socket?.cancel()
         onConnectionChanged(false)
         disconnected.complete(Unit)
       } else {
