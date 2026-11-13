@@ -248,7 +248,7 @@ fun IncomingCallScreen(
             )
             HoldSwipeUpAction(
               label = "Answer",
-              hint = "Swipe to decline",
+              hint = "Swipe to answer",
               icon = Icons.Rounded.Phone,
               color = CallGreen,
               tag = "accept_call_button",
