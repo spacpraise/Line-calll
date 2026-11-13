@@ -91,3 +91,9 @@ data class ActiveCallSession(
   val durationSeconds: Int = 0,
   val isIncoming: Boolean = false
 )
+
+data class CallAudioRoute(
+  val id: Int,
+  val name: String,
+  val type: String
+)
