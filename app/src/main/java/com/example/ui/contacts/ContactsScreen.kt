@@ -308,6 +308,12 @@ fun ContactsScreen(
         TextButton(onClick = onImportContacts, modifier = Modifier.fillMaxWidth()) {
           Text("Import phone contacts", color = MaterialTheme.colorScheme.primary)
         }
+        Text(
+          text = "Contacts stay on this phone. Line Call checks only saved phone numbers and emails to find registered accounts.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.padding(horizontal = 6.dp)
+        )
         if (syncStatus.isNotBlank()) {
           Text(
             text = syncStatus,
@@ -418,6 +424,18 @@ fun FavoriteCard(
         maxLines = 2,
         overflow = TextOverflow.Ellipsis
       )
+    }
+    Row(
+      modifier = Modifier.align(Alignment.TopEnd),
+      horizontalArrangement = Arrangement.spacedBy(5.dp),
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      if (contact.isRegistered) {
+        Icon(Icons.Rounded.CheckCircle, contentDescription = "Registered Line Call account", tint = Color.White, modifier = Modifier.size(15.dp))
+      }
+      if (contact.presence == "online") {
+        Box(Modifier.size(9.dp).clip(CircleShape).background(Color(0xFF22C55E)))
+      }
     }
   }
 }
