@@ -71,6 +71,10 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       )
     ) return
 
+    // Realtime/polling may already have started this same call lifecycle.
+    // Do not overwrite its silent FGS CallStyle with a second sound-producing alert.
+    if (getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("active_call_id", null) == callId) return
+
     // If Android does not allow an FGS start (or FCM was downgraded), retain
     // the normal CallStyle notification fallback with its channel ringtone.
     CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {

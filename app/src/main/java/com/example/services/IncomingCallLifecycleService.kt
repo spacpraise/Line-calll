@@ -296,6 +296,7 @@ class IncomingCallLifecycleService : Service() {
   override fun onDestroy() {
     val callId = activeCallId
     stopCurrentResources()
+    stopForeground(android.app.Service.STOP_FOREGROUND_REMOVE)
     if (callId != null) {
       val prefs = getSharedPreferences(IncomingCallMessagingService.PREFS, MODE_PRIVATE)
       if (prefs.getString("active_call_id", null) == callId) {
