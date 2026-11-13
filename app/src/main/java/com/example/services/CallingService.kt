@@ -470,7 +470,13 @@ class CallingService(
           supabase.callFunction(JSONObject().put("action", "status").put("call_id", session.callId))
             .optJSONObject("call")?.optString("status").orEmpty()
         }.getOrDefault("")
-        if (status == "accepted") return@launch
+        if (status == "accepted") {
+          // Another device on this account answered. Stop this device's
+          // ringtone and stale incoming surface without ending the real call.
+          stopIncomingRingtone()
+          showEndedCall(session)
+          return@launch
+        }
         if (status in listOf("declined", "missed", "ended", "failed")) {
           saveCallRecord(
             CallRecord(
