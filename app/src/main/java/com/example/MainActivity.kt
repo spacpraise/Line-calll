@@ -42,6 +42,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.model.CallSessionState
+import com.example.data.model.CallAudioRoute
 import com.example.ui.LineCallViewModel
 import com.example.ui.MainTab
 import com.example.ui.ScreenState
@@ -192,6 +193,8 @@ fun LineCallApp(
   val contactSearchQuery by viewModel.contactSearchQuery.collectAsStateWithLifecycle()
   val callHistory by viewModel.callHistory.collectAsStateWithLifecycle()
   val activeCall by viewModel.activeCall.collectAsStateWithLifecycle()
+  val audioRoutes by viewModel.audioRoutes.collectAsStateWithLifecycle()
+  val selectedAudioRouteId by viewModel.selectedAudioRouteId.collectAsStateWithLifecycle()
   val backendNotice by viewModel.backendNotice.collectAsStateWithLifecycle()
   val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
   val contactSyncStatus by viewModel.contactSyncStatus.collectAsStateWithLifecycle()
@@ -694,6 +697,10 @@ fun LineCallApp(
             session = session,
             onMuteToggle = { viewModel.toggleMute() },
             onSpeakerToggle = { viewModel.toggleSpeaker() },
+            audioRoutes = audioRoutes,
+            selectedAudioRouteId = selectedAudioRouteId,
+            onRefreshAudioRoutes = { viewModel.refreshAudioRoutes() },
+            onAudioRouteSelected = { viewModel.selectAudioRoute(it) },
             onEndCall = { viewModel.endCall() },
             onRecall = { viewModel.recallCall(session) }
           )
