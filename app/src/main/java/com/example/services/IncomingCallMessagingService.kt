@@ -52,58 +52,74 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
       return
     }
     if (data["type"] != "INCOMING_CALL") return
-    if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
 
-    val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: data["caller_phone"] ?: "Line Call user"
-    createCallChannel(notificationManager)
-
-    val requestBase = callId.hashCode()
-    val openIntent = Intent(this, MainActivity::class.java).apply {
-      putExtra("linecall_call_id", callId)
-      putExtra("linecall_call_action", "open")
-      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    // FCM can be delayed, duplicated, or arrive after Answer/Decline. Confirm
+    // the authoritative server state before displaying a ringing surface.
+    CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+      try {
+        val backend = LineCallSupabaseClient(applicationContext)
+        val user = withTimeoutOrNull(5_000L) { backend.restoreSession() } ?: return@launch
+        val status = withTimeoutOrNull(5_000L) {
+          backend.callFunction(JSONObject().put("action", "status").put("call_id", callId))
+            .optJSONObject("call")?.optString("status")
+        } ?: return@launch
+        if (status != "ringing") return@launch
+        if (ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@launch
+  
+      val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: data["caller_phone"] ?: "Line Call user"
+      createCallChannel(notificationManager)
+  
+      val requestBase = callId.hashCode()
+      val openIntent = Intent(this, MainActivity::class.java).apply {
+        putExtra("linecall_call_id", callId)
+        putExtra("linecall_call_action", "open")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      }
+      val fullScreenPendingIntent = PendingIntent.getActivity(
+        this, requestBase, openIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+      // Answer opens the app directly. The app's single CallingService accepts
+      // and connects the call; no second LiveKit room is created in a helper service.
+      val answerIntent = Intent(this, MainActivity::class.java).apply {
+        putExtra("linecall_call_id", callId)
+        putExtra("linecall_call_action", "answer")
+        putExtra("linecall_caller_name", callerName)
+        putExtra("linecall_caller_phone", data["caller_phone"].orEmpty())
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      }
+      val answerPendingIntent = PendingIntent.getActivity(
+        this, requestBase + 1, answerIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+      val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2, callerName, data["caller_phone"].orEmpty())
+      val person = Person.Builder().setName(callerName).setImportant(true).build()
+  
+      val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle("Incoming Line Call")
+        .setContentText(callerName)
+        .setCategory(NotificationCompat.CATEGORY_CALL)
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setOngoing(true)
+        .setAutoCancel(false)
+        .setTimeoutAfter(45_000L)
+        // Keep the call on the lock screen/shade. Do not auto-launch MainActivity;
+        // Answer and Decline must work directly from the notification actions.
+        .setContentIntent(fullScreenPendingIntent)
+        // Android launches the incoming-call UI over the lock screen when the
+        // user/device allows full-screen notifications for this app.
+        .setFullScreenIntent(fullScreenPendingIntent, true)
+        .setOnlyAlertOnce(true)
+        .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, declinePendingIntent, answerPendingIntent))
+        .build()
+  
+      notificationManager.notify(notificationId(callId), notification)
+      } catch (error: Exception) {
+        android.util.Log.w("LineCallFCM", "Could not verify incoming call before notification.", error)
+      }
     }
-    val fullScreenPendingIntent = PendingIntent.getActivity(
-      this, requestBase, openIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-    // Answer opens the app directly. The app's single CallingService accepts
-    // and connects the call; no second LiveKit room is created in a helper service.
-    val answerIntent = Intent(this, MainActivity::class.java).apply {
-      putExtra("linecall_call_id", callId)
-      putExtra("linecall_call_action", "answer")
-      putExtra("linecall_caller_name", callerName)
-      putExtra("linecall_caller_phone", data["caller_phone"].orEmpty())
-      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-    }
-    val answerPendingIntent = PendingIntent.getActivity(
-      this, requestBase + 1, answerIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-    val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2, callerName, data["caller_phone"].orEmpty())
-    val person = Person.Builder().setName(callerName).setImportant(true).build()
-
-    val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-      .setSmallIcon(R.mipmap.ic_launcher)
-      .setContentTitle("Incoming Line Call")
-      .setContentText(callerName)
-      .setCategory(NotificationCompat.CATEGORY_CALL)
-      .setPriority(NotificationCompat.PRIORITY_MAX)
-      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-      .setOngoing(true)
-      .setAutoCancel(false)
-      .setTimeoutAfter(45_000L)
-      // Keep the call on the lock screen/shade. Do not auto-launch MainActivity;
-      // Answer and Decline must work directly from the notification actions.
-      .setContentIntent(fullScreenPendingIntent)
-      // Android launches the incoming-call UI over the lock screen when the
-      // user/device allows full-screen notifications for this app.
-      .setFullScreenIntent(fullScreenPendingIntent, true)
-      .setOnlyAlertOnce(true)
-      .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, declinePendingIntent, answerPendingIntent))
-      .build()
-
-    notificationManager.notify(notificationId(callId), notification)
   }
 
   private fun actionPendingIntent(callId: String, action: String, requestCode: Int, callerName: String, callerPhone: String): PendingIntent {
