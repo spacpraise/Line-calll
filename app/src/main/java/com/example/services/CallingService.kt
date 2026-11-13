@@ -77,6 +77,11 @@ class CallingService(
 
   fun validateNumber(e164: String): Boolean = userProfileService.validateE164(e164)
 
+  private suspend fun saveCallRecord(record: CallRecord) {
+    callRecordDao.insertCallRecord(record)
+    LocalBackupScheduler.request(application)
+  }
+
   fun startIncomingCallPolling() {
     if (incomingPollJob?.isActive == true) return
     incomingPollJob = coroutineScope.launch(Dispatchers.IO) {
@@ -152,7 +157,7 @@ class CallingService(
         // The user hung up before the initiate request returned. End the real
         // server call now that its ID is known; never start its ringback monitor.
         closeServerCall(session.callId)
-        callRecordDao.insertCallRecord(
+        saveCallRecord(
           CallRecord(
             phoneNumber = session.phoneNumber,
             contactName = session.contactName,
@@ -195,7 +200,7 @@ class CallingService(
           }
           "declined", "missed", "ended", "failed" -> {
             stopRingbackTone()
-            callRecordDao.insertCallRecord(
+            saveCallRecord(
               CallRecord(
                 phoneNumber = session.phoneNumber,
                 contactName = session.contactName,
@@ -266,7 +271,7 @@ class CallingService(
       runCatching {
         supabase.callFunction(JSONObject().put("action", "decline").put("call_id", current.callId))
       }
-      callRecordDao.insertCallRecord(
+      saveCallRecord(
         CallRecord(
           phoneNumber = current.phoneNumber,
           contactName = current.contactName,
@@ -372,7 +377,7 @@ class CallingService(
       }.onFailure {
         android.util.Log.e("LineCall", "Could not send remote call-end signal.", it)
       }
-      callRecordDao.insertCallRecord(
+      saveCallRecord(
         CallRecord(
           phoneNumber = current.phoneNumber,
           contactName = current.contactName,
@@ -396,7 +401,7 @@ class CallingService(
         }.getOrDefault("")
         if (status == "accepted") return@launch
         if (status in listOf("declined", "missed", "ended", "failed")) {
-          callRecordDao.insertCallRecord(
+          saveCallRecord(
             CallRecord(
               phoneNumber = session.phoneNumber,
               contactName = session.contactName,
