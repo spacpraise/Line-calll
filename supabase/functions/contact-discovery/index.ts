@@ -86,6 +86,10 @@ Deno.serve(async (req: Request) => {
     matches.delete(userId);
     const users = [...matches.values()];
     const ids = users.map((row) => String(row.id));
+    // Expired device leases are disposable and should not accumulate.
+    const { error: expiredPresenceError } = await admin.from("user_presence_sessions")
+      .delete().lt("expires_at", new Date().toISOString());
+    if (expiredPresenceError) throw expiredPresenceError;
     const presenceByUser = new Map<string, string>();
     if (ids.length) {
       const { data, error } = await admin.from("user_presence_sessions").select("user_id,state")
@@ -97,7 +101,10 @@ Deno.serve(async (req: Request) => {
       }
     }
     return json({ contacts: users.map((row) => ({
-      user_id: row.id, email: row.email, phone_number: row.phone_number,
+      user_id: row.id,
+      // Return only the identifier(s) that were present in this caller's address book.
+      email: emails.includes(String(row.email ?? "").toLowerCase()) ? row.email : null,
+      phone_number: phones.includes(String(row.phone_number ?? "")) ? row.phone_number : null,
       display_name: row.display_name, avatar_url: row.avatar_url,
       registered: true, presence: presenceByUser.get(String(row.id)) ?? "offline",
     })) });
