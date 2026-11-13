@@ -79,13 +79,24 @@ jobs:
             -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" >/dev/null
           rm -f "$RUNNER_TEMP/linecall-signing-check.csr"
           echo "Permanent signing key validated."
-      # Fast default path: package the APK without emulator or test-runner setup.
+      # Fork pull requests cannot access repository secrets, so use a temporary
+      # debug key only for those non-distributed validation builds.
+      - name: Generate PR-only debug key
+        if: github.event_name == 'pull_request'
+        run: |
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      # Main-branch distributed APKs are signed with the permanent repository key.
       - name: Build preview APK
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebug
-
-      - name: Remove signing key from runner
-        if: always()
-        run: rm -f "$KEYSTORE_PATH"
 
       # Keep JVM tests available on PRs and on-demand, without slowing every APK build.
       - name: Run unit tests
@@ -121,3 +132,7 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Remove signing key from runner
+        if: always()
+        run: rm -f "$KEYSTORE_PATH"
