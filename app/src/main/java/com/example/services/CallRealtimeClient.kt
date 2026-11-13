@@ -46,7 +46,7 @@ class CallRealtimeClient(private val supabase: LineCallSupabaseClient) {
         continue
       }
 
-      val joined = CompletableDeferred<Unit>()
+      val joined = CompletableDeferred<Boolean>()
       val disconnected = CompletableDeferred<Unit>()
       val topic = "realtime:public:call_events"
       val joinRef = "1"
@@ -87,8 +87,11 @@ class CallRealtimeClient(private val supabase: LineCallSupabaseClient) {
             when (message.optString("event")) {
               "phx_reply" -> {
                 val payload = message.optJSONObject("payload")
-                if (payload?.optString("status") == "ok") joined.complete(Unit)
-                else if (payload?.optString("status") == "error") disconnected.complete(Unit)
+                if (payload?.optString("status") == "ok") joined.complete(true)
+                else {
+                  joined.complete(false)
+                  disconnected.complete(Unit)
+                }
               }
               "postgres_changes" -> {
                 val data = message.optJSONObject("payload")?.optJSONObject("data")
@@ -116,7 +119,7 @@ class CallRealtimeClient(private val supabase: LineCallSupabaseClient) {
       }
 
       socket = http.newWebSocket(request, listener)
-      val didJoin = withTimeoutOrNull(12_000L) { joined.await(); true } ?: false
+      val didJoin = withTimeoutOrNull(12_000L) { joined.await() } ?: false
       if (!didJoin) {
         socket.cancel()
         onConnectionChanged(false)
