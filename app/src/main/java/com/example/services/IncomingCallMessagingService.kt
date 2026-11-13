@@ -94,7 +94,7 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
       )
       val declinePendingIntent = actionPendingIntent(callId, "decline", requestBase + 2, callerName, data["caller_phone"].orEmpty())
-      val avatar = avatarUrl?.let { url -> runCatching { BitmapFactory.decodeStream(java.net.URL(url).openStream()) }.getOrNull() }
+      val avatar = avatarUrl?.let { url -> runCatching { java.net.URL(url).openConnection().apply { connectTimeout = 2_000; readTimeout = 2_000 }.getInputStream().use { BitmapFactory.decodeStream(it) } }.getOrNull() }
       val personBuilder = Person.Builder().setName(callerName).setUri("tel:$callerPhone").setImportant(true)
       if (avatar != null) personBuilder.setIcon(IconCompat.createWithBitmap(avatar))
       val person = personBuilder.build()
@@ -177,6 +177,7 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
         context.getSystemService(NotificationManager::class.java)
           .cancel(IncomingCallMessagingService.notificationId(callId))
         context.getSharedPreferences(IncomingCallMessagingService.PREFS, Context.MODE_PRIVATE).edit().remove("active_call_id").remove("ring_started_at").apply()
+        if (intent.getStringExtra("linecall_call_action") == "end") LineCallOngoingCallService.stop(context.applicationContext)
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
           try {
@@ -184,18 +185,20 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
             withTimeoutOrNull(12_000L) {
               backend.restoreSession()
               backend.callFunction(JSONObject().put("action", if (intent.getStringExtra("linecall_call_action") == "end") "end" else "decline").put("call_id", callId))
-              runCatching {
-                com.example.data.local.LineCallDatabase.getDatabase(context.applicationContext)
-                  .callRecordDao().insertCallRecord(
-                    com.example.data.model.CallRecord(
-                      phoneNumber = intent.getStringExtra("linecall_caller_phone").orEmpty(),
-                      contactName = intent.getStringExtra("linecall_caller_name"),
-                      type = com.example.data.model.CallType.MISSED,
-                      durationSeconds = 0
+              if (intent.getStringExtra("linecall_call_action") == "decline") {
+                runCatching {
+                  com.example.data.local.LineCallDatabase.getDatabase(context.applicationContext)
+                    .callRecordDao().insertCallRecord(
+                      com.example.data.model.CallRecord(
+                        phoneNumber = intent.getStringExtra("linecall_caller_phone").orEmpty(),
+                        contactName = intent.getStringExtra("linecall_caller_name"),
+                        type = com.example.data.model.CallType.MISSED,
+                        durationSeconds = 0
+                      )
                     )
-                  )
-              }.onFailure {
-                android.util.Log.w("LineCallFCM", "Could not save declined incoming call to Recents.", it)
+                }.onFailure {
+                  android.util.Log.w("LineCallFCM", "Could not save declined incoming call to Recents.", it)
+                }
               }
             } ?: android.util.Log.w("LineCallFCM", "Decline request timed out; local notification was still dismissed.")
           } catch (error: Exception) {

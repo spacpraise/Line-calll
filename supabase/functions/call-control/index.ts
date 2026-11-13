@@ -65,7 +65,7 @@ async function getFirebaseAccessToken(serviceAccount: Record<string, string>): P
 
 async function sendIncomingCallPush(
   deviceToken: string,
-  call: { id: string; caller_phone: string; caller_name: string; caller_avatar_url?: string | null },
+  call: { id: string; caller_phone: string; caller_name: string },
 ): Promise<void> {
   const rawAccount = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
   if (!rawAccount) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON secret is missing");
@@ -91,11 +91,10 @@ async function sendIncomingCallPush(
             call_id: call.id,
             caller_phone: call.caller_phone,
             caller_name: call.caller_name || call.caller_phone,
-            caller_avatar_url: call.caller_avatar_url || "",
           },
           android: {
             priority: "HIGH",
-            ttl: "60s",
+            ttl: "45s",
             collapse_key: "linecall-incoming",
           },
         },
@@ -192,7 +191,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: recipient, error: lookupError } = await db
         .from("profiles")
-        .select("id,email,phone_number,display_name,avatar_url,fcm_token")
+        .select("id,email,phone_number,display_name,fcm_token")
         .eq("phone_number", phone)
         .maybeSingle();
       if (lookupError) throw lookupError;
@@ -269,7 +268,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: caller, error: callerError } = await db
         .from("profiles")
-        .select("phone_number,display_name,avatar_url")
+        .select("phone_number,display_name")
         .eq("id", user.id)
         .maybeSingle();
       if (callerError) throw callerError;
@@ -285,7 +284,6 @@ Deno.serve(async (req: Request) => {
           recipient_phone: recipient.phone_number,
           room_name: roomName,
           status: "ringing",
-          expires_at: new Date(Date.now() + 60_000).toISOString(),
         })
         .select("id,room_name,status,created_at,caller_phone,recipient_phone")
         .single();
@@ -298,7 +296,6 @@ Deno.serve(async (req: Request) => {
             id: call.id,
             caller_phone: caller.phone_number,
             caller_name: caller.display_name ?? caller.phone_number,
-            caller_avatar_url: caller.avatar_url ?? null,
           });
           pushSent = true;
         } catch (pushError) {
@@ -329,7 +326,7 @@ Deno.serve(async (req: Request) => {
       if (!incoming) return json({ incoming_call: null });
 
       const ageSeconds = (Date.now() - new Date(incoming.created_at).getTime()) / 1000;
-      if (ageSeconds > 60) {
+      if (ageSeconds > 45) {
         await db.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", incoming.id).eq("status", "ringing");
         return json({ incoming_call: null });
       }
@@ -381,7 +378,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === "status") {
       let status = call.status;
-      if (status === "ringing" && (Date.now() - new Date(call.created_at).getTime()) / 1000 > 60) {
+      if (status === "ringing" && (Date.now() - new Date(call.created_at).getTime()) / 1000 > 45) {
         await db.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", callId).eq("status", "ringing");
         status = "missed";
       }

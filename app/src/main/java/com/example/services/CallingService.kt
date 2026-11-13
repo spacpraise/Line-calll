@@ -378,10 +378,18 @@ class CallingService(
     acceptIncomingCall()
   }
 
+  private fun clearIncomingNotification(callId: String) {
+    application.getSystemService(android.app.NotificationManager::class.java)
+      .cancel(IncomingCallMessagingService.notificationId(callId))
+    application.getSharedPreferences(IncomingCallMessagingService.PREFS, android.content.Context.MODE_PRIVATE)
+      .edit().remove("active_call_id").remove("ring_started_at").apply()
+  }
+
   fun acceptIncomingCall() {
     val current = _activeCall.value ?: return
     if (!current.isIncoming || current.state != CallSessionState.RINGING) return
     stopIncomingRingtone()
+    clearIncomingNotification(current.callId)
     incomingWatchJob?.cancel()
     _activeCall.value = current.copy(state = CallSessionState.ACCEPTING)
     coroutineScope.launch(Dispatchers.IO) {
@@ -406,6 +414,7 @@ class CallingService(
     if (!current.isIncoming || current.state != CallSessionState.RINGING) return
     _activeCall.value = current.copy(state = CallSessionState.ACCEPTING)
     stopIncomingRingtone()
+    clearIncomingNotification(current.callId)
     incomingWatchJob?.cancel()
     coroutineScope.launch(Dispatchers.IO) {
       runCatching {
