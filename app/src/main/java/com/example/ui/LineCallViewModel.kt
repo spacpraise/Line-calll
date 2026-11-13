@@ -98,7 +98,9 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
       Lifecycle.Event.ON_STOP -> {
         appIsForeground = false
         callingService.stopIncomingCallPolling()
-        stopPresenceHeartbeat()
+        if (callingService.activeCall.value?.state != com.example.data.model.CallSessionState.CONNECTED) {
+          stopPresenceHeartbeat()
+        }
       }
       else -> Unit
     }
@@ -855,16 +857,22 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   }
 
   private fun startPresenceHeartbeat() {
-    if (!appIsForeground || presenceJob?.isActive == true) return
+    val connectedCall = callingService.activeCall.value?.state == com.example.data.model.CallSessionState.CONNECTED
+    if ((!appIsForeground && !connectedCall) || presenceJob?.isActive == true) return
     presenceJob = viewModelScope.launch(Dispatchers.IO) {
       while (isActive) {
         if (userProfileService.currentUser.value == null) break
-        val state = if (callingService.activeCall.value?.state == com.example.data.model.CallSessionState.CONNECTED) "in_call" else "online"
-        runCatching { supabase.updatePresence(presenceDeviceId, state) }
+        val inCall = callingService.activeCall.value?.state == com.example.data.model.CallSessionState.CONNECTED
+        if (!appIsForeground && !inCall) {
+          runCatching { supabase.clearPresence(presenceDeviceId) }
+          break
+        }
+        runCatching { supabase.updatePresence(presenceDeviceId, if (inCall) "in_call" else "online") }
           .onFailure { Log.w("LineCallPresence", "Presence heartbeat failed.", it) }
         delay(45_000L)
-        refreshRegisteredContacts()
+        if (appIsForeground) refreshRegisteredContacts()
       }
+      presenceJob = null
     }
   }
 
@@ -880,10 +888,17 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   }
 
   private fun publishPresenceNow() {
-    if (!appIsForeground || userProfileService.currentUser.value == null) return
+    if (userProfileService.currentUser.value == null) return
+    val inCall = callingService.activeCall.value?.state == com.example.data.model.CallSessionState.CONNECTED
+    if (!appIsForeground && !inCall) {
+      presenceJob?.cancel()
+      presenceJob = null
+      viewModelScope.launch(Dispatchers.IO) { runCatching { supabase.clearPresence(presenceDeviceId) } }
+      return
+    }
+    if (presenceJob?.isActive != true) startPresenceHeartbeat()
     viewModelScope.launch(Dispatchers.IO) {
-      val state = if (callingService.activeCall.value?.state == com.example.data.model.CallSessionState.CONNECTED) "in_call" else "online"
-      runCatching { supabase.updatePresence(presenceDeviceId, state) }
+      runCatching { supabase.updatePresence(presenceDeviceId, if (inCall) "in_call" else "online") }
         .onFailure { Log.w("LineCallPresence", "Presence update failed.", it) }
     }
   }
