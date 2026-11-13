@@ -236,7 +236,14 @@ Deno.serve(async (req: Request) => {
         .limit(1);
       if (recipientActiveError) throw recipientActiveError;
       if (recipientActiveCalls?.length) {
-        return json({ error: "This user is currently on another call." }, 409);
+        const { error: busyEventError } = await db.from("call_events").insert({
+          user_id: user.id,
+          event_type: "recipient_busy",
+          state_version: 0,
+          payload: { recipient_phone: recipient.phone_number },
+        });
+        if (busyEventError) console.error("Could not persist recipient-busy signal", busyEventError);
+        return json({ error: "This user is currently on another call.", code: "RECIPIENT_BUSY" }, 409);
       }
 
       const { data: activeCalls, error: activeError } = await db
@@ -353,6 +360,18 @@ Deno.serve(async (req: Request) => {
 
     if (action === "heartbeat") {
       const { data, error } = await authClient.rpc("transition_line_call", { p_call_id: callId, p_action: "heartbeat", p_device_id: null });
+      if (error) throw error;
+      return json(data);
+    }
+
+    if (action === "signal") {
+      const signalType = typeof body.signal_type === "string" ? body.signal_type : "";
+      if (!["connection_established", "connection_lost", "reconnection_completed"].includes(signalType)) {
+        return json({ error: "Unsupported call signal." }, 400);
+      }
+      const { data, error } = await authClient.rpc("transition_line_call", {
+        p_call_id: callId, p_action: signalType, p_device_id: null,
+      });
       if (error) throw error;
       return json(data);
     }
