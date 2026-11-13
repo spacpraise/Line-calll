@@ -2,7 +2,6 @@ package com.example
 
 import android.Manifest
 import android.content.Intent
-import android.app.NotificationManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -69,7 +68,6 @@ import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.LineCallTheme
 import com.example.update.LineCallUpdateManager
-import com.example.services.IncomingCallMessagingService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -91,7 +89,7 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
     if (pendingIncomingCallIntent != null) {
-      dismissIncomingNotification(pendingIncomingCallIntent)
+
       setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
     }
     themeMode = runCatching {
@@ -122,7 +120,7 @@ class MainActivity : ComponentActivity() {
     setIntent(intent)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
     if (pendingIncomingCallIntent != null) {
-      dismissIncomingNotification(pendingIncomingCallIntent)
+
       setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
     }
     if (intent.getBooleanExtra("linecall_install_update", false)) {
@@ -147,12 +145,6 @@ class MainActivity : ComponentActivity() {
     }
   }
 
-  private fun dismissIncomingNotification(callIntent: Intent?) {
-    if (callIntent?.getStringExtra("linecall_call_action") != "answer") return
-    val callId = callIntent.getStringExtra("linecall_call_id") ?: return
-    getSystemService(NotificationManager::class.java)
-      .cancel(IncomingCallMessagingService.notificationId(callId))
-  }
 
   fun clearPendingIncomingCallIntent() {
     pendingIncomingCallIntent = null
