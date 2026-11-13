@@ -24,7 +24,9 @@ import javax.crypto.spec.GCMParameterSpec
  * Small REST client for Supabase Auth, PostgREST and Edge Functions.
  * The publishable key is intentionally a client-side key; access is restricted by RLS.
  */
-data class AccountLookupResult(val exists: Boolean, val displayName: String = "", val avatarUrl: String? = null)\n\ndata class RealtimeCredentials(val supabaseUrl: String, val anonKey: String, val accessToken: String)
+data class AccountLookupResult(val exists: Boolean, val displayName: String = "", val avatarUrl: String? = null)
+
+data class RealtimeCredentials(val supabaseUrl: String, val anonKey: String, val accessToken: String)
 
 class LineCallSupabaseClient(context: Context) {
   private val http = OkHttpClient.Builder().build()
