@@ -75,8 +75,11 @@ begin
 
   if p_action = 'accept' then
     if v_call.recipient_id <> v_user then raise exception 'Only the recipient can answer' using errcode='42501'; end if;
+    if nullif(p_device_id,'') is null then
+      raise exception 'Device ID is required' using errcode='22023';
+    end if;
     if v_call.status = 'accepted' then
-      if v_call.accepted_device_id is not distinct from nullif(p_device_id,'') then
+      if v_call.accepted_device_id = p_device_id then
         return jsonb_build_object('status','accepted','accepted',true,'transitioned',false,'idempotent',true);
       end if;
       return jsonb_build_object('status','accepted','accepted',false,'transitioned',false,'reason','answered_on_another_device');
@@ -125,3 +128,33 @@ grant execute on function public.transition_line_call(uuid,text,text) to authent
 
 -- Prevent direct client-side mutation; lifecycle changes must go through call-control.
 revoke insert, update, delete on public.calls from anon, authenticated;
+
+-- Serialize call creation across caller/recipient role combinations.
+create or replace function public.enforce_one_active_line_call()
+returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
+declare
+  first_id uuid;
+  second_id uuid;
+begin
+  if new.status not in ('ringing','accepted') then return new; end if;
+  first_id := least(new.caller_id, new.recipient_id);
+  second_id := greatest(new.caller_id, new.recipient_id);
+  perform pg_advisory_xact_lock(hashtextextended(first_id::text, 0));
+  perform pg_advisory_xact_lock(hashtextextended(second_id::text, 0));
+  if exists (
+    select 1 from public.calls c
+    where c.id is distinct from new.id
+      and c.status in ('ringing','accepted')
+      and (c.caller_id in (new.caller_id,new.recipient_id)
+        or c.recipient_id in (new.caller_id,new.recipient_id)
+        or c.caller_id in (new.caller_id,new.recipient_id)
+        and c.recipient_id in (new.caller_id,new.recipient_id))
+  ) then
+    raise exception 'A participant already has an active call' using errcode='23505';
+  end if;
+  return new;
+end $$;
+drop trigger if exists calls_one_active_participant_guard on public.calls;
+create trigger calls_one_active_participant_guard
+before insert or update of caller_id, recipient_id, status on public.calls
+for each row execute function public.enforce_one_active_line_call();
