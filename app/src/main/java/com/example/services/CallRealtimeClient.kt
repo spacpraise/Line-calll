@@ -60,10 +60,9 @@ class CallRealtimeClient(private val supabase: LineCallSupabaseClient) {
         .header("Authorization", "Bearer ${credentials.accessToken}")
         .build()
 
-      lateinit var socket: WebSocket
+      var socket: WebSocket? = null
       val listener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
-          socket = webSocket
           val filters = JSONArray().put(
             JSONObject()
               .put("event", "*")
@@ -131,7 +130,8 @@ class CallRealtimeClient(private val supabase: LineCallSupabaseClient) {
           var ref = 2
           while (isActive) {
             delay(25_000L)
-            if (!socket.send(envelope("phoenix", "heartbeat", JSONObject(), ref.toString(), null))) {
+            val activeSocket = socket ?: break
+            if (!activeSocket.send(envelope("phoenix", "heartbeat", JSONObject(), ref.toString(), null))) {
               disconnected.complete(Unit)
               break
             }
@@ -140,7 +140,7 @@ class CallRealtimeClient(private val supabase: LineCallSupabaseClient) {
         }
         disconnected.await()
         heartbeat.cancel()
-        socket.close(1000, "Reconnect")
+        socket?.close(1000, "Reconnect")
         onConnectionChanged(false)
       }
       if (isActive) delay(backoff(attempt++))
