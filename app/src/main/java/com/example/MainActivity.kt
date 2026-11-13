@@ -211,6 +211,7 @@ fun LineCallApp(
 
   var pendingMicrophoneAction by remember { mutableStateOf<(() -> Unit)?>(null) }
   var showUpdatePrompt by remember { mutableStateOf(false) }
+  var showFullScreenPermissionPrompt by remember { mutableStateOf(false) }
 
   LaunchedEffect(pendingCallIntent) {
     if (pendingCallIntent != null) {
@@ -297,6 +298,8 @@ fun LineCallApp(
   val appResumeCount = hostActivity?.resumeCount ?: 0
   LaunchedEffect(appResumeCount) {
     showUpdatePrompt = LineCallUpdateManager.hasPendingUpdate(context)
+    showFullScreenPermissionPrompt = Build.VERSION.SDK_INT >= 34 &&
+      !context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
     viewModel.refreshProfileAfterAppResume()
   }
 
@@ -622,6 +625,30 @@ fun LineCallApp(
         onSave = { name, phone ->
           viewModel.addContact(name, phone)
           viewModel.setShowAddContactScreen(false)
+        }
+      )
+    }
+
+    if (showFullScreenPermissionPrompt) {
+      AlertDialog(
+        onDismissRequest = { showFullScreenPermissionPrompt = false },
+        title = { Text("Allow incoming calls over the lock screen") },
+        text = { Text("Android currently blocks Line Call from opening its incoming-call screen over your locked phone. Allow full-screen notifications so incoming calls can wake the screen and show Answer and Decline.") },
+        confirmButton = {
+          Button(onClick = {
+            showFullScreenPermissionPrompt = false
+            if (Build.VERSION.SDK_INT >= 34) {
+              runCatching {
+                startActivity(Intent(
+                  android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                  android.net.Uri.parse("package:$packageName")
+                ))
+              }
+            }
+          }) { Text("Open Android setting") }
+        },
+        dismissButton = {
+          TextButton(onClick = { showFullScreenPermissionPrompt = false }) { Text("Not now") }
         }
       )
     }
