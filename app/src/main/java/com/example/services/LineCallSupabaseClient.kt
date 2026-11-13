@@ -228,6 +228,28 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
+  suspend fun discoverContacts(phoneNumbers: List<String>, emails: List<String>): List<JSONObject> = withContext(Dispatchers.IO) {
+    val payload = JSONObject().put("action", "lookup")
+      .put("phone_numbers", JSONArray(phoneNumbers)).put("emails", JSONArray(emails))
+    val response = execute(Request.Builder()
+      .url("${BackendConfig.SUPABASE_URL}/functions/v1/contact-discovery")
+      .headers(userHeaders()).post(payload.toString().toRequestBody(jsonType)).build())
+    val contacts = response.optJSONArray("contacts") ?: JSONArray()
+    (0 until contacts.length()).mapNotNull { contacts.optJSONObject(it) }
+  }
+
+  suspend fun updatePresence(deviceId: String, state: String) = withContext(Dispatchers.IO) {
+    val payload = JSONObject().put("action", "presence").put("device_id", deviceId)
+      .put("state", if (state == "in_call") "in_call" else "online")
+    execute(Request.Builder().url("${BackendConfig.SUPABASE_URL}/functions/v1/contact-discovery")
+      .headers(userHeaders()).post(payload.toString().toRequestBody(jsonType)).build())
+  }
+
+  suspend fun clearPresence(deviceId: String) = withContext(Dispatchers.IO) {
+    val payload = JSONObject().put("action", "offline").put("device_id", deviceId)
+    execute(Request.Builder().url("${BackendConfig.SUPABASE_URL}/functions/v1/contact-discovery")
+      .headers(userHeaders()).post(payload.toString().toRequestBody(jsonType)).build())
+  }
   suspend fun callFunction(payload: JSONObject): JSONObject = withContext(Dispatchers.IO) {
     val accessToken = freshAccessTokenBlocking()
     execute(
