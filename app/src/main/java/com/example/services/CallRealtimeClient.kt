@@ -150,7 +150,7 @@ class CallRealtimeClient(private val supabase: LineCallSupabaseClient) {
       .put("event", event)
       .put("payload", payload)
       .put("ref", ref)
-      .put("join_ref", joinRef?.let { org.json.JSONStringer().value(it).toString().trim('"') } ?: JSONObject.NULL)
+      .put("join_ref", joinRef ?: JSONObject.NULL)
       .toString()
 
   private fun backoff(attempt: Int): Long = min(30_000L, 1_000L shl min(attempt, 5))
