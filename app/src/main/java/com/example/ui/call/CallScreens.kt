@@ -360,43 +360,36 @@ fun ActiveCallScreen(
   val seconds = session.durationSeconds % 60
   val timerString = String.format("%02d:%02d", minutes, seconds)
   val stateText = when (session.state) {
-    CallSessionState.DIALING -> "Connecting securely..."
-    CallSessionState.RINGING -> "Ringing..."
+    CallSessionState.DIALING -> "Dialing…"
+    CallSessionState.RINGING -> "Ringing…"
     CallSessionState.CONNECTED -> timerString
     CallSessionState.ENDED -> "Call ended"
     CallSessionState.IDLE -> ""
   }
   val connected = session.state == CallSessionState.CONNECTED
-  val transition = androidx.compose.animation.core.updateTransition(
-    targetState = connected,
-    label = "active_call_connection_state"
-  )
-  val avatarScale by transition.animateFloat(
-    transitionSpec = { spring(dampingRatio = 0.72f, stiffness = 260f) },
-    label = "active_call_avatar_scale"
-  ) { if (it) 1f else 0.92f }
+  val initials = (session.contactName?.trim()?.split(Regex("\\s+"))
+    ?.take(2)?.mapNotNull { it.firstOrNull()?.toString() }?.joinToString("")
+    ?.takeIf { it.isNotBlank() }
+    ?: session.phoneNumber.filter { it.isLetterOrDigit() }.take(2).ifBlank { "LC" }).uppercase()
 
   Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Box(
       modifier = Modifier
         .fillMaxSize()
-        .background(
-          Brush.verticalGradient(
-            listOf(Color(0xFF142019), MaterialTheme.colorScheme.background, Color(0xFF070807))
-          )
-        )
+        .background(Brush.verticalGradient(listOf(Color(0xFF142019), MaterialTheme.colorScheme.background, Color(0xFF070807))))
     ) {
       Column(
         modifier = Modifier
           .fillMaxSize()
           .windowInsetsPadding(WindowInsets.statusBars)
-          .padding(horizontal = 28.dp, vertical = 30.dp),
+          .padding(horizontal = 22.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
       ) {
         Column(
+          modifier = Modifier.fillMaxWidth(),
           horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.spacedBy(10.dp)
+          verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
           Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -409,216 +402,134 @@ fun ActiveCallScreen(
           ) {
             Box(Modifier.size(7.dp).clip(CircleShape).background(CallGreen))
             Text(
-              "LINE CALL  ·  PRIVATE VOICE",
-              style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.1.sp
-              ),
+              "LINE CALL",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp),
               color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.86f)
             )
           }
-          androidx.compose.animation.AnimatedContent(
-            targetState = stateText,
-            transitionSpec = {
-              (androidx.compose.animation.fadeIn(tween(220)) +
-                androidx.compose.animation.slideInVertically(
-                  animationSpec = tween(260),
-                  initialOffsetY = { it / 3 }
-                )) togetherWith
-                androidx.compose.animation.fadeOut(tween(140))
-            },
-            label = "call_status_text"
-          ) { text ->
-            Text(
-              text = text,
-              style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = if (connected) 1.4.sp else 0.3.sp
-              ),
-              color = if (connected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.66f),
-              modifier = Modifier.testTag("call_duration_timer")
-            )
-          }
-        }
 
-        Column(
-          horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.spacedBy(15.dp)
-        ) {
-          Box(
-            modifier = Modifier.size(196.dp),
-            contentAlignment = Alignment.Center
+          Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(30.dp),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.055f),
+            shadowElevation = 0.dp
           ) {
-            if (connected) {
-              val pulse = androidx.compose.animation.core.rememberInfiniteTransition(
-                label = "connected_avatar_pulse"
-              )
-              val ringScale by pulse.animateFloat(
-                initialValue = 0.96f,
-                targetValue = 1.10f,
-                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                  animation = tween(1800, easing = FastOutSlowInEasing),
-                  repeatMode = RepeatMode.Reverse
-                ),
-                label = "connected_avatar_ring"
-              )
-              Box(
-                Modifier.size(168.dp).scale(ringScale)
-                  .border(1.dp, CallGreen.copy(alpha = 0.20f), CircleShape)
-              )
-              Box(
-                Modifier.size(144.dp).border(
-                  1.dp, CallGreen.copy(alpha = 0.12f), CircleShape
-                )
-              )
-            }
-            Box(
+            Column(
               modifier = Modifier
-                .size(122.dp)
-                .scale(avatarScale)
-                .clip(CircleShape)
-                .background(
-                  Brush.linearGradient(
-                    listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.surfaceVariant)
-                  )
-                )
-                .border(2.dp, CallGreen.copy(alpha = if (connected) 0.62f else 0.30f), CircleShape),
-              contentAlignment = Alignment.Center
+                .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f), RoundedCornerShape(30.dp))
+                .padding(horizontal = 20.dp, vertical = 22.dp),
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-              val initials = (session.contactName?.trim()?.split(Regex("\\s+"))
-                ?.take(2)?.mapNotNull { it.firstOrNull()?.toString() }?.joinToString("")
-                ?.takeIf { it.isNotBlank() }
-                ?: session.phoneNumber.filter { it.isLetterOrDigit() }.take(2).ifBlank { "LC" })
-                .uppercase()
-              Text(
-                initials,
-                style = MaterialTheme.typography.headlineLarge.copy(
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 39.sp
-                ),
-                color = MaterialTheme.colorScheme.onBackground
-              )
-            }
-          }
-
-          Text(
-            text = session.contactName?.takeIf { it.isNotBlank() } ?: "Line Call user",
-            style = MaterialTheme.typography.headlineMedium.copy(
-              fontWeight = FontWeight.Bold,
-              fontSize = 28.sp
-            ),
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-            maxLines = 2
-          )
-          Text(
-            text = session.phoneNumber,
-            style = MaterialTheme.typography.bodyLarge.copy(
-              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.60f),
-              fontWeight = FontWeight.Medium
-            ),
-            textAlign = TextAlign.Center
-          )
-          androidx.compose.animation.AnimatedVisibility(
-            visible = connected,
-            enter = androidx.compose.animation.fadeIn(tween(300)) +
-              androidx.compose.animation.expandVertically(tween(320)),
-            exit = androidx.compose.animation.fadeOut(tween(120)) +
-              androidx.compose.animation.shrinkVertically(tween(180))
-          ) {
-            ActiveCallWaveform()
-          }
-        }
-
-        Column(
-          modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-          horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.spacedBy(28.dp)
-        ) {
-          if (session.state == CallSessionState.ENDED) {
-            Surface(
-              onClick = onRecall,
-              shape = RoundedCornerShape(28.dp),
-              color = CallGreen,
-              shadowElevation = 10.dp,
-              modifier = Modifier.fillMaxWidth(0.78f).height(58.dp).testTag("recall_call_button")
-            ) {
-              Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+              Box(
+                modifier = Modifier
+                  .size(104.dp)
+                  .clip(CircleShape)
+                  .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.surfaceVariant)))
+                  .border(2.dp, CallGreen.copy(alpha = if (connected) 0.72f else 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
               ) {
-                Icon(Icons.Rounded.Phone, contentDescription = null, tint = Color.White)
                 Text(
-                  "Call again",
-                  modifier = Modifier.padding(start = 10.dp),
-                  color = Color.White,
-                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                  initials,
+                  style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, fontSize = 36.sp),
+                  color = MaterialTheme.colorScheme.onBackground
                 )
               }
+              Text(
+                session.contactName?.takeIf { it.isNotBlank() } ?: "Line Call user",
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+                maxLines = 2
+              )
+              Text(
+                session.phoneNumber,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.60f),
+                textAlign = TextAlign.Center
+              )
+              Text(
+                stateText,
+                style = MaterialTheme.typography.titleMedium.copy(
+                  fontWeight = FontWeight.SemiBold,
+                  letterSpacing = if (connected) 1.2.sp else 0.2.sp
+                ),
+                color = if (connected) CallGreen else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
+                modifier = Modifier.testTag("call_duration_timer")
+              )
+              if (connected) ActiveCallWaveform()
             }
-          } else {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceEvenly,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              ActiveCallControl(
-                label = if (session.isMuted) "Unmute" else "Mute",
-                icon = if (session.isMuted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
-                selected = session.isMuted,
-                testTag = "toggle_mute_button",
-                onClick = {
+          }
+        }
+
+        Surface(
+          modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+          shape = RoundedCornerShape(30.dp),
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.055f),
+          shadowElevation = 0.dp
+        ) {
+          Column(
+            modifier = Modifier
+              .border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f), RoundedCornerShape(30.dp))
+              .padding(horizontal = 16.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(22.dp)
+          ) {
+            if (session.state == CallSessionState.ENDED) {
+              Surface(
+                onClick = onRecall,
+                shape = RoundedCornerShape(24.dp),
+                color = CallGreen,
+                modifier = Modifier.fillMaxWidth().height(56.dp).testTag("recall_call_button")
+              ) {
+                Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                  Icon(Icons.Rounded.Phone, contentDescription = null, tint = Color.White)
+                  Text("Call again", modifier = Modifier.padding(start = 10.dp), color = Color.White,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                }
+              }
+            } else {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                ActiveCallControl(
+                  label = if (session.isMuted) "Unmute" else "Mute",
+                  icon = if (session.isMuted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
+                  selected = session.isMuted,
+                  testTag = "toggle_mute_button"
+                ) {
                   view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                   onMuteToggle()
                 }
-              )
-              ActiveCallControl(
-                label = if (session.isSpeakerOn) "Speaker" else "Earpiece",
-                icon = if (session.isSpeakerOn) Icons.Rounded.VolumeUp else Icons.Rounded.VolumeDown,
-                selected = session.isSpeakerOn,
-                testTag = "toggle_speaker_button",
-                onClick = {
+                ActiveCallControl(
+                  label = if (session.isSpeakerOn) "Speaker on" else "Speaker",
+                  icon = if (session.isSpeakerOn) Icons.Rounded.VolumeUp else Icons.Rounded.VolumeDown,
+                  selected = session.isSpeakerOn,
+                  testTag = "toggle_speaker_button"
+                ) {
                   view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                   onSpeakerToggle()
                 }
-              )
-            }
-
-            val endInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            val endPressed by endInteraction.collectIsPressedAsState()
-            val endScale by androidx.compose.animation.core.animateFloatAsState(
-              targetValue = if (endPressed) 0.90f else 1f,
-              animationSpec = spring(dampingRatio = 0.58f, stiffness = 520f),
-              label = "end_call_press_scale"
-            )
-            Surface(
-              onClick = {
-                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                onEndCall()
-              },
-              interactionSource = endInteraction,
-              shape = CircleShape,
-              color = CallRed,
-              shadowElevation = 12.dp,
-              modifier = Modifier.size(76.dp).graphicsLayer {
-                scaleX = endScale
-                scaleY = endScale
-              }.testTag("end_call_button")
-            ) {
-              Box(contentAlignment = Alignment.Center) {
-                Icon(
-                  imageVector = Icons.Rounded.CallEnd,
-                  contentDescription = "End call",
-                  tint = Color.White,
-                  modifier = Modifier.size(34.dp)
-                )
+              }
+              Surface(
+                onClick = {
+                  view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                  onEndCall()
+                },
+                shape = RoundedCornerShape(28.dp),
+                color = CallRed,
+                shadowElevation = 8.dp,
+                modifier = Modifier.fillMaxWidth(0.78f).height(58.dp).testTag("end_call_button")
+              ) {
+                Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                  Icon(Icons.Rounded.CallEnd, contentDescription = "End call", tint = Color.White, modifier = Modifier.size(25.dp))
+                  Text("End call", modifier = Modifier.padding(start = 10.dp),
+                    color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                }
               }
             }
-            Text(
-              "End call",
-              style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-              color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
-            )
           }
         }
       }
