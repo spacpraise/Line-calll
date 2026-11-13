@@ -217,6 +217,29 @@ class CallingService(
     }
   }
 
+  /**
+   * Restores the exact call selected by the notification Answer action into the
+   * app's one call engine. This prevents a helper service from creating a
+   * second LiveKit room while the UI is opening.
+   */
+  fun answerIncomingCallById(callId: String, callerName: String?, callerPhone: String) {
+    val existing = _activeCall.value
+    if (existing?.callId == callId) {
+      if (existing.isIncoming && existing.state == CallSessionState.RINGING) acceptIncomingCall()
+      return
+    }
+    if (existing != null) return
+
+    _activeCall.value = ActiveCallSession(
+      callId = callId,
+      contactName = callerName?.takeIf { it.isNotBlank() },
+      phoneNumber = callerPhone,
+      state = CallSessionState.RINGING,
+      isIncoming = true
+    )
+    acceptIncomingCall()
+  }
+
   fun acceptIncomingCall() {
     val current = _activeCall.value ?: return
     if (!current.isIncoming || current.state != CallSessionState.RINGING) return
