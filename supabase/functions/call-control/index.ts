@@ -320,7 +320,7 @@ Deno.serve(async (req: Request) => {
 
       const ageSeconds = (Date.now() - new Date(incoming.created_at).getTime()) / 1000;
       if (ageSeconds > 45) {
-        await db.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", incoming.id);
+        await db.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", incoming.id).eq("status", "ringing");
         return json({ incoming_call: null });
       }
 
@@ -364,7 +364,7 @@ Deno.serve(async (req: Request) => {
     if (action === "status") {
       let status = call.status;
       if (status === "ringing" && (Date.now() - new Date(call.created_at).getTime()) / 1000 > 45) {
-        await db.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", callId);
+        await db.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", callId).eq("status", "ringing");
         status = "missed";
       }
       return json({ call: { id: call.id, status, accepted_at: call.accepted_at, duration_seconds: call.duration_seconds } });
@@ -386,7 +386,8 @@ Deno.serve(async (req: Request) => {
       const { error } = await db.from("calls").update({
         status: "declined",
         ended_at: new Date().toISOString(),
-      }).eq("id", callId);
+        state_version: (call.state_version ?? 1) + 1,
+      }).eq("id", callId).eq("status", "ringing");
       if (error) throw error;
       return json({ declined: true });
     }
@@ -402,7 +403,7 @@ Deno.serve(async (req: Request) => {
           status: "ended",
           ended_at: now.toISOString(),
           duration_seconds: duration,
-        }).eq("id", callId);
+        }).eq("id", callId).in("status", ["ringing", "accepted"]);
         if (error) throw error;
 
         // Notify the other participant's device to stop ringing and dismiss
