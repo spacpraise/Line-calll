@@ -114,10 +114,11 @@ class CallingService(
                 state = CallSessionState.RINGING,
                 isIncoming = true
               )
-              _activeCall.value = session
-              startIncomingRingtone()
-              watchIncomingCall(session)
-              _callEvents.emit(CallEvent.CallStarted(session))
+              if (_activeCall.compareAndSet(null, session)) {
+                startIncomingRingtone()
+                watchIncomingCall(session)
+                _callEvents.emit(CallEvent.CallStarted(session))
+              }
             }
           }
         }
