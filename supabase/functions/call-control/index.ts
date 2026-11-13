@@ -352,13 +352,9 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "heartbeat") {
-      if (call.status !== "accepted") return json({ error: "This call is no longer active." }, 409);
-      const { error } = await db.from("calls")
-        .update({ last_activity_at: new Date().toISOString(), heartbeat_enabled: true })
-        .eq("id", callId)
-        .eq("status", "accepted");
+      const { data, error } = await db.rpc("transition_line_call", { p_call_id: callId, p_action: "heartbeat", p_device_id: null });
       if (error) throw error;
-      return json({ heartbeat: true });
+      return json(data);
     }
 
     if (action === "status") {
@@ -382,14 +378,9 @@ Deno.serve(async (req: Request) => {
 
     if (action === "decline") {
       if (call.recipient_id !== user.id) return json({ error: "Only the recipient can decline this call." }, 403);
-      if (call.status !== "ringing") return json({ declined: true });
-      const { error } = await db.from("calls").update({
-        status: "declined",
-        ended_at: new Date().toISOString(),
-        state_version: (call.state_version ?? 1) + 1,
-      }).eq("id", callId).eq("status", "ringing");
+      const { data, error } = await db.rpc("transition_line_call", { p_call_id: callId, p_action: "decline", p_device_id: null });
       if (error) throw error;
-      return json({ declined: true });
+      return json({ declined: !!data?.declined, status: data?.status, transitioned: !!data?.transitioned });
     }
 
     if (action === "end") {
