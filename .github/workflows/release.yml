@@ -55,9 +55,12 @@ jobs:
           test -n "$KEY_PASSWORD" || (echo "Missing KEY_PASSWORD repository secret"; exit 1)
           echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           test -s "$KEYSTORE_PATH"
-          echo "Validating keystore format, password, and alias before starting Gradle..."
+          echo "Validating keystore format, store password, alias, and private-key password before starting Gradle..."
           keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -alias upload >/dev/null
-          echo "Keystore file, store password, and upload alias are valid."
+          keytool -certreq -alias upload -file "$RUNNER_TEMP/linecall-signing-check.csr" \
+            -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" >/dev/null
+          rm -f "$RUNNER_TEMP/linecall-signing-check.csr"
+          echo "Keystore and upload private-key credentials are valid."
 
       - name: Run unit tests and build signed release APK
         run: |
