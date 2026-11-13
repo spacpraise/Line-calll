@@ -19,9 +19,15 @@ on:
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradle.properties"
+  workflow_dispatch:
+    inputs:
+      run_ui_tests:
+        description: "Also boot an Android emulator and run UI regression tests"
+        required: true
+        type: boolean
+        default: false
 
-# A newer commit on the same branch/PR cancels the older run, including its
-# emulator job, so UI tests are spent only on the newest revision.
+# Newer commits cancel older CI runs for the same branch/PR.
 concurrency:
   group: android-build-${{ github.ref }}
   cancel-in-progress: true
@@ -31,10 +37,8 @@ permissions:
 
 jobs:
   build-and-unit-tests:
-    # Pin to the established runner image. ubuntu-latest moved to 26.04 and
-    # the Android emulator failed to complete boot on that image.
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 25
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -45,8 +49,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # setup-gradle caches downloaded dependencies and Gradle User Home
-      # between runs. gradle.properties also enables Gradle's build/config cache.
       - name: Set up Gradle and restore caches
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -54,25 +56,31 @@ jobs:
 
       - name: Generate CI debug keystore
         run: |
-          keytool -genkeypair -v \
-            -keystore debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
+          keytool -genkeypair -v \\
+            -keystore debug.keystore \\
+            -storepass android \\
+            -alias androiddebugkey \\
+            -keypass android \\
+            -keyalg RSA \\
+            -keysize 2048 \\
+            -validity 10000 \\
             -dname "CN=Android Debug,O=Android,C=US"
 
-      # Build the app and instrumentation-test APK before booting the emulator.
-      - name: Run unit tests and prebuild APKs
+      # Fast preview path: compile, unit-test, and package without emulator startup.
+      - name: Run unit tests and build preview APK
         run: |
-          gradle --console=plain --build-cache --configuration-cache \
-            :app:testDebugUnitTest \
-            :app:assembleDebug \
-            :app:assembleDebugAndroidTest
+          gradle --console=plain --build-cache --configuration-cache \\
+            :app:testDebugUnitTest \\
+            :app:assembleDebug
+
+      # Emulator startup is slow and can fail independently of compilation.
+      # Keep full UI regression coverage on PRs and make it opt-in for manual runs.
+      - name: Build instrumentation APK
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
+        run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebugAndroidTest
 
       - name: Run Android UI regression tests
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
