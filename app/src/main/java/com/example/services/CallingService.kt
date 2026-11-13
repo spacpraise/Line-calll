@@ -735,6 +735,7 @@ class CallingService(
       endedCallJob?.cancel()
       endedCallJob = null
       _activeCall.value = null
+      _connectionState.value = CallConnectionState.IDLE
     }
   }
 
