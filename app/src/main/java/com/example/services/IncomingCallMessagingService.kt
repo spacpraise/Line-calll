@@ -48,6 +48,8 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
     // Process cancellation even when the app is foregrounded so an existing
     // lock-screen or shade notification is dismissed immediately.
     if (data["type"] == "CALL_ENDED") {
+      IncomingCallLifecycleService.stop(applicationContext, callId)
+      LineCallOngoingCallService.stop(applicationContext)
       notificationManager.cancel(notificationId(callId))
       getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("active_call_id").remove("ring_started_at").apply()
       return
@@ -70,6 +72,13 @@ class IncomingCallMessagingService : FirebaseMessagingService() {
         val remainingRingMs = (expiresAtMs - System.currentTimeMillis()).coerceAtMost(MAX_RING_DURATION_MS)
         if (remainingRingMs <= 0L) return@launch
         val callerPhone = data["caller_phone"]?.takeIf { it.isNotBlank() } ?: "Unknown number"
+        val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: callerPhone
+        val avatarUrl = data["caller_avatar_url"]?.takeIf { it.startsWith("https://") }
+        if (message.priority == RemoteMessage.PRIORITY_HIGH &&
+          IncomingCallLifecycleService.start(
+            applicationContext, callId, callerName, callerPhone, avatarUrl, expiresAtMs
+          )
+        ) return@launch
       val callerName = data["caller_name"]?.takeIf { it.isNotBlank() } ?: callerPhone
       val avatarUrl = data["caller_avatar_url"]?.takeIf { it.startsWith("https://") }
       createCallChannel(notificationManager)
@@ -175,6 +184,7 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
     val callId = intent.getStringExtra("linecall_call_id")?.takeIf { it.isNotBlank() } ?: return
     when (intent.getStringExtra("linecall_call_action")) {
       "decline", "end" -> {
+        IncomingCallLifecycleService.stop(context.applicationContext, callId)
         // Dismiss the local ringing surface immediately. The server update is
         // delivered asynchronously so network latency never leaves a dead
         // Answer/Decline notification on the user's screen.

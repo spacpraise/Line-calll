@@ -56,6 +56,10 @@
             android:name=".services.IncomingCallActionReceiver"
             android:exported="false" />
         <service
+            android:name=".services.IncomingCallLifecycleService"
+            android:exported="false"
+            android:foregroundServiceType="shortService" />
+        <service
             android:name=".services.LineCallOngoingCallService"
             android:exported="false"
             android:foregroundServiceType="microphone" />

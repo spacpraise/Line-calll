@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    IncomingCallLifecycleService.recoverIfNeeded(this)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
     if (pendingIncomingCallIntent != null) {
 

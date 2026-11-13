@@ -379,10 +379,7 @@ class CallingService(
   }
 
   private fun clearIncomingNotification(callId: String) {
-    application.getSystemService(android.app.NotificationManager::class.java)
-      .cancel(IncomingCallMessagingService.notificationId(callId))
-    application.getSharedPreferences(IncomingCallMessagingService.PREFS, android.content.Context.MODE_PRIVATE)
-      .edit().remove("active_call_id").remove("ring_started_at").apply()
+    IncomingCallLifecycleService.stop(application, callId)
   }
 
 
@@ -658,17 +655,15 @@ class CallingService(
   }
 
   private fun startIncomingRingtone() {
-    runCatching {
-      val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-      incomingRingtone = RingtoneManager.getRingtone(application, ringtoneUri)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) incomingRingtone?.isLooping = true
-    incomingRingtone?.play()
-    }
+    val current = _activeCall.value?.takeIf { it.isIncoming && it.state == CallSessionState.RINGING } ?: return
+    IncomingCallLifecycleService.start(
+      application, current.callId, current.contactName.orEmpty(), current.phoneNumber, null,
+      System.currentTimeMillis() + IncomingCallMessagingService.MAX_RING_DURATION_MS
+    )
   }
 
   private fun stopIncomingRingtone() {
-    runCatching { incomingRingtone?.stop() }
-    incomingRingtone = null
+    IncomingCallLifecycleService.stop(application, _activeCall.value?.callId)
   }
 
   private fun startRingbackTone() {
