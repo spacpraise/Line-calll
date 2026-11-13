@@ -1,6 +1,8 @@
 package com.example.ui
 
+import android.Manifest
 import android.app.Application
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -21,6 +23,7 @@ import com.example.data.model.UserAccount
 import com.example.services.CallEvent
 import com.example.services.CallInitiationResult
 import com.example.services.CallingService
+import com.example.services.DeviceContactsImporter
 import com.example.services.LineCallAuthService
 import com.example.services.LineCallSupabaseClient
 import com.example.services.UserProfileService
@@ -34,7 +37,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import java.io.ByteArrayOutputStream
+import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 
@@ -74,13 +80,25 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val authService = LineCallAuthService(supabase)
   val userProfileService = UserProfileService(authService, supabase)
   val callingService = CallingService(application, callRecordDao, userProfileService, supabase, viewModelScope)
+  private val presencePreferences = application.getSharedPreferences("line_call_presence", Application.MODE_PRIVATE)
+  private val presenceDeviceId = presencePreferences.getString("device_id", null) ?: UUID.randomUUID().toString().also {
+    presencePreferences.edit().putString("device_id", it).apply()
+  }
+  private var appIsForeground = false
+  private var presenceJob: Job? = null
 
   private val appLifecycleObserver = LifecycleEventObserver { _, event ->
     when (event) {
       Lifecycle.Event.ON_START -> {
+        appIsForeground = true
         if (userProfileService.currentUser.value != null) callingService.startIncomingCallPolling()
+        startPresenceHeartbeat()
       }
-      Lifecycle.Event.ON_STOP -> callingService.stopIncomingCallPolling()
+      Lifecycle.Event.ON_STOP -> {
+        appIsForeground = false
+        callingService.stopIncomingCallPolling()
+        stopPresenceHeartbeat()
+      }
       else -> Unit
     }
   }
@@ -186,11 +204,18 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   private val _favoritesViewAsList = MutableStateFlow(false)
   val favoritesViewAsList: StateFlow<Boolean> = _favoritesViewAsList.asStateFlow()
 
+  private val _contactSyncStatus = MutableStateFlow("")
+  val contactSyncStatus: StateFlow<String> = _contactSyncStatus.asStateFlow()
+
   init {
     ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycleObserver)
     viewModelScope.launch {
       userProfileService.currentUser.collect { user ->
-        if (user != null) syncFcmToken(user)
+        if (user != null) {
+          syncFcmToken(user)
+          syncRegisteredContacts()
+          startPresenceHeartbeat()
+        }
       }
     }
     viewModelScope.launch {
@@ -746,6 +771,96 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     _contactSearchQuery.value = query
   }
 
+  fun importDeviceContacts() {
+    val app = getApplication<Application>()
+    if (app.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+      _contactSyncStatus.value = "Allow contact access to import your phone contacts."
+      return
+    }
+    viewModelScope.launch(Dispatchers.IO) {
+      runCatching {
+        val imported = DeviceContactsImporter.read(app, _selectedCountry.value.dialCode)
+        imported.forEach { incoming ->
+          val existing = contactDao.getContactByPhone(incoming.phoneNumber)
+          contactDao.insertContact(incoming.copy(
+            id = existing?.id ?: 0L,
+            isFavorite = existing?.isFavorite ?: false,
+            note = existing?.note.orEmpty(),
+            registeredUserId = existing?.registeredUserId,
+            isRegistered = existing?.isRegistered ?: false,
+            presence = existing?.presence ?: "offline"
+          ))
+        }
+        _contactSyncStatus.value = "Imported ${imported.size} phone contacts."
+        refreshRegisteredContacts()
+      }.onFailure { error ->
+        Log.w("LineCallContacts", "Phone contacts import failed.", error)
+        _contactSyncStatus.value = error.message ?: "Could not import phone contacts."
+      }
+    }
+  }
+
+  fun syncRegisteredContacts() {
+    viewModelScope.launch(Dispatchers.IO) { refreshRegisteredContacts() }
+  }
+
+  private suspend fun refreshRegisteredContacts() {
+    val local = contactDao.getAllContactsSnapshot()
+    if (local.isEmpty() || userProfileService.currentUser.value == null) return
+    try {
+      val matchedByPhone = HashMap<String, org.json.JSONObject>()
+      val matchedByEmail = HashMap<String, org.json.JSONObject>()
+      local.chunked(400).forEach { batch ->
+        val rows = supabase.discoverContacts(
+          batch.map { it.phoneNumber }.filter { it.startsWith("+") }.distinct(),
+          batch.map { it.email.trim().lowercase() }.filter { it.contains("@") }.distinct()
+        )
+        rows.forEach { row ->
+          row.optString("phone_number").takeIf { it.isNotBlank() && it != "null" }?.let { matchedByPhone[it] = row }
+          row.optString("email").takeIf { it.isNotBlank() && it != "null" }?.lowercase()?.let { matchedByEmail[it] = row }
+        }
+      }
+      local.forEach { contact ->
+        val match = matchedByPhone[contact.phoneNumber] ?: matchedByEmail[contact.email.trim().lowercase()]
+        val updated = if (match != null) contact.copy(
+          isRegistered = true,
+          registeredUserId = match.optString("user_id").takeIf { it.isNotBlank() && it != "null" },
+          presence = match.optString("presence", "offline")
+        ) else contact.copy(isRegistered = false, registeredUserId = null, presence = "offline")
+        if (updated != contact) contactDao.updateContact(updated)
+      }
+      _contactSyncStatus.value = "Contacts are up to date."
+    } catch (error: Exception) {
+      Log.w("LineCallContacts", "Registered contact lookup failed; local contacts remain available.", error)
+      _contactSyncStatus.value = "Couldn't refresh Line Call availability. Your phone contacts are still available."
+    }
+  }
+
+  private fun startPresenceHeartbeat() {
+    if (!appIsForeground || presenceJob?.isActive == true) return
+    presenceJob = viewModelScope.launch(Dispatchers.IO) {
+      while (isActive) {
+        if (userProfileService.currentUser.value == null) break
+        val state = if (callingService.activeCall.value?.state == com.example.data.model.CallSessionState.CONNECTED) "in_call" else "online"
+        runCatching { supabase.updatePresence(presenceDeviceId, state) }
+          .onFailure { Log.w("LineCallPresence", "Presence heartbeat failed.", it) }
+        delay(45_000L)
+        refreshRegisteredContacts()
+      }
+    }
+  }
+
+  private fun stopPresenceHeartbeat() {
+    presenceJob?.cancel()
+    presenceJob = null
+    if (userProfileService.currentUser.value != null) {
+      viewModelScope.launch(Dispatchers.IO) {
+        runCatching { supabase.clearPresence(presenceDeviceId) }
+          .onFailure { Log.w("LineCallPresence", "Could not clear presence on background.", it) }
+      }
+    }
+  }
+
   fun addContact(name: String, phoneNumber: String) {
     val cleanPhone = if (phoneNumber.startsWith("+")) phoneNumber
     else userProfileService.formatToE164(_selectedCountry.value.dialCode, phoneNumber)
@@ -807,6 +922,8 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     viewModelScope.launch {
       callingService.stopIncomingCallPolling()
       userProfileService.currentUser.value?.let { user ->
+        runCatching { supabase.clearPresence(presenceDeviceId) }
+          .onFailure { Log.w("LineCallPresence", "Could not clear presence during sign-out.", it) }
         runCatching { supabase.clearFcmToken(user.id) }
           .onFailure { Log.w("LineCallFCM", "Could not clear device token during sign-out.", it) }
       }
