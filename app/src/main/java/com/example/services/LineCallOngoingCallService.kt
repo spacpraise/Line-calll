@@ -18,10 +18,11 @@ import com.example.data.model.ActiveCallSession
 class LineCallOngoingCallService : Service() {
   override fun onCreate() { super.onCreate(); createChannel() }
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val callId = intent?.getStringExtra(EXTRA_CALL_ID).orEmpty()
-    if (callId.isBlank()) { stopSelf(startId); return START_NOT_STICKY }
-    val callerName = intent.getStringExtra(EXTRA_CALLER_NAME).orEmpty().ifBlank { intent.getStringExtra(EXTRA_CALLER_PHONE).orEmpty() }
-    val callerPhone = intent.getStringExtra(EXTRA_CALLER_PHONE).orEmpty()
+    val callIntent = intent
+    val callId = callIntent?.getStringExtra(EXTRA_CALL_ID).orEmpty()
+    if (callIntent == null || callId.isBlank()) { stopSelf(startId); return START_NOT_STICKY }
+    val callerName = callIntent.getStringExtra(EXTRA_CALLER_NAME).orEmpty().ifBlank { callIntent.getStringExtra(EXTRA_CALLER_PHONE).orEmpty() }
+    val callerPhone = callIntent.getStringExtra(EXTRA_CALLER_PHONE).orEmpty()
     val personBuilder = Person.Builder().setName(callerName.ifBlank { "Line Call" }).setImportant(true)
     if (callerPhone.isNotBlank()) personBuilder.setUri("tel:$callerPhone")
     val person = personBuilder.build()
