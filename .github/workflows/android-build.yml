@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+      KEYSTORE_PATH: ${{ github.event_name != 'pull_request' && format('{0}/my-upload-key.jks', github.workspace) || '' }}
       STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'upload' }}
@@ -135,4 +135,4 @@ jobs:
 
       - name: Remove signing key from runner
         if: always()
-        run: rm -f "$KEYSTORE_PATH"
+        run: |\n          if [ -n "$KEYSTORE_PATH" ]; then rm -f "$KEYSTORE_PATH"; fi
