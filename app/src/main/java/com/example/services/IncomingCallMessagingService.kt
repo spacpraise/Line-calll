@@ -148,18 +148,18 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
           .onFailure { android.util.Log.e("LineCallFCM", "Could not start background answer service.", it) }
       }
       "decline" -> {
+        // Dismiss the local ringing surface immediately. The server update is
+        // delivered asynchronously so network latency never leaves a dead
+        // Answer/Decline notification on the user's screen.
+        context.getSystemService(NotificationManager::class.java)
+          .cancel(IncomingCallMessagingService.notificationId(callId))
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
           try {
             val backend = LineCallSupabaseClient(context.applicationContext)
-            val completed = withTimeoutOrNull(12_000L) {
+            withTimeoutOrNull(12_000L) {
               backend.restoreSession()
               backend.callFunction(JSONObject().put("action", "decline").put("call_id", callId))
-              true
-            } == true
-            if (completed) {
-              context.getSystemService(NotificationManager::class.java)
-                .cancel(IncomingCallMessagingService.notificationId(callId))
               runCatching {
                 com.example.data.local.LineCallDatabase.getDatabase(context.applicationContext)
                   .callRecordDao().insertCallRecord(
@@ -173,11 +173,9 @@ class IncomingCallActionReceiver : android.content.BroadcastReceiver() {
               }.onFailure {
                 android.util.Log.w("LineCallFCM", "Could not save declined incoming call to Recents.", it)
               }
-            } else {
-              android.util.Log.w("LineCallFCM", "Decline action timed out; leaving notification available.")
-            }
+            } ?: android.util.Log.w("LineCallFCM", "Decline request timed out; local notification was still dismissed.")
           } catch (error: Exception) {
-            android.util.Log.e("LineCallFCM", "Could not decline call from notification.", error)
+            android.util.Log.e("LineCallFCM", "Could not notify caller that this call was declined.", error)
           } finally {
             pending.finish()
           }
