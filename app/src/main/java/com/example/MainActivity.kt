@@ -2,6 +2,7 @@ package com.example
 
 import android.Manifest
 import android.content.Intent
+import android.app.NotificationManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -67,6 +68,7 @@ import com.example.ui.settings.SettingsScreen
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.LineCallTheme
 import com.example.update.LineCallUpdateManager
+import com.example.services.IncomingCallMessagingService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -87,7 +89,10 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
-    if (pendingIncomingCallIntent != null) setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
+    if (pendingIncomingCallIntent != null) {
+      dismissIncomingNotification(pendingIncomingCallIntent)
+      setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
+    }
     themeMode = runCatching {
       AppThemeMode.valueOf(
         getSharedPreferences("line_call_preferences", MODE_PRIVATE)
@@ -115,7 +120,10 @@ class MainActivity : ComponentActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
-    if (pendingIncomingCallIntent != null) setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
+    if (pendingIncomingCallIntent != null) {
+      dismissIncomingNotification(pendingIncomingCallIntent)
+      setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
+    }
     if (intent.getBooleanExtra("linecall_install_update", false)) {
       window.decorView.post { LineCallUpdateManager.installPending(this) }
     }
@@ -136,6 +144,13 @@ class MainActivity : ComponentActivity() {
       if (wakeScreen) window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
       else window.clearFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
     }
+  }
+
+  private fun dismissIncomingNotification(callIntent: Intent?) {
+    if (callIntent?.getStringExtra("linecall_call_action") != "answer") return
+    val callId = callIntent.getStringExtra("linecall_call_id") ?: return
+    getSystemService(NotificationManager::class.java)
+      .cancel(IncomingCallMessagingService.notificationId(callId))
   }
 
   fun clearPendingIncomingCallIntent() {
