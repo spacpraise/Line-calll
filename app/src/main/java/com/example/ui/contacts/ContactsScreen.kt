@@ -85,8 +85,16 @@ fun ContactsScreen(
   modifier: Modifier = Modifier
 ) {
   var showBannerTip by remember { mutableStateOf(true) }
-  val favorites = remember(contacts) { contacts.filter { it.isFavorite } }
-  val regularContacts = remember(contacts) { contacts.filter { !it.isFavorite } }
+  var selectedFilter by remember { mutableStateOf("all") }
+  val filteredContacts = remember(contacts, selectedFilter) {
+    when (selectedFilter) {
+      "registered" -> contacts.filter { it.isRegistered }
+      "online" -> contacts.filter { it.presence == "online" }
+      else -> contacts
+    }
+  }
+  val favorites = remember(filteredContacts) { filteredContacts.filter { it.isFavorite } }
+  val regularContacts = remember(filteredContacts) { filteredContacts.filter { !it.isFavorite } }
 
   LazyColumn(
     modifier = modifier
@@ -94,6 +102,28 @@ fun ContactsScreen(
       .padding(horizontal = 16.dp),
     contentPadding = PaddingValues(bottom = 96.dp) // Clearance for floating bottom nav
   ) {
+    item {
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        listOf("all" to "All", "registered" to "Registered", "online" to "Online").forEach { (filter, label) ->
+          Surface(
+            onClick = { selectedFilter = filter },
+            shape = RoundedCornerShape(18.dp),
+            color = if (selectedFilter == filter) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+            modifier = Modifier.testTag("contact_filter_$filter")
+          ) {
+            Text(
+              text = label,
+              color = if (selectedFilter == filter) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+              style = MaterialTheme.typography.labelLarge,
+              modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
+            )
+          }
+        }
+      }
+    }
     // 1. Dismissable Banner Card (Image 1)
     if (showBannerTip && favorites.isNotEmpty()) {
       item {
@@ -292,11 +322,11 @@ fun ContactsScreen(
 
     // Render each contact as its own lazy item so large address books do not
     // compose every row at once.
-    val listToRender = if (searchQuery.isEmpty()) regularContacts else contacts
+    val listToRender = if (searchQuery.isEmpty()) regularContacts else filteredContacts
     if (listToRender.isEmpty()) {
       item {
         Text(
-          text = if (searchQuery.isEmpty()) "No contacts yet" else "No matching contacts",
+          text = if (searchQuery.isEmpty() && selectedFilter == "all") "No contacts yet" else "No matching contacts",
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           style = MaterialTheme.typography.bodyMedium,
           modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
