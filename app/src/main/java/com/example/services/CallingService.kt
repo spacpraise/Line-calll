@@ -334,7 +334,6 @@ class CallingService(
         return CallInitiationResult.Started(session)
       }
       if (_activeCall.value?.callId == pendingId) _activeCall.value = session
-      LineCallTelecom.registerOutgoing(application, session.callId, session.contactName, session.phoneNumber) { endCall() }
       outgoingPollJob?.cancel()
       outgoingPollJob = coroutineScope.launch(Dispatchers.IO) { monitorOutgoingCall(session) }
       CallInitiationResult.Started(session)
@@ -362,6 +361,10 @@ class CallingService(
           }
           "accepted" -> {
             stopRingbackTone()
+            // Core-Telecom requires a valid call notification within five seconds.
+            // Register outgoing calls only once the remote party is ready, after posting it.
+            LineCallOngoingCallService.start(application, session)
+            LineCallTelecom.registerOutgoing(application, session.callId, session.contactName, session.phoneNumber) { endCall() }
             connectToLiveKit(session.callId, session)
             return
           }
