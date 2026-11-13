@@ -373,6 +373,13 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await authClient.rpc("transition_line_call", { p_call_id: callId, p_action: "accept", p_device_id: deviceId });
       if (error) throw error;
       if (!data?.accepted) return json({ error: "This call is no longer available.", call: data }, 409);
+      if (data?.transitioned) {
+        const { data: recipientProfile } = await db.from("profiles").select("fcm_token").eq("id", call.recipient_id).maybeSingle();
+        if (recipientProfile?.fcm_token) {
+          try { await sendCallEndedPush(recipientProfile.fcm_token, callId); }
+          catch (pushError) { console.error("Could not clear answered call notification", pushError); }
+        }
+      }
       return json({ accepted: true, call_id: callId, status: data.status, idempotent: !!data.idempotent });
     }
 
