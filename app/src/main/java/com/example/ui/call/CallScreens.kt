@@ -363,6 +363,7 @@ fun ActiveCallScreen(
   val stateText = when (session.state) {
     CallSessionState.DIALING -> "Dialing…"
     CallSessionState.RINGING -> "Ringing…"
+    CallSessionState.ACCEPTING -> "Answering…"
     CallSessionState.CONNECTED -> timerString
     CallSessionState.ENDED -> "Call ended"
     CallSessionState.IDLE -> ""
