@@ -234,7 +234,7 @@ class CallingService(
       callId = callId,
       contactName = callerName?.takeIf { it.isNotBlank() },
       phoneNumber = callerPhone,
-      state = CallSessionState.RINGING,
+      state = CallSessionState.ACCEPTING,
       isIncoming = true
     )
     acceptIncomingCall()
@@ -242,9 +242,10 @@ class CallingService(
 
   fun acceptIncomingCall() {
     val current = _activeCall.value ?: return
-    if (!current.isIncoming || current.state != CallSessionState.RINGING) return
+    if (!current.isIncoming || current.state !in setOf(CallSessionState.RINGING, CallSessionState.ACCEPTING)) return
     stopIncomingRingtone()
     incomingWatchJob?.cancel()
+    _activeCall.value = current.copy(state = CallSessionState.ACCEPTING)
     coroutineScope.launch(Dispatchers.IO) {
       try {
         supabase.callFunction(JSONObject().put("action", "accept").put("call_id", current.callId))
