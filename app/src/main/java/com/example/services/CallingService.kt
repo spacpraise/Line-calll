@@ -248,7 +248,7 @@ class CallingService(
       callId = callId,
       contactName = callerName?.takeIf { it.isNotBlank() },
       phoneNumber = callerPhone,
-      state = CallSessionState.ACCEPTING,
+      state = CallSessionState.RINGING,
       isIncoming = true
     )
     acceptIncomingCall()
