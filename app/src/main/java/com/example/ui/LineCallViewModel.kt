@@ -832,7 +832,6 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           row.optString("email").takeIf { it.isNotBlank() && it != "null" }?.lowercase()?.let { matchedByEmail[it] = row }
         }
       }
-      var contactsChanged = false
       local.forEach { contact ->
         val match = matchedByPhone[contact.phoneNumber] ?: matchedByEmail[contact.email.trim().lowercase()]
         val updated = if (match != null) contact.copy(
@@ -840,12 +839,8 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
           registeredUserId = match.optString("user_id").takeIf { it.isNotBlank() && it != "null" },
           presence = match.optString("presence", "offline")
         ) else contact.copy(isRegistered = false, registeredUserId = null, presence = "offline")
-        if (updated != contact) {
-          contactDao.updateContact(updated)
-          contactsChanged = true
-        }
+        if (updated != contact) contactDao.updateContact(updated)
       }
-      if (contactsChanged) LocalBackupScheduler.request(getApplication<Application>())
       _contactSyncStatus.value = "Contacts are up to date."
     } catch (error: Exception) {
       Log.w("LineCallContacts", "Registered contact lookup failed; local contacts remain available.", error)
