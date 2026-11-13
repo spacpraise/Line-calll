@@ -17,6 +17,9 @@ interface ContactDao {
   @Query("SELECT * FROM contacts WHERE name LIKE '%' || :query || '%' OR phoneNumber LIKE '%' || :query || '%' ORDER BY name ASC")
   fun searchContacts(query: String): Flow<List<Contact>>
 
+  @Query("SELECT * FROM contacts")
+  suspend fun getAllContactsSnapshot(): List<Contact>
+
   @Query("SELECT * FROM contacts WHERE phoneNumber = :phoneNumber LIMIT 1")
   suspend fun getContactByPhone(phoneNumber: String): Contact?
 
