@@ -135,4 +135,5 @@ jobs:
 
       - name: Remove signing key from runner
         if: always()
-        run: |\n          if [ -n "$KEYSTORE_PATH" ]; then rm -f "$KEYSTORE_PATH"; fi
+        run: |
+          if [ -n "$KEYSTORE_PATH" ]; then rm -f "$KEYSTORE_PATH"; fi
