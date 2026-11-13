@@ -21,6 +21,11 @@ on:
       - "gradle.properties"
   workflow_dispatch:
     inputs:
+      run_unit_tests:
+        description: "Run JVM unit tests in addition to building the APK"
+        required: true
+        type: boolean
+        default: false
       run_ui_tests:
         description: "Also boot an Android emulator and run UI regression tests"
         required: true
@@ -66,12 +71,14 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      # Fast preview path: compile, unit-test, and package without emulator startup.
-      - name: Run unit tests and build preview APK
-        run: |
-          gradle --console=plain --build-cache --configuration-cache \
-            :app:testDebugUnitTest \
-            :app:assembleDebug
+      # Fast default path: package the APK without emulator or test-runner setup.
+      - name: Build preview APK
+        run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebug
+
+      # Keep JVM tests available on PRs and on-demand, without slowing every APK build.
+      - name: Run unit tests
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.run_unit_tests || inputs.run_ui_tests))
+        run: gradle --console=plain --build-cache --configuration-cache :app:testDebugUnitTest
 
       # Emulator startup is slow and can fail independently of compilation.
       # Keep full UI regression coverage on PRs and make it opt-in for manual runs.
