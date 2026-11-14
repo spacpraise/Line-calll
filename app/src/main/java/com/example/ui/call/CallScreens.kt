@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -122,6 +123,7 @@ fun IncomingCallScreen(
         modifier = Modifier
           .fillMaxSize()
           .windowInsetsPadding(WindowInsets.statusBars)
+          .windowInsetsPadding(WindowInsets.navigationBars)
           .padding(horizontal = 28.dp, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
@@ -400,12 +402,13 @@ fun ActiveCallScreen(
     Box(
       modifier = Modifier
         .fillMaxSize()
-        .background(Brush.verticalGradient(listOf(Color(0xFF142019), MaterialTheme.colorScheme.background, Color(0xFF070807))))
+        .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.background, MaterialTheme.colorScheme.background)))
     ) {
       Column(
         modifier = Modifier
           .fillMaxSize()
           .windowInsetsPadding(WindowInsets.statusBars)
+          .windowInsetsPadding(WindowInsets.navigationBars)
           .padding(horizontal = 22.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
