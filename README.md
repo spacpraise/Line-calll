@@ -1,63 +1,83 @@
 # Line Call
 
-Line Call is a native Android internet voice-calling app built with Kotlin and Jetpack Compose.
+Line Call is a native Android internet voice-calling application built with Kotlin and Jetpack Compose.
 
-## Current architecture
+## Current app capabilities
 
-- Android UI: Kotlin, Jetpack Compose, Room
-- Authentication and user profiles: Supabase Auth + PostgREST
-- Authentication: Supabase email-and-password sign-up and sign-in, plus server-mediated phone-number-and-password sign-in
-- Call invitations and call state: Supabase Edge Function `call-control`
-- Voice media: LiveKit Android SDK (WebRTC)
-- Incoming-call detection: Supabase polling while the app is open (no push notifications yet)
-- Phone numbers: E.164 format; phone ownership is explicitly unverified in this release
+- Email/password registration and login, plus phone-number login through server-side Supabase functions.
+- User profiles, local contacts, favorites, and call history.
+- LiveKit/WebRTC voice calls with default Opus negotiation and WebRTC congestion control.
+- Android Core-Telecom integration for system call surfaces, audio focus, call lifecycle, and supported audio endpoints.
+- Incoming-call CallStyle notifications with FCM delivery, a bounded ringing service, and server-state validation.
+- Ongoing-call foreground service for active calls.
+- Audio route selection for earpiece, speaker, wired/USB audio, and supported Bluetooth endpoints.
+- Native WebRTC audio processing with platform echo cancellation/noise suppression when available and WebRTC fallback processing.
+- Network-aware diagnostics: network transport, validated connectivity, link bandwidth estimates, round-trip latency, audio jitter, packet loss, and measured audio throughput.
+- Automatic LiveKit ICE recovery and reconnection handling; the UI exposes reconnecting and connection-quality states.
+- Light, dark, and system appearance modes.
+- Background release checks and in-app APK update installation after Android grants the required install permission.
 
-## Supabase setup
+## Android call integration
 
-Use the existing Supabase project configured in the Android app.
+The app registers calls with AndroidX Core-Telecom. Android remains the authority for system call UI, call endpoints, mute/hold state, and audio routing while a Telecom call is active. The app does not fight Telecom by changing AudioManager routes during a managed call.
 
-Registration is performed by the server-side `register-account` Edge Function. Supabase creates the Auth user only after the user has entered a valid email, created and confirmed a password, supplied a valid international phone number, and pressed Complete registration. The function creates the Auth user and matching profile together, rolls back the Auth user if profile creation fails, and returns a signed-in session. Email confirmation is explicitly set at account creation; the app does not send a verification email.
+Some remote controls, Bluetooth endpoint names, and lock-screen surfaces depend on Android version, OEM behavior, device support, and user permissions. Full-screen incoming-call UI is shown only when Android permits it; users can manage that permission in Android settings.
 
-The app does not use magic links, PKCE email callbacks, or an email-verification screen. No redirect URL is required for email authentication. The login identifier accepts either the registered email address or the registered phone number in E.164 format (for example, `+2348012345678`). Phone login is handled by the `phone-login` Edge Function: it resolves the phone number privately on the server, then delegates password verification and session issuance to Supabase Auth. The function never returns the account email to the device.
+## Voice and network quality
 
-The deployed `call-control`, `phone-login`, and `password-recovery` Edge Functions use the Supabase service-role environment variable server-side. Never put a service-role key in the Android app. Password recovery requires an exact match of the registered email and E.164 phone number in `public.profiles`; only then does the function issue a short-lived Supabase recovery token. The app verifies that token and lets the user set a new password without sending an email or SMS. Attempts are rate-limited using hashed email/phone and IP identifiers in the RLS-protected `password_reset_attempts` table.
+LiveKit Android SDK 2.27.0 supplies the WebRTC voice engine. The app uses the native voice-communication audio path and its platform/WebRTC processing rather than layering a second custom DSP engine over it. Available platform effects and behavior vary by Android version and device manufacturer.
 
-## LiveKit setup
+The app monitors network conditions for visibility and recovery. LiveKit/WebRTC retain control of ICE candidate selection, reconnection, congestion control, and adaptive media behavior. The app does not hard-code a codec or fixed bitrate. Network metrics are diagnostic estimates, not guarantees of call quality.
 
-Create a LiveKit Cloud project and add these Edge Function secrets in Supabase:
+## Backend configuration
 
-- `LIVEKIT_URL` — the project's secure WebSocket URL, such as `wss://your-project.livekit.cloud`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
+The Android app uses the existing Supabase project. Keep service-role credentials and LiveKit API secrets on the server; never embed them in the Android APK.
 
-These credentials must remain server-side. The Edge Function issues short-lived, participant-specific room tokens.
+Required server-side configuration includes the deployed Supabase Edge Functions and their secrets:
 
-## Incoming calls
+- `call-control` — call initiation, status, answer/decline/end, and call-session operations.
+- `phone-login` — private phone-number lookup and password sign-in.
+- `register-account` — account and profile creation after registration is complete.
+- `password-recovery` — validates the registered email and phone before issuing a recovery token.
+- LiveKit URL, API key, and API secret for server-issued room tokens.
+- Firebase Cloud Messaging credentials used by the server to send incoming-call data messages.
 
-Incoming calls are detected through Supabase polling while Line Call is open. The app checks for a new incoming call every 2.5 seconds and uses Supabase call status updates to manage ringing, acceptance, decline, and expiry. This does not guarantee ringing when Android suspends or kills the app. Production-grade background incoming calls require push notifications (for example FCM) and Android call-notification handling. No Firebase project, Firebase SDK, or Firebase service-account key is currently configured.
+The Android project includes `app/google-services.json`; use the matching Firebase project when building and deploying. FCM delivery and full-screen call presentation remain subject to Android background execution, notification, and device-vendor policies.
 
-## User flow
+## Permissions
 
-1. User enters an email address (no account is created yet).
-2. User creates and confirms a password (still no account is created).
-3. User enters an international phone number and presses Complete.
-4. The server creates the Auth user and profile together, then returns a signed-in session. No email confirmation or SMS verification is used.
-5. Users can sign in using either their email address or registered international phone number and password.
-6. Users call other registered Line Call users. The recipient must have Line Call installed, be signed in, and have the app open to receive the current polling-based incoming call alert.
-7. The recipient accepts or declines; accepted calls join a private LiveKit room.
+- Microphone: required to transmit voice during calls; requested when the user starts or answers a call.
+- Notifications: needed for visible incoming-call and update alerts on Android 13+.
+- Full-screen intent: Android may require the user to enable this for lock-screen incoming-call presentation.
+- Contacts: optional; used to import names and numbers from the address book.
+- Bluetooth connect: optional on Android 12+; improves identification of multiple paired call-audio endpoints. Basic call audio remains available without it.
+- Internet and network state: required for account, signalling, media, and network monitoring.
+- Foreground service and wake lock permissions: used for bounded incoming-call handling and active calls.
 
-## Build
+The app includes a Settings shortcut to Android's app-permission screen. Users can revoke optional permissions at any time.
 
-Open the project in Android Studio or Google AI Studio. The GitHub Actions workflow also runs:
+## Build and test
+
+Use Android Studio or the repository's GitHub Actions workflows.
 
 ```bash
 gradle :app:assembleDebug
+gradle :app:testDebugUnitTest
+gradle :app:assembleDebugAndroidTest
+gradle :app:connectedDebugAndroidTest
 ```
+
+Pushes to `main` and pull requests run the debug APK build, JVM unit tests, instrumentation APK build, and Android emulator UI regression tests.
+
+## Release
+
+The current release candidate is **1.02** (versionCode **10200**). See [RELEASING.md](RELEASING.md) for signing and publication steps.
 
 ## Important limitations
 
-- A recipient must have a Line Call account and internet access.
-- Incoming calls are discovered while the recipient app is open. Reliable alerts after Android has suspended or closed the app are not available in this Supabase-only configuration.
-- Without the three LiveKit secrets, call invitations work but audio rooms cannot connect.
-- Phone-number ownership is not verified. Users should only register numbers they control.
-- This release is voice-only; it does not connect to the public telephone network or call ordinary GSM numbers.
+- Line Call is an internet VoIP app. It does not place ordinary cellular/PSTN calls.
+- Both participants need Line Call accounts, internet access, and a supported device/app configuration.
+- Reliable incoming-call presentation depends on FCM delivery, Android notification settings, battery/background policies, and OEM restrictions. Android can suppress full-screen presentation.
+- Bluetooth headset controls, wearable controls, and Android Auto integration vary by Android release and connected device; only controls exposed through Android Telecom are available.
+- Network metrics can be unavailable briefly during call setup, reconnection, or when the peer connection has not produced enough RTP statistics.
+- Real-world audio quality, Bluetooth routing, background delivery, and network handover still require physical-device testing across Android versions and manufacturers.
