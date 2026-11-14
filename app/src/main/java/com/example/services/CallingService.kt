@@ -635,10 +635,14 @@ class CallingService(
             }
           }
           is RoomEvent.ParticipantDisconnected -> {
-            // A full LiveKit reconnect temporarily emits participant-disconnected
-            // events before RoomEvent.Reconnecting. Do not terminate the call here;
-            // terminal call state arrives through Supabase signalling or RoomEvent.Disconnected.
-            android.util.Log.i("LineCall", "Participant detached during room lifecycle: ${event.participant.identity}")
+            if (room.state == Room.State.RECONNECTING) {
+              // LiveKit deliberately removes remote participants during a full ICE
+              // reconnect; preserve the call while its room is being restored.
+              android.util.Log.i("LineCall", "Participant temporarily detached during full reconnect: ${event.participant.identity}")
+            } else if (_activeCall.value?.callId == callId) {
+              // Outside a room reconnect, this is a real remote departure.
+              endCall()
+            }
           }
           is RoomEvent.Disconnected -> {
             if (_activeCall.value?.callId == callId) {
