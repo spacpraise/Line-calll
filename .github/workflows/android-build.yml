@@ -48,7 +48,8 @@ jobs:
       KEYSTORE_PATH: ${{ github.event_name != 'pull_request' && format('{0}/my-upload-key.jks', github.workspace) || '' }}
       STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'upload' }}
+      # v1.03 release workflow used the permanent keystore's upload alias.
+      KEY_ALIAS: upload
     steps:
       - name: Check out source
         uses: actions/checkout@v4
