@@ -15,6 +15,10 @@ import com.example.data.model.CallAudioRoute
 import com.example.data.model.CallSessionState
 import com.example.data.model.CallType
 import io.livekit.android.LiveKit
+import io.livekit.android.LiveKitOverrides
+import io.livekit.android.AudioOptions
+import io.livekit.android.AudioType
+import io.livekit.android.audio.NoAudioHandler
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
@@ -509,7 +513,25 @@ class CallingService(
     val serverUrl = credentials.getString("livekit_url")
     val participantToken = credentials.getString("token")
 
-    val room = LiveKit.create(application.applicationContext)
+    // Core-Telecom is the single owner of call focus and routing whenever its
+    // CallControlScope is active. Disable LiveKit's default AudioSwitchHandler
+    // in that case so it cannot request competing focus or reroute the call.
+    // If Telecom registration is unavailable, retain LiveKit's normal handler
+    // as the compatibility fallback.
+    val liveKitOverrides = if (LineCallTelecom.hasActiveCall()) {
+      LiveKitOverrides(
+        audioOptions = AudioOptions(
+          audioOutputType = AudioType.CallAudioType(),
+          audioHandler = NoAudioHandler()
+        )
+      )
+    } else {
+      LiveKitOverrides()
+    }
+    val room = LiveKit.create(
+      application.applicationContext,
+      overrides = liveKitOverrides
+    )
     liveKitRoom = room
     // Core-Telecom owns communication routing while its CallControlScope is active.
     // Do not also force AudioManager speaker/SCO/communication-device selection.
