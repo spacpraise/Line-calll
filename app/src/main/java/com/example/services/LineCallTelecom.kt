@@ -51,16 +51,20 @@ object LineCallTelecom {
   fun hasActiveCall(): Boolean = callControlScope != null
 
   fun registerIncoming(context: Context, callId: String, callerName: String, callerPhone: String,
-    onAnswer: () -> Unit, onDisconnect: (Int) -> Unit) =
-    register(context, callId, callerName, callerPhone, CallAttributesCompat.DIRECTION_INCOMING, onAnswer, onDisconnect)
+    onAnswer: () -> Unit, onSetActive: suspend () -> Unit = {},
+    onSetInactive: suspend () -> Unit = {}, onDisconnect: (Int) -> Unit) =
+    register(context, callId, callerName, callerPhone, CallAttributesCompat.DIRECTION_INCOMING,
+      onAnswer, onSetActive, onSetInactive, onDisconnect)
 
   fun registerOutgoing(context: Context, callId: String, calleeName: String?, calleePhone: String,
+    onSetActive: suspend () -> Unit = {}, onSetInactive: suspend () -> Unit = {},
     onDisconnect: (Int) -> Unit) =
     register(context, callId, calleeName.orEmpty().ifBlank { calleePhone }, calleePhone,
-      CallAttributesCompat.DIRECTION_OUTGOING, {}, onDisconnect)
+      CallAttributesCompat.DIRECTION_OUTGOING, {}, onSetActive, onSetInactive, onDisconnect)
 
   private fun register(context: Context, callId: String, displayName: String, phone: String,
-    direction: Int, onAnswer: () -> Unit, onDisconnect: (Int) -> Unit) {
+    direction: Int, onAnswer: () -> Unit, onSetActive: suspend () -> Unit,
+    onSetInactive: suspend () -> Unit, onDisconnect: (Int) -> Unit) {
     // Core-Telecom supports Android 8.0+; retain the existing call UI/notification path below that.
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     if (callId.isBlank() || activeCallId == callId) return
@@ -98,8 +102,16 @@ object LineCallTelecom {
           { cause: DisconnectCause ->
             if (localDisconnect) localDisconnect = false else onDisconnect(cause.code)
           },
-          { },
-          { }
+          {
+            // Telecom can request that a held call becomes active again (for
+            // example after a cellular call ends). Restore the app's media path.
+            onSetActive()
+          },
+          {
+            // Telecom can request that this VoIP call be held/inactivated.
+            // The app callback must stop microphone capture and remote playback.
+            onSetInactive()
+          }
         ) {
           callControlScope = this
           launch { currentCallEndpoint.collect { _currentEndpoint.value = it } }
