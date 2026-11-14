@@ -1,42 +1,44 @@
-# Line Call releases
+# Line Call release guide
 
-## Current release version
+## Current release candidate
 
-The app version is read from the Gradle version configuration. The current release target is **1.01** (Android versionCode **10100**).
+- Version name: **1.02**
+- Android versionCode: **10200**
+- Release tag: **v1.02**
+- Application ID: `com.aistudio.linecall.vczr`
 
-Use a tag in the form `v1.01` to publish this version. The release workflow reads the tag, builds the signed APK, and attaches it to a GitHub Release. Future tags such as `v1.02` automatically produce versionName `1.02` and a higher Android versionCode.
+The release workflow reads the version name from the pushed tag. A tag such as `v1.02` produces versionName `1.02` and versionCode `10200`. Future versions must use a higher numeric version and a new tag.
 
-## One-time signing setup
+## Signing requirements
 
-Android only accepts an update over an installed app when the APK is signed with the same signing certificate. Keep the upload keystore safe and backed up. Never commit it to GitHub or send its passwords in chat.
+Android only accepts an update over an existing installation when the APK is signed with the same signing certificate. Keep the upload keystore backed up securely. Never commit it to GitHub or share the key or passwords in chat.
 
-In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
+Repository Actions secrets required by the release workflow:
 
-- `KEYSTORE_BASE64`: base64-encoded contents of your upload keystore file.
-- `STORE_PASSWORD`: keystore password.
-- `KEY_PASSWORD`: private-key password.
+- `KEYSTORE_BASE64` — base64-encoded upload keystore.
+- `STORE_PASSWORD` — keystore password.
+- `KEY_PASSWORD` — private-key password.
+- Optional `KEY_ALIAS` — defaults to `upload`; the release workflow currently validates alias `upload`.
 
-The release workflow expects the key alias to be `upload`. The keystore must be the same one used for every future release.
+The release workflow validates the keystore, alias, and private-key password before building. If validation fails, it stops before publication.
 
-Example command to encode your keystore locally (Windows PowerShell):
-```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes(".\my-upload-key.jks"))
-```
-Copy the output into the `KEYSTORE_BASE64` secret. Do not paste it into a source file.
+## Publish v1.02
 
-## Publish a future version
+1. Confirm the `main` branch CI run passes, including JVM tests and emulator UI tests.
+2. Confirm the same permanent signing key used by previous signed releases is present in the repository secrets.
+3. Create and push the tag `v1.02` at the exact tested `main` commit.
+4. The **Publish Line Call release** workflow runs unit tests and builds the signed release APK.
+5. The workflow creates the GitHub Release if it does not exist and attaches `app-release.apk`; otherwise it replaces that asset.
+6. Download the APK from the release and verify its package name, version name, version code, and signing certificate before distribution.
 
-1. Update the version tag you intend to publish. The current prepared tag is `v1.01`.
-2. Open the repository on GitHub and select **Releases → Draft a new release** only if you are publishing manually; the automated path below is simpler.
-3. Open **Code → Tags** or the repository's **Actions** area and create/push a tag named `v1.01` pointing to the commit you want to release. A pushed `v*` tag automatically starts **Publish Line Call release**.
-4. Open **Actions → Publish Line Call release** and wait for all steps to pass.
-5. Open **Releases** and download the attached `app-release.apk`.
-6. Test the APK on a device before sharing it.
+Do not reuse an existing tag or publish a lower version code. Do not publish a release if the signed release build or tests fail.
 
-For the next update, use the next tag (for example `v1.02`). Do not reuse a tag, and do not decrease the version.
+## In-app updater
 
-## Important distribution notes
+The Android updater checks the latest non-draft, non-prerelease GitHub Release, downloads its APK, verifies the GitHub-provided SHA-256 digest when available, checks the package/version, and retains the downloaded APK until installation is confirmed. Android may require the user to allow Line Call to install unknown apps.
 
-- This repository is currently private. GitHub Releases and their APK assets are therefore private too. The app's unauthenticated in-app updater cannot fetch a private GitHub release. Before distributing to ordinary users, either make the repository public or move the release manifest and APK to a public download host and point the app updater there.
-- The previous CI debug APKs were signed with a CI-generated debug key. A new release keystore will not match those signatures. Users installing this first consistently signed release may need to uninstall the older test APK first; uninstalling can remove local app data. After the first signed release, retain and reuse the same upload keystore for every update.
-- Never publish an APK signed with a different key over an existing installation and never discard the signing keystore.
+The repository is public, so the latest release and APK asset can be read by the in-app updater.
+
+## First consistently signed release
+
+If any installed preview APK was signed with a different certificate, Android will reject an in-place update. The user may need to uninstall that preview and install the signed release. Uninstalling can erase local app data. After the first release signed with the permanent upload key, keep using the same key for all future updates.
