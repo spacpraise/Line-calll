@@ -533,8 +533,17 @@ class CallingService(
       overrides = liveKitOverrides
     )
     liveKitRoom = room
-    // Core-Telecom owns communication routing while its CallControlScope is active.
-    // Do not also force AudioManager speaker/SCO/communication-device selection.
+    // Keep LiveKit's native WebRTC audio pipeline: its JavaAudioDeviceModule
+    // captures with VOICE_COMMUNICATION and enables platform AEC/NS on Android
+    // 10+, with WebRTC's built-in processing path as the fallback. Do not add a
+    // second DSP chain; the SDK's default voice engine also supplies AGC.
+    //
+    // Keep WebRTC's normal Opus negotiation and congestion-control behavior.
+    // Avoid pinning a codec or bitrate: the transport adapts voice packets to
+    // current network conditions.
+    //
+    // Core-Telecom owns communication focus/routing while its CallControlScope
+    // is active. Do not let LiveKit's AudioSwitchHandler compete for either.
     if (!LineCallTelecom.hasActiveCall()) {
       audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
       applyDefaultAudioRoute()
@@ -561,6 +570,15 @@ class CallingService(
           }
           is RoomEvent.Reconnected -> {
             if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.CONNECTED
+            // Restore the intended microphone state after a network interruption
+            // without undoing app mute or a Telecom hold.
+            runCatching {
+              room.localParticipant.setMicrophoneEnabled(
+                !(_activeCall.value?.isMuted ?: false) && !telecomMuted && !telecomInactive
+              )
+            }.onFailure {
+              _callEvents.emit(CallEvent.Error("Could not restore microphone after reconnect."))
+            }
             coroutineScope.launch(Dispatchers.IO) {
               runCatching { supabase.callFunction(JSONObject().put("action", "signal")
                 .put("call_id", callId).put("signal_type", "reconnection_completed")) }
