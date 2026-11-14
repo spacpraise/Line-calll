@@ -16,7 +16,12 @@ import com.example.data.model.ActiveCallSession
 
 /** Reuses the incoming notification ID and upgrades it to Android's ongoing CallStyle. */
 class LineCallOngoingCallService : Service() {
-  override fun onCreate() { super.onCreate(); createChannel() }
+  override fun onCreate() {
+    super.onCreate()
+    createChannel()
+    // Keep the Telecom manager available from the foreground call lifecycle.
+    LineCallTelecom.initialize(this)
+  }
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     val callIntent = intent
     val callId = callIntent?.getStringExtra(EXTRA_CALL_ID).orEmpty()
@@ -43,8 +48,17 @@ class LineCallOngoingCallService : Service() {
       .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(openApp)
       .setStyle(NotificationCompat.CallStyle.forOngoingCall(person, hangup)).build()
     val id = IncomingCallMessagingService.notificationId(callId)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-    else startForeground(id, notification)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      startForeground(
+        id,
+        notification,
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+      )
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+    } else {
+      startForeground(id, notification)
+    }
     return START_NOT_STICKY
   }
   override fun onBind(intent: Intent?): IBinder? = null
