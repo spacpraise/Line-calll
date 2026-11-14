@@ -2,6 +2,7 @@ package com.example.services
 
 import android.app.Application
 import android.media.AudioManager
+import android.net.ConnectivityManager
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.os.Build
@@ -22,6 +23,7 @@ import io.livekit.android.AudioType
 import io.livekit.android.audio.NoAudioHandler
 import io.livekit.android.audio.AudioFocusHandler
 import io.livekit.android.events.RoomEvent
+import io.livekit.android.room.types.ConnectionQuality
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.RemoteTrackPublication
@@ -72,6 +74,10 @@ class CallingService(
   val activeCall: StateFlow<ActiveCallSession?> = _activeCall.asStateFlow()
   private val _connectionState = MutableStateFlow(CallConnectionState.IDLE)
   val connectionState: StateFlow<CallConnectionState> = _connectionState.asStateFlow()
+  private val callNetworkMonitor = CallNetworkMonitor(
+    application.getSystemService(ConnectivityManager::class.java), coroutineScope
+  )
+  val networkSnapshot: StateFlow<CallNetworkSnapshot> = callNetworkMonitor.snapshot
 
   private val _callEvents = MutableSharedFlow<CallEvent>()
   val callEvents: SharedFlow<CallEvent> = _callEvents.asSharedFlow()
@@ -574,6 +580,7 @@ class CallingService(
     }
 
     room.connect(serverUrl, participantToken)
+    callNetworkMonitor.start(room)
     runCatching {
       supabase.callFunction(JSONObject().put("action", "signal")
         .put("call_id", callId).put("signal_type", "connection_established"))
@@ -589,6 +596,7 @@ class CallingService(
       room.events.collect { event ->
         when (event) {
           is RoomEvent.Reconnecting -> {
+            callNetworkMonitor.setReconnecting(true)
             if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.RECONNECTING
             coroutineScope.launch(Dispatchers.IO) {
               runCatching { supabase.callFunction(JSONObject().put("action", "signal")
@@ -596,6 +604,7 @@ class CallingService(
             }
           }
           is RoomEvent.Reconnected -> {
+            callNetworkMonitor.setReconnecting(false)
             if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.CONNECTED
             // Restore the intended microphone state after a network interruption
             // without undoing app mute or a Telecom hold.
@@ -605,6 +614,15 @@ class CallingService(
             coroutineScope.launch(Dispatchers.IO) {
               runCatching { supabase.callFunction(JSONObject().put("action", "signal")
                 .put("call_id", callId).put("signal_type", "reconnection_completed")) }
+            }
+          }
+          is RoomEvent.ConnectionQualityChanged -> {
+            if (event.participant.sid == room.localParticipant.sid) {
+              callNetworkMonitor.setConnectionQuality(event.quality.name)
+              if (event.quality == ConnectionQuality.Lost) {
+                callNetworkMonitor.setReconnecting(true)
+                if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.RECONNECTING
+              }
             }
           }
           is RoomEvent.TrackPublished -> {
@@ -617,9 +635,10 @@ class CallingService(
             }
           }
           is RoomEvent.ParticipantDisconnected -> {
-            if (_activeCall.value?.callId == callId) {
-              endCall()
-            }
+            // A full LiveKit reconnect temporarily emits participant-disconnected
+            // events before RoomEvent.Reconnecting. Do not terminate the call here;
+            // terminal call state arrives through Supabase signalling or RoomEvent.Disconnected.
+            android.util.Log.i("LineCall", "Participant detached during room lifecycle: ${event.participant.identity}")
           }
           is RoomEvent.Disconnected -> {
             if (_activeCall.value?.callId == callId) {
@@ -983,6 +1002,7 @@ class CallingService(
     incomingWatchJob = null
     liveKitEventsJob?.cancel()
     liveKitEventsJob = null
+    callNetworkMonitor.stop()
     val room = liveKitRoom
     liveKitRoom = null
     endingCallId = null
