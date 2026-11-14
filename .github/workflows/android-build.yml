@@ -35,7 +35,7 @@ on:
 # Keep running emulator tests alive when another commit is pushed. GitHub will queue
 # the newest run instead of cancelling the active build/test jobs.
 concurrency:
-  group: android-build-${{ github.ref }}
+  group: android-build-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 permissions:
