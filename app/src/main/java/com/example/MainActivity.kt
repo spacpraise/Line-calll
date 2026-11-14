@@ -260,6 +260,15 @@ fun LineCallApp(
     else Toast.makeText(context, "Contact access was not granted. You can still add or dial numbers manually.", Toast.LENGTH_LONG).show()
   }
 
+  val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.RequestPermission()
+  ) { granted ->
+    viewModel.refreshAudioRoutes()
+    if (!granted) {
+      Toast.makeText(context, "You can still use available call audio routes. Android may show a generic Bluetooth name.", Toast.LENGTH_LONG).show()
+    }
+  }
+
   LaunchedEffect(currentUser?.id) {
     if (currentUser != null) {
       val preferences = context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE)
@@ -731,7 +740,15 @@ fun LineCallApp(
             audioRoutes = audioRoutes,
             selectedAudioRouteId = selectedAudioRouteId,
             networkSnapshot = networkSnapshot,
-            onRefreshAudioRoutes = { viewModel.refreshAudioRoutes() },
+            onRefreshAudioRoutes = {
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+              ) {
+                bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+              } else {
+                viewModel.refreshAudioRoutes()
+              }
+            },
             onAudioRouteSelected = { viewModel.selectAudioRoute(it) },
             onEndCall = { viewModel.endCall() },
             onRecall = { viewModel.recallCall(session) }
