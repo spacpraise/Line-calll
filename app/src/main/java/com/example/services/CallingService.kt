@@ -85,6 +85,7 @@ class CallingService(
   private var liveKitRoom: Room? = null
   @Volatile private var telecomMuted = false
   @Volatile private var telecomInactive = false
+  @Volatile private var audioFocusInterrupted = false
   private val telecomPausedAudioPublications = ConcurrentHashMap.newKeySet<RemoteTrackPublication>()
   private var liveKitEventsJob: Job? = null
   private var endingCallId: String? = null
@@ -518,8 +519,8 @@ class CallingService(
     // Core-Telecom is the single owner of call focus and routing whenever its
     // CallControlScope is active. Disable LiveKit's default AudioSwitchHandler
     // in that case so it cannot request competing focus or reroute the call.
-    // If Telecom registration is unavailable, retain LiveKit's normal handler
-    // as the compatibility fallback.
+    // If Telecom registration is unavailable, use a focus-only handler; the
+    // legacy AudioManager route code below remains the sole routing fallback.
     val telecomOwnsAudio = LineCallTelecom.hasActiveCall()
     val audioHandler = if (telecomOwnsAudio) {
       // Telecom owns focus and endpoint routing for registered calls.
@@ -532,6 +533,17 @@ class CallingService(
         audioStreamType = AudioManager.STREAM_VOICE_CALL
         audioAttributeUsageType = AudioAttributes.USAGE_VOICE_COMMUNICATION
         audioAttributeContentType = AudioAttributes.CONTENT_TYPE_SPEECH
+        onAudioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { change ->
+          when (change) {
+            AudioManager.AUDIOFOCUS_LOSS,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> coroutineScope.launch {
+              setAudioFocusInterrupted(true)
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> coroutineScope.launch {
+              setAudioFocusInterrupted(false)
+            }
+          }
+        }
       }
     }
     val liveKitOverrides = LiveKitOverrides(
@@ -566,7 +578,10 @@ class CallingService(
       supabase.callFunction(JSONObject().put("action", "signal")
         .put("call_id", callId).put("signal_type", "connection_established"))
     }
-    room.localParticipant.setMicrophoneEnabled(!(_activeCall.value?.isMuted ?: false) && !telecomMuted && !telecomInactive)
+    room.localParticipant.setMicrophoneEnabled(
+      !(_activeCall.value?.isMuted ?: false) && !telecomMuted &&
+        !telecomInactive && !audioFocusInterrupted
+    )
     LineCallOngoingCallService.start(application, session)
 
     liveKitEventsJob?.cancel()
@@ -584,12 +599,8 @@ class CallingService(
             if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.CONNECTED
             // Restore the intended microphone state after a network interruption
             // without undoing app mute or a Telecom hold.
-            runCatching {
-              room.localParticipant.setMicrophoneEnabled(
-                !(_activeCall.value?.isMuted ?: false) && !telecomMuted && !telecomInactive
-              )
-            }.onFailure {
-              _callEvents.emit(CallEvent.Error("Could not restore microphone after reconnect."))
+            runCatching { applyCallAudioInterruptionState() }.onFailure {
+              _callEvents.emit(CallEvent.Error("Could not restore call audio after reconnect."))
             }
             coroutineScope.launch(Dispatchers.IO) {
               runCatching { supabase.callFunction(JSONObject().put("action", "signal")
@@ -600,7 +611,7 @@ class CallingService(
             // A track may be announced while Telecom has this call on hold.
             // Disable it immediately so held calls do not resume playback early.
             val publication = event.publication as? RemoteTrackPublication
-            if (telecomInactive && publication?.kind == Track.Kind.AUDIO) {
+            if ((telecomInactive || audioFocusInterrupted) && publication?.kind == Track.Kind.AUDIO) {
               publication.setEnabled(false)
               telecomPausedAudioPublications.add(publication)
             }
@@ -643,7 +654,8 @@ class CallingService(
   }
 
   private fun applyMicrophoneMute() {
-    val shouldEnableMicrophone = !(_activeCall.value?.isMuted ?: false) && !telecomMuted && !telecomInactive
+    val shouldEnableMicrophone = !(_activeCall.value?.isMuted ?: false) &&
+      !telecomMuted && !telecomInactive && !audioFocusInterrupted
     coroutineScope.launch {
       runCatching { liveKitRoom?.localParticipant?.setMicrophoneEnabled(shouldEnableMicrophone) }
         .onFailure { _callEvents.emit(CallEvent.Error("Could not update microphone mute state.")) }
@@ -657,15 +669,18 @@ class CallingService(
    */
   private suspend fun setCallActiveFromTelecom(active: Boolean) {
     telecomInactive = !active
-    if (active) {
-      telecomPausedAudioPublications.toList().forEach { publication ->
-        runCatching { publication.setEnabled(true) }
-      }
-      telecomPausedAudioPublications.clear()
-      liveKitRoom?.localParticipant?.setMicrophoneEnabled(
-        !(_activeCall.value?.isMuted ?: false) && !telecomMuted
-      )
-    } else {
+    applyCallAudioInterruptionState()
+  }
+
+  /** Applies Telecom holds and transient focus interruptions to both media directions. */
+  private suspend fun setAudioFocusInterrupted(interrupted: Boolean) {
+    audioFocusInterrupted = interrupted
+    applyCallAudioInterruptionState()
+  }
+
+  private suspend fun applyCallAudioInterruptionState() {
+    val interrupted = telecomInactive || audioFocusInterrupted
+    if (interrupted) {
       liveKitRoom?.localParticipant?.setMicrophoneEnabled(false)
       liveKitRoom?.remoteParticipants?.values?.forEach { participant ->
         participant.trackPublications.values.forEach { publication ->
@@ -676,6 +691,14 @@ class CallingService(
           }
         }
       }
+    } else {
+      telecomPausedAudioPublications.toList().forEach { publication ->
+        runCatching { publication.setEnabled(true) }
+      }
+      telecomPausedAudioPublications.clear()
+      liveKitRoom?.localParticipant?.setMicrophoneEnabled(
+        !(_activeCall.value?.isMuted ?: false) && !telecomMuted
+      )
     }
   }
 
@@ -966,6 +989,7 @@ class CallingService(
     if (room != null) coroutineScope.launch { runCatching { room.disconnect() } }
     LineCallOngoingCallService.stop(application)
     telecomInactive = false
+    audioFocusInterrupted = false
     telecomPausedAudioPublications.clear()
     if (!keepEndedSession) {
       _activeCall.value = null
