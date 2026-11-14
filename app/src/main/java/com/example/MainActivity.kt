@@ -650,11 +650,17 @@ fun LineCallApp(
 
     if (showFullScreenPermissionPrompt) {
       AlertDialog(
-        onDismissRequest = {\n          context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE).edit()\n            .putBoolean("full_screen_permission_prompted", true).apply()\n          showFullScreenPermissionPrompt = false\n        },
+        onDismissRequest = {
+          context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE).edit()
+            .putBoolean("full_screen_permission_prompted", true).apply()
+          showFullScreenPermissionPrompt = false
+        },
         title = { Text("Allow incoming calls over the lock screen") },
         text = { Text("Android currently blocks Line Call from opening its incoming-call screen over your locked phone. Allow full-screen notifications so incoming calls can wake the screen and show Answer and Decline.") },
         confirmButton = {
           Button(onClick = {
+            context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE).edit()
+              .putBoolean("full_screen_permission_prompted", true).apply()
             showFullScreenPermissionPrompt = false
             if (Build.VERSION.SDK_INT >= 34) {
               runCatching {
@@ -667,11 +673,14 @@ fun LineCallApp(
           }) { Text("Open Android setting") }
         },
         dismissButton = {
-          TextButton(onClick = {\n            context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE).edit()\n              .putBoolean("full_screen_permission_prompted", true).apply()\n            showFullScreenPermissionPrompt = false\n          }) { Text("Not now") }
+          TextButton(onClick = {
+            context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE).edit()
+              .putBoolean("full_screen_permission_prompted", true).apply()
+            showFullScreenPermissionPrompt = false
+          }) { Text("Not now") }
         }
       )
     }
-
     if (showUpdatePrompt && LineCallUpdateManager.hasPendingUpdate(context)) {
       AlertDialog(
         onDismissRequest = { showUpdatePrompt = false },
