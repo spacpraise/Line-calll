@@ -38,7 +38,9 @@ object LineCallTelecom {
   @Synchronized private fun manager(context: Context): CallsManager {
     callsManager?.let { return it }
     return CallsManager(context.applicationContext).also {
-      it.registerAppWithTelecom(CallsManager.CAPABILITY_BASELINE)
+      // Prefer Android's transactional Telecom API on Android 14+ while retaining
+      // ConnectionService compatibility on Android 13 and older.
+      it.registerAppWithTelecom(CallsManager.CAPABILITY_BASELINE, Build.VERSION_CODES.TIRAMISU)
       callsManager = it
     }
   }
@@ -76,8 +78,19 @@ object LineCallTelecom {
         manager(context).addCall(
           attributes,
           { _: Int ->
-            telecomAnswered = true
-            onAnswer()
+            // A Telecom surface (watch, headset, car UI or system call screen)
+            // has requested the answer. The app must acknowledge that transition
+            // through CallControlScope before handing the request to its call engine.
+            val control = callControlScope
+              ?: throw IllegalStateException("Telecom call control is not ready to answer")
+            when (val result = control.answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)) {
+              is androidx.core.telecom.CallControlResult.Success -> {
+                telecomAnswered = true
+                onAnswer()
+              }
+              is androidx.core.telecom.CallControlResult.Error ->
+                throw IllegalStateException("Telecom could not answer the call: ${result.errorCode}")
+            }
           },
           { cause: DisconnectCause ->
             if (localDisconnect) localDisconnect = false else onDisconnect(cause.code)
