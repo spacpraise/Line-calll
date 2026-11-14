@@ -109,7 +109,7 @@ jobs:
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebugAndroidTest
 
       - name: Run Android UI regression tests
-        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
+        if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
