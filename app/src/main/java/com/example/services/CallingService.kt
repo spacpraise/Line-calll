@@ -18,6 +18,8 @@ import io.livekit.android.LiveKit
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
+import io.livekit.android.room.track.RemoteTrackPublication
+import io.livekit.android.room.track.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -76,6 +78,8 @@ class CallingService(
   private val audioManager = application.getSystemService(AudioManager::class.java)
   private var liveKitRoom: Room? = null
   @Volatile private var telecomMuted = false
+  @Volatile private var telecomInactive = false
+  private val telecomPausedAudioPublications = ConcurrentHashMap.newKeySet<RemoteTrackPublication>()
   private var liveKitEventsJob: Job? = null
   private var endingCallId: String? = null
   private var incomingRingtone: Ringtone? = null
@@ -147,10 +151,15 @@ class CallingService(
                 isIncoming = true
               )
               if (_activeCall.compareAndSet(null, session)) {
-                LineCallTelecom.registerIncoming(application, session.callId, session.contactName.orEmpty(), session.phoneNumber,
-                  onAnswer = { LineCallTelecom.incomingAnswerIntent(application, session.callId) }, onDisconnect = { cause ->
+                LineCallTelecom.registerIncoming(
+                  application, session.callId, session.contactName.orEmpty(), session.phoneNumber,
+                  onAnswer = { LineCallTelecom.incomingAnswerIntent(application, session.callId) },
+                  onSetActive = { setCallActiveFromTelecom(true) },
+                  onSetInactive = { setCallActiveFromTelecom(false) },
+                  onDisconnect = { cause ->
                     if (cause == android.telecom.DisconnectCause.REJECTED) declineIncomingCall() else endCall()
-                  })
+                  }
+                )
                 startIncomingRingtone()
                 watchIncomingCall(session)
                 _callEvents.emit(CallEvent.CallStarted(session))
@@ -213,10 +222,15 @@ class CallingService(
             isIncoming = true
           )
           if (_activeCall.compareAndSet(null, session)) {
-            LineCallTelecom.registerIncoming(application, session.callId, session.contactName.orEmpty(), session.phoneNumber,
-              onAnswer = { }, onDisconnect = { cause ->
+            LineCallTelecom.registerIncoming(
+              application, session.callId, session.contactName.orEmpty(), session.phoneNumber,
+              onAnswer = { LineCallTelecom.incomingAnswerIntent(application, session.callId) },
+              onSetActive = { setCallActiveFromTelecom(true) },
+              onSetInactive = { setCallActiveFromTelecom(false) },
+              onDisconnect = { cause ->
                 if (cause == android.telecom.DisconnectCause.REJECTED) declineIncomingCall() else endCall()
-              })
+              }
+            )
             startIncomingRingtone()
             watchIncomingCall(session)
             _callEvents.emit(CallEvent.CallStarted(session))
@@ -367,7 +381,12 @@ class CallingService(
             // Core-Telecom requires a valid call notification within five seconds.
             // Register outgoing calls only once the remote party is ready, after posting it.
             LineCallOngoingCallService.start(application, session)
-            LineCallTelecom.registerOutgoing(application, session.callId, session.contactName, session.phoneNumber) { endCall() }
+            LineCallTelecom.registerOutgoing(
+              application, session.callId, session.contactName, session.phoneNumber,
+              onSetActive = { setCallActiveFromTelecom(true) },
+              onSetInactive = { setCallActiveFromTelecom(false) },
+              onDisconnect = { endCall() }
+            )
             connectToLiveKit(session.callId, session)
             return
           }
@@ -504,7 +523,7 @@ class CallingService(
       supabase.callFunction(JSONObject().put("action", "signal")
         .put("call_id", callId).put("signal_type", "connection_established"))
     }
-    room.localParticipant.setMicrophoneEnabled(!(_activeCall.value?.isMuted ?: false) && !telecomMuted)
+    room.localParticipant.setMicrophoneEnabled(!(_activeCall.value?.isMuted ?: false) && !telecomMuted && !telecomInactive)
     LineCallOngoingCallService.start(application, session)
 
     liveKitEventsJob?.cancel()
@@ -523,6 +542,15 @@ class CallingService(
             coroutineScope.launch(Dispatchers.IO) {
               runCatching { supabase.callFunction(JSONObject().put("action", "signal")
                 .put("call_id", callId).put("signal_type", "reconnection_completed")) }
+            }
+          }
+          is RoomEvent.TrackPublished -> {
+            // A track may be announced while Telecom has this call on hold.
+            // Disable it immediately so held calls do not resume playback early.
+            val publication = event.publication as? RemoteTrackPublication
+            if (telecomInactive && publication?.kind == Track.Kind.AUDIO) {
+              publication.setEnabled(false)
+              telecomPausedAudioPublications.add(publication)
             }
           }
           is RoomEvent.ParticipantDisconnected -> {
@@ -563,10 +591,39 @@ class CallingService(
   }
 
   private fun applyMicrophoneMute() {
-    val shouldEnableMicrophone = !(_activeCall.value?.isMuted ?: false) && !telecomMuted
+    val shouldEnableMicrophone = !(_activeCall.value?.isMuted ?: false) && !telecomMuted && !telecomInactive
     coroutineScope.launch {
       runCatching { liveKitRoom?.localParticipant?.setMicrophoneEnabled(shouldEnableMicrophone) }
         .onFailure { _callEvents.emit(CallEvent.Error("Could not update microphone mute state.")) }
+    }
+  }
+
+  /**
+   * Android Telecom invokes these callbacks when another system call or remote
+   * surface (headset, wearable, or car UI) changes this call's active state.
+   * Holding must stop both microphone capture and incoming audio playback.
+   */
+  private suspend fun setCallActiveFromTelecom(active: Boolean) {
+    telecomInactive = !active
+    if (active) {
+      telecomPausedAudioPublications.toList().forEach { publication ->
+        runCatching { publication.setEnabled(true) }
+      }
+      telecomPausedAudioPublications.clear()
+      liveKitRoom?.localParticipant?.setMicrophoneEnabled(
+        !(_activeCall.value?.isMuted ?: false) && !telecomMuted
+      )
+    } else {
+      liveKitRoom?.localParticipant?.setMicrophoneEnabled(false)
+      liveKitRoom?.remoteParticipants?.values?.forEach { participant ->
+        participant.trackPublications.values.forEach { publication ->
+          val remoteAudio = publication as? RemoteTrackPublication ?: return@forEach
+          if (remoteAudio.kind == Track.Kind.AUDIO) {
+            remoteAudio.setEnabled(false)
+            telecomPausedAudioPublications.add(remoteAudio)
+          }
+        }
+      }
     }
   }
 
@@ -856,6 +913,8 @@ class CallingService(
     endingCallId = null
     if (room != null) coroutineScope.launch { runCatching { room.disconnect() } }
     LineCallOngoingCallService.stop(application)
+    telecomInactive = false
+    telecomPausedAudioPublications.clear()
     if (!keepEndedSession) {
       _activeCall.value = null
       _connectionState.value = CallConnectionState.IDLE
