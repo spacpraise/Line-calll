@@ -94,27 +94,67 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      # Main-branch distributed APKs are signed with the permanent repository key.
+      # Main-branch distributed APKs use the same permanent certificate as v1.03.
       - name: Build preview APK
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebug
 
-      # Build the installable release variant with the same permanent certificate.
       - name: Build signed release APK
         if: github.event_name == 'push'
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleRelease
 
-      # Run JVM tests on every main push and PR; manual runs can opt in.
       - name: Run unit tests
         if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.run_unit_tests || inputs.run_ui_tests))
         run: gradle --console=plain --build-cache --configuration-cache :app:testDebugUnitTest
 
-      # Run emulator UI regression tests on every main push and PR so release candidates are fully checked.
+      - name: Upload debug APK
+        if: always() && (success() || steps.build_preview.outcome == 'success')
+        uses: actions/upload-artifact@v4
+        with:
+          name: line-call-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+        id: upload_debug
+
+      - name: Upload signed release APK
+        if: github.event_name == 'push' && (success() || steps.build_release.outcome == 'success')
+        uses: actions/upload-artifact@v4
+        with:
+          name: line-call-v1.04-release-candidate
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+        id: upload_release
+
+      - name: Remove signing key from runner
+        if: always()
+        run: |
+          if [ -n "$KEYSTORE_PATH" ]; then rm -f "$KEYSTORE_PATH"; fi
+
+  ui-regression-tests:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
+    runs-on: ubuntu-24.04
+    # Emulator boot + instrumentation needs more time than a normal build.
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
       - name: Build instrumentation APK
-        if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebugAndroidTest
 
       - name: Run Android UI regression tests
-        if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -128,25 +168,3 @@ jobs:
             adb wait-for-device
             adb devices -l
             gradle --console=plain --build-cache --configuration-cache :app:connectedDebugAndroidTest
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: line-call-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload signed release APK
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: line-call-v1.04-release-candidate
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Remove signing key from runner
-        if: always()
-        run: |
-          if [ -n "$KEYSTORE_PATH" ]; then rm -f "$KEYSTORE_PATH"; fi
