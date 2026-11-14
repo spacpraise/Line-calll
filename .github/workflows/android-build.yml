@@ -98,6 +98,11 @@ jobs:
       - name: Build preview APK
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebug
 
+      # Build the installable release variant with the same permanent certificate.
+      - name: Build signed release APK
+        if: github.event_name == 'push'
+        run: gradle --console=plain --build-cache --configuration-cache :app:assembleRelease
+
       # Run JVM tests on every main push and PR; manual runs can opt in.
       - name: Run unit tests
         if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.run_unit_tests || inputs.run_ui_tests))
@@ -129,6 +134,15 @@ jobs:
         with:
           name: line-call-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload signed release APK
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: line-call-v1.02-release-candidate
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
 
