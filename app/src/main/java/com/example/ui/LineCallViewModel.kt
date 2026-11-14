@@ -204,6 +204,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+  val networkSnapshot = callingService.networkSnapshot
   val audioRoutes = callingService.audioRoutes
   val selectedAudioRouteId = callingService.selectedAudioRouteId
   fun refreshAudioRoutes() = callingService.refreshAudioRoutes()
