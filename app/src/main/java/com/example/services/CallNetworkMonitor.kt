@@ -49,7 +49,8 @@ class CallNetworkMonitor(
   private var previousReceivedBytes: Long? = null
   private var previousPacketsLost: Long? = null
   private var previousPacketsReceived: Long? = null
-  private var previousSampleAtMs: Long? = null
+  private var previousSentSampleAtMs: Long? = null
+  private var previousReceivedSampleAtMs: Long? = null
   private val registered = AtomicBoolean(false)
 
   private val networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -95,7 +96,8 @@ class CallNetworkMonitor(
     previousReceivedBytes = null
     previousPacketsLost = null
     previousPacketsReceived = null
-    previousSampleAtMs = null
+    previousSentSampleAtMs = null
+    previousReceivedSampleAtMs = null
     _snapshot.value = CallNetworkSnapshot()
   }
 
@@ -144,13 +146,13 @@ class CallNetworkMonitor(
       }
       val sentBytes = outbound.sumOf { (it.members["bytesSent"] as? Number)?.toLong() ?: 0L }
       val now = android.os.SystemClock.elapsedRealtime()
-      val previousTime = previousSampleAtMs
+      val previousTime = previousSentSampleAtMs
       val elapsedSeconds = if (previousTime != null && now > previousTime) (now - previousTime) / 1000.0 else 0.0
       val uploadKbps = if (elapsedSeconds > 0 && previousSentBytes != null && sentBytes >= previousSentBytes!!) {
         (sentBytes - previousSentBytes!!) * 8.0 / elapsedSeconds / 1000.0
       } else null
       previousSentBytes = sentBytes
-      previousSampleAtMs = now
+      previousSentSampleAtMs = now
       val rttSeconds = selectedPair?.members?.get("currentRoundTripTime") as? Number
       _snapshot.value = _snapshot.value.copy(
         roundTripTimeMs = rttSeconds?.toDouble()?.times(1000.0),
@@ -165,7 +167,7 @@ class CallNetworkMonitor(
       val packetsLost = inbound.sumOf { (it.members["packetsLost"] as? Number)?.toLong() ?: 0L }
       val packetsReceived = inbound.sumOf { (it.members["packetsReceived"] as? Number)?.toLong() ?: 0L }
       val now = android.os.SystemClock.elapsedRealtime()
-      val previousTime = previousSampleAtMs
+      val previousTime = previousReceivedSampleAtMs
       val elapsedSeconds = if (previousTime != null && now > previousTime) (now - previousTime) / 1000.0 else 0.0
       val downloadKbps = if (elapsedSeconds > 0 && previousReceivedBytes != null && receivedBytes >= previousReceivedBytes!!) {
         (receivedBytes - previousReceivedBytes!!) * 8.0 / elapsedSeconds / 1000.0
@@ -175,6 +177,7 @@ class CallNetworkMonitor(
       val totalPackets = (lostDelta ?: 0L) + (receivedDelta ?: 0L)
       val lossPercent = if (totalPackets > 0) (lostDelta ?: 0L) * 100.0 / totalPackets else null
       val jitterSeconds = inbound.mapNotNull { it.members["jitter"] as? Number }.maxOfOrNull { it.toDouble() }
+      previousReceivedSampleAtMs = now
       previousReceivedBytes = receivedBytes
       previousPacketsLost = packetsLost
       previousPacketsReceived = packetsReceived
