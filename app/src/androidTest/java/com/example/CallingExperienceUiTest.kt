@@ -74,8 +74,8 @@ class CallingExperienceUiTest {
     }
 
     composeRule.onNodeWithTag("call_network_status").fetchSemanticsNode().performClick()
-    composeRule.onNodeWithText("Connection details").assertExists()
-    composeRule.onNodeWithText("Round-trip latency").assertExists()
-    composeRule.onNodeWithText("Packet loss").assertExists()
+    composeRule.onNodeWithText("Connection details").fetchSemanticsNode()
+    composeRule.onNodeWithText("Round-trip latency").fetchSemanticsNode()
+    composeRule.onNodeWithText("Packet loss").fetchSemanticsNode()
   }
 }
