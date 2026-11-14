@@ -1,6 +1,5 @@
 package com.example
 
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -74,7 +73,7 @@ class CallingExperienceUiTest {
       }
     }
 
-    composeRule.onNodeWithTag("call_network_status").assertExists().performClick()
+    composeRule.onNodeWithTag("call_network_status").fetchSemanticsNode().performClick()
     composeRule.onNodeWithText("Connection details").assertExists()
     composeRule.onNodeWithText("Round-trip latency").assertExists()
     composeRule.onNodeWithText("Packet loss").assertExists()
