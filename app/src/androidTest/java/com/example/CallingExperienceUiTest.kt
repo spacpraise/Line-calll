@@ -23,6 +23,8 @@ class CallingExperienceUiTest {
 
   @Test
   fun incomingCallActionsAreAccessibleByTap() {
+    // Incoming-call rings pulse forever; freeze Compose time so idling never waits for them.
+    composeRule.mainClock.autoAdvance = false
     var accepted = false
     composeRule.setContent {
       LineCallTheme {
@@ -46,6 +48,8 @@ class CallingExperienceUiTest {
 
   @Test
   fun activeCallShowsNetworkDiagnosticsOnDemand() {
+    // The active-call waveform is intentionally infinite; use a deterministic test clock.
+    composeRule.mainClock.autoAdvance = false
     composeRule.setContent {
       LineCallTheme {
         ActiveCallScreen(
@@ -74,6 +78,8 @@ class CallingExperienceUiTest {
     }
 
     composeRule.onNodeWithTag("call_network_status").performClick()
+    // Advance only the diagnostics sheet entrance animation, not the infinite waveform.
+    composeRule.mainClock.advanceTimeBy(800)
     composeRule.onNodeWithText("Connection details").fetchSemanticsNode()
     composeRule.onNodeWithText("Round-trip latency").fetchSemanticsNode()
     composeRule.onNodeWithText("Packet loss").fetchSemanticsNode()
