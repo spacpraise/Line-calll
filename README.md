@@ -71,7 +71,7 @@ Pushes to `main` and pull requests run the debug APK build, JVM unit tests, inst
 
 ## Release
 
-The current release candidate is **1.02** (versionCode **10200**). See [RELEASING.md](RELEASING.md) for signing and publication steps.
+The current release candidate is **1.04** (versionCode **10400**). See [RELEASING.md](RELEASING.md) for signing and publication steps.
 
 ## Important limitations
 
