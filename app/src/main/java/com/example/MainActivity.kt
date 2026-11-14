@@ -246,6 +246,18 @@ fun LineCallApp(
     ActivityResultContracts.RequestPermission()
   ) { }
 
+  fun requestNotificationPermissionIfNeeded() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      val preferences = context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE)
+      if (!preferences.getBoolean("notification_permission_prompted", false)) {
+        preferences.edit().putBoolean("notification_permission_prompted", true).apply()
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+          notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+      }
+    }
+  }
+
   val microphonePermissionLauncher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestPermission()
   ) { granted ->
@@ -258,6 +270,7 @@ fun LineCallApp(
   ) { granted ->
     if (granted) viewModel.importDeviceContacts()
     else Toast.makeText(context, "Contact access was not granted. You can still add or dial numbers manually.", Toast.LENGTH_LONG).show()
+    requestNotificationPermissionIfNeeded()
   }
 
   val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
@@ -276,9 +289,12 @@ fun LineCallApp(
         preferences.edit().putBoolean("contact_import_prompted", true).apply()
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
           viewModel.importDeviceContacts()
+          requestNotificationPermissionIfNeeded()
         } else {
           contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
         }
+      } else {
+        requestNotificationPermissionIfNeeded()
       }
     }
   }
@@ -308,18 +324,6 @@ fun LineCallApp(
       !context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent() &&
       !permissionPreferences.getBoolean("full_screen_permission_prompted", false)
     viewModel.refreshProfileAfterAppResume()
-  }
-
-  LaunchedEffect(currentUser?.id) {
-    if (currentUser != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      val permissionPreferences = context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE)
-      if (!permissionPreferences.getBoolean("notification_permission_prompted", false)) {
-        permissionPreferences.edit().putBoolean("notification_permission_prompted", true).apply()
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-          notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-      }
-    }
   }
 
   // Predictive Back handling
