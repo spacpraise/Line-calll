@@ -16,7 +16,7 @@ android {
     targetSdk = 36
     // Release tags such as v1.01 supply VERSION_NAME in CI. The derived integer
     // versionCode remains monotonic for Android's update comparison.
-    val releaseVersionName = System.getenv("VERSION_NAME")?.removePrefix("v") ?: "1.02"
+    val releaseVersionName = System.getenv("VERSION_NAME")?.removePrefix("v") ?: "1.04"
     val versionParts = releaseVersionName.split(".").map { it.toIntOrNull() ?: 0 }
     versionCode = System.getenv("VERSION_CODE")?.toIntOrNull()
       ?: ((versionParts.getOrNull(0) ?: 1) * 10_000 +
