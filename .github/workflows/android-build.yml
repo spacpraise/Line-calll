@@ -32,11 +32,10 @@ on:
         type: boolean
         default: false
 
-# Keep running emulator tests alive when another commit is pushed. GitHub will queue
-# the newest run instead of cancelling the active build/test jobs.
+# Keep one CI run per branch. A newer commit supersedes an older build.
 concurrency:
-  group: android-build-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: false
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -49,7 +48,6 @@ jobs:
       KEYSTORE_PATH: ${{ github.event_name != 'pull_request' && format('{0}/my-upload-key.jks', github.workspace) || '' }}
       STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      # v1.03 release workflow used the permanent keystore's upload alias.
       KEY_ALIAS: upload
     steps:
       - name: Check out source
@@ -81,8 +79,7 @@ jobs:
             -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" >/dev/null
           rm -f "$RUNNER_TEMP/linecall-signing-check.csr"
           echo "Permanent signing key validated."
-      # Fork pull requests cannot access repository secrets, so use a temporary
-      # debug key only for those non-distributed validation builds.
+
       - name: Generate PR-only debug key
         if: github.event_name == 'pull_request'
         run: |
@@ -96,7 +93,6 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      # Main-branch distributed APKs use the same permanent certificate as v1.03.
       - name: Build preview APK
         id: build_preview
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebug
@@ -135,10 +131,10 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_PATH" ]; then rm -f "$KEYSTORE_PATH"; fi
 
+  # Emulator/UI tests are opt-in only. They never delay the release APK build.
   ui-regression-tests:
-    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_ui_tests
     runs-on: ubuntu-24.04
-    # Emulator boot + instrumentation needs more time than a normal build.
     timeout-minutes: 45
     steps:
       - name: Check out source
@@ -155,8 +151,6 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      # The emulator job is isolated from the signing job, so create a throwaway
-      # debug certificate only for instrumentation builds. It is never distributed.
       - name: Generate UI-test-only debug keystore
         run: |
           keytool -genkeypair -v \
