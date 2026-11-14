@@ -142,6 +142,19 @@ object LineCallTelecom {
   fun endpointForLegacyId(id: Int): CallEndpointCompat? =
     _availableEndpoints.value.firstOrNull { it.identifier.hashCode() == id }
 
+  /** Requests a route through Telecom. UI state is updated only by currentCallEndpoint. */
+  suspend fun selectEndpoint(id: Int): Boolean {
+    val control = callControlScope ?: return false
+    val endpoint = endpointForLegacyId(id) ?: return false
+    return when (val result = control.requestEndpointChange(endpoint)) {
+      is androidx.core.telecom.CallControlResult.Success -> true
+      is androidx.core.telecom.CallControlResult.Error -> {
+        Log.w(TAG, "Telecom endpoint change failed: ${result.errorCode}")
+        false
+      }
+    }
+  }
+
   fun disconnectLocal() {
     val control = callControlScope ?: return
     localDisconnect = true
