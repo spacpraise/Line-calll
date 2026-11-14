@@ -98,15 +98,14 @@ jobs:
       - name: Build preview APK
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebug
 
-      # Keep JVM tests available on PRs and on-demand, without slowing every APK build.
+      # Run JVM tests on every main push and PR; manual runs can opt in.
       - name: Run unit tests
-        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.run_unit_tests || inputs.run_ui_tests))
+        if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.run_unit_tests || inputs.run_ui_tests))
         run: gradle --console=plain --build-cache --configuration-cache :app:testDebugUnitTest
 
-      # Emulator startup is slow and can fail independently of compilation.
-      # Keep full UI regression coverage on PRs and make it opt-in for manual runs.
+      # Run emulator UI regression tests on every main push and PR so release candidates are fully checked.
       - name: Build instrumentation APK
-        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
+        if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_ui_tests)
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebugAndroidTest
 
       - name: Run Android UI regression tests
