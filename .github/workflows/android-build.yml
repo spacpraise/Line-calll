@@ -141,7 +141,7 @@ jobs:
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
-          name: line-call-v1.02-release-candidate
+          name: line-call-v1.04-release-candidate
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
