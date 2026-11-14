@@ -23,7 +23,7 @@ import io.livekit.android.AudioType
 import io.livekit.android.audio.NoAudioHandler
 import io.livekit.android.audio.AudioFocusHandler
 import io.livekit.android.events.RoomEvent
-import io.livekit.android.room.types.ConnectionQuality
+import io.livekit.android.room.participant.ConnectionQuality
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.RemoteTrackPublication
@@ -619,7 +619,7 @@ class CallingService(
           is RoomEvent.ConnectionQualityChanged -> {
             if (event.participant.sid == room.localParticipant.sid) {
               callNetworkMonitor.setConnectionQuality(event.quality.name)
-              if (event.quality == ConnectionQuality.Lost) {
+              if (event.quality == ConnectionQuality.LOST) {
                 callNetworkMonitor.setReconnecting(true)
                 if (_activeCall.value?.callId == callId) _connectionState.value = CallConnectionState.RECONNECTING
               }
