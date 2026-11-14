@@ -75,6 +75,7 @@ class CallingService(
 
   private val audioManager = application.getSystemService(AudioManager::class.java)
   private var liveKitRoom: Room? = null
+  @Volatile private var telecomMuted = false
   private var liveKitEventsJob: Job? = null
   private var endingCallId: String? = null
   private var incomingRingtone: Ringtone? = null
@@ -97,9 +98,11 @@ class CallingService(
   init {
     coroutineScope.launch {
       LineCallTelecom.isMuted.collect { muted ->
-        if (_activeCall.value != null) {
-          runCatching { liveKitRoom?.localParticipant?.setMicrophoneEnabled(!muted) }
-        }
+        // Telecom mute (for example a supported system/headset surface) is
+        // independent of the selected speaker/headset output and combines
+        // safely with the app's own microphone mute.
+        telecomMuted = muted
+        applyMicrophoneMute()
       }
     }
     coroutineScope.launch {
@@ -501,7 +504,7 @@ class CallingService(
       supabase.callFunction(JSONObject().put("action", "signal")
         .put("call_id", callId).put("signal_type", "connection_established"))
     }
-    room.localParticipant.setMicrophoneEnabled(true)
+    room.localParticipant.setMicrophoneEnabled(!(_activeCall.value?.isMuted ?: false) && !telecomMuted)
     LineCallOngoingCallService.start(application, session)
 
     liveKitEventsJob?.cancel()
@@ -556,9 +559,14 @@ class CallingService(
     val current = _activeCall.value ?: return
     val muted = !current.isMuted
     _activeCall.value = current.copy(isMuted = muted)
+    applyMicrophoneMute()
+  }
+
+  private fun applyMicrophoneMute() {
+    val shouldEnableMicrophone = !(_activeCall.value?.isMuted ?: false) && !telecomMuted
     coroutineScope.launch {
-      runCatching { liveKitRoom?.localParticipant?.setMicrophoneEnabled(!muted) }
-        .onFailure { _callEvents.emit(CallEvent.Error("Could not change microphone state.")) }
+      runCatching { liveKitRoom?.localParticipant?.setMicrophoneEnabled(shouldEnableMicrophone) }
+        .onFailure { _callEvents.emit(CallEvent.Error("Could not update microphone mute state.")) }
     }
   }
 
