@@ -2,6 +2,7 @@ package com.example.services
 
 import android.app.Application
 import android.media.AudioManager
+import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.os.Build
 import android.provider.Settings
@@ -19,6 +20,7 @@ import io.livekit.android.LiveKitOverrides
 import io.livekit.android.AudioOptions
 import io.livekit.android.AudioType
 import io.livekit.android.audio.NoAudioHandler
+import io.livekit.android.audio.AudioFocusHandler
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
@@ -518,16 +520,26 @@ class CallingService(
     // in that case so it cannot request competing focus or reroute the call.
     // If Telecom registration is unavailable, retain LiveKit's normal handler
     // as the compatibility fallback.
-    val liveKitOverrides = if (LineCallTelecom.hasActiveCall()) {
-      LiveKitOverrides(
-        audioOptions = AudioOptions(
-          audioOutputType = AudioType.CallAudioType(),
-          audioHandler = NoAudioHandler()
-        )
-      )
+    val telecomOwnsAudio = LineCallTelecom.hasActiveCall()
+    val audioHandler = if (telecomOwnsAudio) {
+      // Telecom owns focus and endpoint routing for registered calls.
+      NoAudioHandler()
     } else {
-      LiveKitOverrides()
+      // Legacy fallback: request voice-call focus only. AudioManager routing
+      // below remains the sole route owner; do not also start AudioSwitch.
+      AudioFocusHandler(application).apply {
+        focusMode = AudioManager.AUDIOFOCUS_GAIN
+        audioStreamType = AudioManager.STREAM_VOICE_CALL
+        audioAttributeUsageType = AudioAttributes.USAGE_VOICE_COMMUNICATION
+        audioAttributeContentType = AudioAttributes.CONTENT_TYPE_SPEECH
+      }
     }
+    val liveKitOverrides = LiveKitOverrides(
+      audioOptions = AudioOptions(
+        audioOutputType = AudioType.CallAudioType(),
+        audioHandler = audioHandler
+      )
+    )
     val room = LiveKit.create(
       application.applicationContext,
       overrides = liveKitOverrides
@@ -544,7 +556,7 @@ class CallingService(
     //
     // Core-Telecom owns communication focus/routing while its CallControlScope
     // is active. Do not let LiveKit's AudioSwitchHandler compete for either.
-    if (!LineCallTelecom.hasActiveCall()) {
+    if (!telecomOwnsAudio) {
       audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
       applyDefaultAudioRoute()
     }
