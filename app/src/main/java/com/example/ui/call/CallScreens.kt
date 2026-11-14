@@ -36,7 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.FiberManualRecord
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Phone
@@ -247,7 +247,7 @@ fun IncomingCallScreen(
           ) {
             HoldSwipeUpAction(
               label = "Decline",
-              hint = "Swipe to decline",
+              hint = "Tap or swipe up to decline",
               icon = Icons.Rounded.CallEnd,
               color = CallRed,
               tag = "decline_call_button",
@@ -258,7 +258,7 @@ fun IncomingCallScreen(
             )
             HoldSwipeUpAction(
               label = "Answer",
-              hint = "Swipe to answer",
+              hint = "Tap or swipe up to answer",
               icon = Icons.Rounded.Phone,
               color = CallGreen,
               tag = "accept_call_button",
@@ -341,7 +341,7 @@ private fun HoldSwipeUpAction(
     ) {
       Icon(
         imageVector = icon,
-        contentDescription = "$label: swipe to activate",
+        contentDescription = "$label call",
         tint = Color.White,
         modifier = Modifier.size(34.dp)
       )
@@ -573,7 +573,7 @@ fun ActiveCallScreen(
                 }
                 ActiveCallControl(
                   label = "Network",
-                  icon = Icons.Rounded.FiberManualRecord,
+                  icon = Icons.Rounded.Wifi,
                   selected = networkSnapshot.reconnecting || networkSnapshot.connectionQuality.equals("POOR", true),
                   testTag = "call_network_details_button"
                 ) {
