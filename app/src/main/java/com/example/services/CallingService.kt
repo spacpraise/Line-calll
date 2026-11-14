@@ -489,8 +489,12 @@ class CallingService(
 
     val room = LiveKit.create(application.applicationContext)
     liveKitRoom = room
-    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-    applyDefaultAudioRoute()
+    // Core-Telecom owns communication routing while its CallControlScope is active.
+    // Do not also force AudioManager speaker/SCO/communication-device selection.
+    if (!LineCallTelecom.hasActiveCall()) {
+      audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+      applyDefaultAudioRoute()
+    }
 
     room.connect(serverUrl, participantToken)
     runCatching {
@@ -570,11 +574,15 @@ class CallingService(
           androidx.core.telecom.CallEndpointCompat.TYPE_STREAMING -> "External audio"
           else -> "Audio device"
         }
+        // Telecom supplies the platform-reported endpoint name (including the
+        // paired headset name when available); never infer it from AudioManager.
         CallAudioRoute(endpoint.identifier.hashCode(), endpoint.name.toString().ifBlank { type }, type)
       }
       _selectedAudioRouteId.value = LineCallTelecom.currentEndpoint.value?.identifier?.hashCode()
       return
     }
+
+    // Compatibility fallback is used only when Telecom registration is unavailable.
     val devices = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       audioManager.availableCommunicationDevices
     } else {
@@ -602,6 +610,12 @@ class CallingService(
   }
 
   private fun applyDefaultAudioRoute() {
+    if (LineCallTelecom.hasActiveCall()) {
+      refreshAudioRoutes()
+      val current = LineCallTelecom.currentEndpoint.value
+      if (current != null) _selectedAudioRouteId.value = current.identifier.hashCode()
+      return
+    }
     audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
     refreshAudioRoutes()
     val preferred = _audioRoutes.value.firstOrNull { it.type.startsWith("Bluetooth") }
@@ -616,15 +630,14 @@ class CallingService(
   fun selectAudioRoute(deviceId: Int) {
     val route = _audioRoutes.value.firstOrNull { it.id == deviceId } ?: return
     if (LineCallTelecom.hasActiveCall()) {
-      val endpoint = LineCallTelecom.endpointForLegacyId(deviceId) ?: return
       coroutineScope.launch {
-        runCatching { LineCallTelecom.requestEndpointChange(endpoint) }
-          .onSuccess { _selectedAudioRouteId.value = deviceId }
-          .onFailure { _callEvents.emit(CallEvent.Error("Could not change call audio device.")) }
+        val accepted = runCatching { LineCallTelecom.selectEndpoint(deviceId) }.getOrDefault(false)
+        if (!accepted) _callEvents.emit(CallEvent.Error("Android could not switch to that audio device."))
+        // Do not update selected route optimistically. currentCallEndpoint is authoritative.
       }
-      _activeCall.value = _activeCall.value?.copy(isSpeakerOn = route.type == "Speaker")
       return
     }
+    // Legacy fallback only: Telecom remains the sole route owner during a registered call.
     audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       val device = audioManager.availableCommunicationDevices.firstOrNull { it.id == deviceId } ?: return
