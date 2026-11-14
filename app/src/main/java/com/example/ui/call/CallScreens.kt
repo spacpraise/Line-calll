@@ -12,6 +12,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.border
@@ -59,6 +60,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -75,6 +77,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.ActiveCallSession
 import com.example.data.model.CallAudioRoute
 import com.example.data.model.CallSessionState
+import com.example.services.CallNetworkSnapshot
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
 import kotlinx.coroutines.launch
@@ -298,6 +301,10 @@ private fun HoldSwipeUpAction(
         .clip(CircleShape)
         .background(color)
         .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
+        .clickable(role = Role.Button, onClick = {
+          view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+          onComplete()
+        })
         .pointerInput(threshold) {
           var totalDrag = 0f
           detectDragGestures(
@@ -313,7 +320,7 @@ private fun HoldSwipeUpAction(
               }
             },
             onDragEnd = {
-              if (totalDrag >= threshold) {
+              if (totalDrag >= threshold && offset.value <= -threshold * 0.55f) {
                 view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                 onComplete()
               } else {
@@ -361,6 +368,7 @@ fun ActiveCallScreen(
   onSpeakerToggle: () -> Unit,
   audioRoutes: List<CallAudioRoute> = emptyList(),
   selectedAudioRouteId: Int? = null,
+  networkSnapshot: CallNetworkSnapshot = CallNetworkSnapshot(),
   onRefreshAudioRoutes: () -> Unit = {},
   onAudioRouteSelected: (Int) -> Unit = {},
   onEndCall: () -> Unit,
@@ -369,6 +377,7 @@ fun ActiveCallScreen(
 ) {
   val view = LocalView.current
   var showAudioSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
+  var showNetworkSheet by remember { androidx.compose.runtime.mutableStateOf(false) }
   val selectedAudioRoute = audioRoutes.firstOrNull { it.id == selectedAudioRouteId }
   val minutes = session.durationSeconds / 60
   val seconds = session.durationSeconds % 60
@@ -473,6 +482,40 @@ fun ActiveCallScreen(
                 modifier = Modifier.testTag("call_duration_timer")
               )
               if (connected) ActiveCallWaveform()
+              if (connected) {
+                val networkLabel = when {
+                  networkSnapshot.reconnecting -> "Reconnecting"
+                  !networkSnapshot.networkAvailable -> "No validated internet"
+                  networkSnapshot.connectionQuality.equals("EXCELLENT", true) -> "Excellent connection"
+                  networkSnapshot.connectionQuality.equals("GOOD", true) -> "Good connection"
+                  networkSnapshot.connectionQuality.equals("POOR", true) -> "Weak connection"
+                  networkSnapshot.connectionQuality.equals("LOST", true) -> "Connection lost"
+                  else -> "Checking connection"
+                }
+                Surface(
+                  onClick = { showNetworkSheet = true },
+                  shape = RoundedCornerShape(18.dp),
+                  color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+                  modifier = Modifier.fillMaxWidth().testTag("call_network_status")
+                ) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                      Text(networkLabel, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold))
+                      Text(networkSnapshot.transport, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(
+                      networkSnapshot.roundTripTimeMs?.let { "${it.toInt()} ms" } ?: "Details",
+                      style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                      color = if (networkSnapshot.reconnecting || networkSnapshot.connectionQuality.equals("POOR", true)) CallRed else MaterialTheme.colorScheme.primary
+                    )
+                  }
+                }
+              }
             }
           }
         }
@@ -529,12 +572,12 @@ fun ActiveCallScreen(
                   showAudioSheet = true
                 }
                 ActiveCallControl(
-                  label = "Record",
+                  label = "Network",
                   icon = Icons.Rounded.FiberManualRecord,
-                  selected = false,
-                  testTag = "record_call_button"
+                  selected = networkSnapshot.reconnecting || networkSnapshot.connectionQuality.equals("POOR", true),
+                  testTag = "call_network_details_button"
                 ) {
-                  // Recording is a visual placeholder for a later local recorder implementation.
+                  showNetworkSheet = true
                 }
               }
               Surface(
@@ -556,6 +599,38 @@ fun ActiveCallScreen(
             }
           }
         }
+      }
+    }
+  }
+
+  if (showNetworkSheet) {
+    ModalBottomSheet(
+      onDismissRequest = { showNetworkSheet = false },
+      sheetState = rememberModalBottomSheetState(),
+      containerColor = MaterialTheme.colorScheme.surface
+    ) {
+      Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+      ) {
+        Text("Connection details", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+        Text(
+          if (networkSnapshot.reconnecting) "Restoring your call connection. Keep the app open while LiveKit reconnects."
+          else if (!networkSnapshot.networkAvailable) "Your phone does not currently have a validated internet connection."
+          else "Line Call continuously monitors the network. LiveKit and WebRTC adapt the media connection automatically.",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        NetworkMetricRow("Network", networkSnapshot.transport)
+        NetworkMetricRow("Connection quality", networkSnapshot.connectionQuality.lowercase().replaceFirstChar { it.uppercase() })
+        NetworkMetricRow("Round-trip latency", networkSnapshot.roundTripTimeMs?.let { "${it.toInt()} ms" } ?: "Measuring…")
+        NetworkMetricRow("Audio jitter", networkSnapshot.jitterMs?.let { String.format("%.1f ms", it) } ?: "Measuring…")
+        NetworkMetricRow("Packet loss", networkSnapshot.packetLossPercent?.let { String.format("%.1f%%", it) } ?: "Measuring…")
+        NetworkMetricRow("Audio upload", networkSnapshot.audioUploadKbps?.let { String.format("%.1f kbps", it) } ?: "Measuring…")
+        NetworkMetricRow("Audio download", networkSnapshot.audioDownloadKbps?.let { String.format("%.1f kbps", it) } ?: "Measuring…")
+        NetworkMetricRow("Estimated link upload", networkSnapshot.estimatedUploadKbps?.let { "${it} kbps" } ?: "Unavailable")
+        NetworkMetricRow("Estimated link download", networkSnapshot.estimatedDownloadKbps?.let { "${it} kbps" } ?: "Unavailable")
+        Spacer(Modifier.height(18.dp))
       }
     }
   }
@@ -712,5 +787,19 @@ private fun ActiveCallWaveform() {
       style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
       color = CallGreen
     )
+  }
+}
+
+
+@Composable
+private fun NetworkMetricRow(label: String, value: String) {
+  Row(
+    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+      color = MaterialTheme.colorScheme.onSurface)
   }
 }
