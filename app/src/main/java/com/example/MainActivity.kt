@@ -505,7 +505,15 @@ fun LineCallApp(
           onSignOut = { viewModel.signOut() },
           onBack = { viewModel.navigateTo(ScreenState.MAIN_APP) },
           themeMode = themeMode,
-          onThemeModeChange = onThemeModeChange
+          onThemeModeChange = onThemeModeChange,
+          onManagePermissions = {
+            runCatching {
+              context.startActivity(Intent(
+                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.parse("package:${context.packageName}")
+              ))
+            }
+          }
         )
       }
 
