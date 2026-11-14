@@ -96,9 +96,11 @@ jobs:
 
       # Main-branch distributed APKs use the same permanent certificate as v1.03.
       - name: Build preview APK
+        id: build_preview
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebug
 
       - name: Build signed release APK
+        id: build_release
         if: github.event_name == 'push'
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleRelease
 
