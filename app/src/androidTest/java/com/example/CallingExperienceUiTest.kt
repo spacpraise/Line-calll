@@ -73,7 +73,7 @@ class CallingExperienceUiTest {
       }
     }
 
-    composeRule.onNodeWithTag("call_network_status").fetchSemanticsNode().performClick()
+    composeRule.onNodeWithTag("call_network_status").performClick()
     composeRule.onNodeWithText("Connection details").fetchSemanticsNode()
     composeRule.onNodeWithText("Round-trip latency").fetchSemanticsNode()
     composeRule.onNodeWithText("Packet loss").fetchSemanticsNode()
