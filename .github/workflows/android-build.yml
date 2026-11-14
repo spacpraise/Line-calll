@@ -153,6 +153,20 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
+      # The emulator job is isolated from the signing job, so create a throwaway
+      # debug certificate only for instrumentation builds. It is never distributed.
+      - name: Generate UI-test-only debug keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Build instrumentation APK
         run: gradle --console=plain --build-cache --configuration-cache :app:assembleDebugAndroidTest
 
