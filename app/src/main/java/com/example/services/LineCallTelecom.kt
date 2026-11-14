@@ -35,6 +35,9 @@ object LineCallTelecom {
   val currentEndpoint = _currentEndpoint.asStateFlow()
   val isMuted = _isMuted.asStateFlow()
 
+  /** Initializes the single process-wide CallsManager from the active call lifecycle. */
+  fun initialize(context: Context) { manager(context) }
+
   @Synchronized private fun manager(context: Context): CallsManager {
     callsManager?.let { return it }
     return CallsManager(context.applicationContext).also {
