@@ -74,6 +74,7 @@ fun SettingsScreen(
   onBack: () -> Unit,
   themeMode: AppThemeMode,
   onThemeModeChange: (AppThemeMode) -> Unit,
+  onManagePermissions: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   var editField by remember { mutableStateOf<String?>(null) }
@@ -206,6 +207,60 @@ fun SettingsScreen(
           }
         }
 
+        Text("CALLING EXPERIENCE", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+          color = MaterialTheme.colorScheme.secondary)
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(18.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+          Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            CallingFeatureRow(
+              title = "System call integration",
+              detail = "Android Telecom manages call notifications, supported headset controls, audio focus and call routing."
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            CallingFeatureRow(
+              title = "Voice enhancement",
+              detail = "The native WebRTC audio pipeline uses available echo cancellation, noise suppression and gain control."
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            CallingFeatureRow(
+              title = "Adaptive connection",
+              detail = "LiveKit monitors connection quality and recovers calls when the network changes. Open the connection panel during a call for live diagnostics."
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            CallingFeatureRow(
+              title = "Audio devices",
+              detail = "Choose the earpiece, speaker, wired headset or supported Bluetooth audio endpoint during a call."
+            )
+          }
+        }
+
+        Text("PERMISSIONS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+          color = MaterialTheme.colorScheme.secondary)
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(18.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+          Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("You control what Line Call can access.", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+            Text(
+              "Microphone access is needed for voice calls. Contacts are optional and used to match names with numbers. Notifications help you notice incoming calls. Android may also ask you to allow full-screen call alerts. Nearby-device access can improve Bluetooth headset identification on supported phones.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.secondary
+            )
+            Button(
+              onClick = onManagePermissions,
+              modifier = Modifier.fillMaxWidth().height(48.dp),
+              shape = RoundedCornerShape(14.dp)
+            ) {
+              Text("Manage app permissions")
+            }
+          }
+        }
+
         Text("CALL SETTINGS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
           color = MaterialTheme.colorScheme.secondary)
         Card(
@@ -325,5 +380,14 @@ private fun ProfileDetailRow(
       Spacer(Modifier.width(4.dp))
       Text("Edit", color = CallGreen)
     }
+  }
+}
+
+
+@Composable
+private fun CallingFeatureRow(title: String, detail: String) {
+  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
   }
 }
