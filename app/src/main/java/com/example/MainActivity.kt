@@ -301,17 +301,23 @@ fun LineCallApp(
   }
 
   val appResumeCount = hostActivity?.resumeCount ?: 0
-  LaunchedEffect(appResumeCount) {
+  LaunchedEffect(appResumeCount, currentUser?.id) {
     showUpdatePrompt = LineCallUpdateManager.hasPendingUpdate(context)
-    showFullScreenPermissionPrompt = Build.VERSION.SDK_INT >= 34 &&
-      !context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+    val permissionPreferences = context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE)
+    showFullScreenPermissionPrompt = currentUser != null && Build.VERSION.SDK_INT >= 34 &&
+      !context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent() &&
+      !permissionPreferences.getBoolean("full_screen_permission_prompted", false)
     viewModel.refreshProfileAfterAppResume()
   }
 
-  LaunchedEffect(Unit) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+  LaunchedEffect(currentUser?.id) {
+    if (currentUser != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      val permissionPreferences = context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE)
+      if (!permissionPreferences.getBoolean("notification_permission_prompted", false)) {
+        permissionPreferences.edit().putBoolean("notification_permission_prompted", true).apply()
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+          notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
       }
     }
   }
@@ -644,7 +650,7 @@ fun LineCallApp(
 
     if (showFullScreenPermissionPrompt) {
       AlertDialog(
-        onDismissRequest = { showFullScreenPermissionPrompt = false },
+        onDismissRequest = {\n          context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE).edit()\n            .putBoolean("full_screen_permission_prompted", true).apply()\n          showFullScreenPermissionPrompt = false\n        },
         title = { Text("Allow incoming calls over the lock screen") },
         text = { Text("Android currently blocks Line Call from opening its incoming-call screen over your locked phone. Allow full-screen notifications so incoming calls can wake the screen and show Answer and Decline.") },
         confirmButton = {
@@ -661,7 +667,7 @@ fun LineCallApp(
           }) { Text("Open Android setting") }
         },
         dismissButton = {
-          TextButton(onClick = { showFullScreenPermissionPrompt = false }) { Text("Not now") }
+          TextButton(onClick = {\n            context.getSharedPreferences("line_call_preferences", android.content.Context.MODE_PRIVATE).edit()\n              .putBoolean("full_screen_permission_prompted", true).apply()\n            showFullScreenPermissionPrompt = false\n          }) { Text("Not now") }
         }
       )
     }
