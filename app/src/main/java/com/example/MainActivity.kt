@@ -190,6 +190,7 @@ fun LineCallApp(
   val activeCall by viewModel.activeCall.collectAsStateWithLifecycle()
   val audioRoutes by viewModel.audioRoutes.collectAsStateWithLifecycle()
   val selectedAudioRouteId by viewModel.selectedAudioRouteId.collectAsStateWithLifecycle()
+  val networkSnapshot by viewModel.networkSnapshot.collectAsStateWithLifecycle()
   val backendNotice by viewModel.backendNotice.collectAsStateWithLifecycle()
   val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
   val contactSyncStatus by viewModel.contactSyncStatus.collectAsStateWithLifecycle()
@@ -721,6 +722,7 @@ fun LineCallApp(
             onSpeakerToggle = { viewModel.toggleSpeaker() },
             audioRoutes = audioRoutes,
             selectedAudioRouteId = selectedAudioRouteId,
+            networkSnapshot = networkSnapshot,
             onRefreshAudioRoutes = { viewModel.refreshAudioRoutes() },
             onAudioRouteSelected = { viewModel.selectAudioRoute(it) },
             onEndCall = { viewModel.endCall() },
