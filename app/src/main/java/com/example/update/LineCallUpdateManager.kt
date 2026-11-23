@@ -243,8 +243,8 @@ class ReleaseCheckWorker(
                 return@withContext Result.retry()
             }
             if (!expectedDigest.matches(Regex("(?i)^sha256:[0-9a-f]{64}$"))) {
-                android.util.Log.e("LineCallUpdater", "Release $tag APK has no valid SHA-256 digest; refusing to download or install it.")
-                return@withContext Result.failure()
+                android.util.Log.e("LineCallUpdater", "Release $tag APK has no valid SHA-256 digest; skipping this release and keeping scheduled checks active.")
+                return@withContext Result.success()
             }
 
             val directory = File(applicationContext.filesDir, "updates").apply { mkdirs() }
@@ -275,7 +275,7 @@ class ReleaseCheckWorker(
             if (!actualDigest.equals(expectedDigest.substringAfter(":"), ignoreCase = true)) {
                 partial.delete()
                 android.util.Log.e("LineCallUpdater", "Release $tag APK SHA-256 digest mismatch; refusing installation.")
-                return@withContext Result.failure()
+                return@withContext Result.success()
             }
 
             val candidateCode = LineCallUpdateManager.archiveVersionCode(applicationContext, partial)
