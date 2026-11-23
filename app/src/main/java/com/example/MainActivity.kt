@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -76,6 +77,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 class MainActivity : ComponentActivity() {
   var pendingIncomingCallIntent by mutableStateOf<Intent?>(null)
     private set
+  var pendingAuthCallbackUri by mutableStateOf<Uri?>(null)
+    private set
   var resumeCount by mutableStateOf(0)
     private set
   var themeMode by mutableStateOf(AppThemeMode.SYSTEM)
@@ -91,6 +94,7 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     IncomingCallLifecycleService.recoverIfNeeded(this)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
+    pendingAuthCallbackUri = intent.data?.takeIf(::isLineCallAuthCallback)
     if (pendingIncomingCallIntent != null) {
 
       setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
@@ -122,6 +126,7 @@ class MainActivity : ComponentActivity() {
     super.onNewIntent(intent)
     setIntent(intent)
     pendingIncomingCallIntent = intent.takeIf { it.hasExtra("linecall_call_id") }
+    pendingAuthCallbackUri = intent.data?.takeIf(::isLineCallAuthCallback)
     if (pendingIncomingCallIntent != null) {
 
       setCallWindowMode(showOnLockScreen = true, wakeScreen = true)
@@ -152,6 +157,13 @@ class MainActivity : ComponentActivity() {
   fun clearPendingIncomingCallIntent() {
     pendingIncomingCallIntent = null
   }
+
+  fun clearPendingAuthCallbackUri(uri: Uri) {
+    if (pendingAuthCallbackUri == uri) pendingAuthCallbackUri = null
+  }
+
+  private fun isLineCallAuthCallback(uri: Uri): Boolean =
+    uri.scheme == "linecall" && uri.host == "auth" && uri.path == "/callback"
 }
 
 @Composable
@@ -163,6 +175,7 @@ fun LineCallApp(
   val context = LocalContext.current
   val hostActivity = context as? MainActivity
   val pendingCallIntent = hostActivity?.pendingIncomingCallIntent
+  val pendingAuthCallbackUri = hostActivity?.pendingAuthCallbackUri
   val focusManager = LocalFocusManager.current
   val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
   val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
@@ -208,6 +221,13 @@ fun LineCallApp(
   var pendingMicrophoneAction by remember { mutableStateOf<(() -> Unit)?>(null) }
   var showUpdatePrompt by remember { mutableStateOf(false) }
   var showFullScreenPermissionPrompt by remember { mutableStateOf(false) }
+
+  LaunchedEffect(pendingAuthCallbackUri) {
+    pendingAuthCallbackUri?.let { uri ->
+      viewModel.handleAuthCallback(uri)
+      hostActivity?.clearPendingAuthCallbackUri(uri)
+    }
+  }
 
   LaunchedEffect(pendingCallIntent) {
     if (pendingCallIntent != null) {
