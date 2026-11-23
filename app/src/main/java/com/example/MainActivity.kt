@@ -491,6 +491,7 @@ fun LineCallApp(
           email = recoveryEmail,
           phoneNumber = recoveryPhone,
           error = authError,
+          notice = authNotice,
           busy = isAuthBusy,
           onEmailChanged = { viewModel.updateRecoveryEmail(it) },
           onPhoneChanged = { viewModel.updateRecoveryPhone(it) },
