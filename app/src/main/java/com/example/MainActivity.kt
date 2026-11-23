@@ -615,14 +615,12 @@ fun LineCallApp(
               }
             }
 
-            // Floating Capsule Bottom Navigation Bar (Image 1, 2, 4, 6)
-            if (!(selectedTab == MainTab.KEYPAD && enteredNumber.isNotBlank())) {
-              OneUiFloatingBottomNav(
-                selectedTab = selectedTab,
-                onTabSelected = { viewModel.selectTab(it) },
-                modifier = Modifier.align(Alignment.BottomCenter)
-              )
-            }
+            // Keep the floating navigation available while a number is being entered.
+            OneUiFloatingBottomNav(
+              selectedTab = selectedTab,
+              onTabSelected = { viewModel.selectTab(it) },
+              modifier = Modifier.align(Alignment.BottomCenter)
+            )
           }
         }
       }
