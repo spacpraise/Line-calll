@@ -60,7 +60,9 @@ Deno.serve(async (req: Request) => {
     // standard recovery email. The redirect returns to the app's custom-scheme
     // callback after the user opens the email link.
     const authClient = createClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
+      // The native Android app consumes the access/refresh tokens from the
+      // callback fragment; a server-side PKCE verifier cannot be handed to it.
+      auth: { flowType: "implicit", persistSession: false, autoRefreshToken: false },
     });
     const { error: emailError } = await authClient.auth.resetPasswordForEmail(email, {
       redirectTo: "linecall://auth/callback",
