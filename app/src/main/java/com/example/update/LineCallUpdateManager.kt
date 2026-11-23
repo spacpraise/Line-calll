@@ -242,6 +242,10 @@ class ReleaseCheckWorker(
                 android.util.Log.w("LineCallUpdater", "Release $tag has no downloadable APK asset; retrying the update check.")
                 return@withContext Result.retry()
             }
+            if (!expectedDigest.matches(Regex("(?i)^sha256:[0-9a-f]{64}$"))) {
+                android.util.Log.e("LineCallUpdater", "Release $tag APK has no valid SHA-256 digest; refusing to download or install it.")
+                return@withContext Result.failure()
+            }
 
             val directory = File(applicationContext.filesDir, "updates").apply { mkdirs() }
             val finalApk = File(directory, apkName)
@@ -258,21 +262,20 @@ class ReleaseCheckWorker(
                 }
             } finally { download.disconnect() }
 
-            if (expectedDigest.startsWith("sha256:", ignoreCase = true)) {
-                val digest = MessageDigest.getInstance("SHA-256")
-                partial.inputStream().use { input ->
-                    val buffer = ByteArray(8192)
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        digest.update(buffer, 0, count)
-                    }
+            val digest = MessageDigest.getInstance("SHA-256")
+            partial.inputStream().use { input ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
                 }
-                val actualDigest = digest.digest().joinToString("") { "%02x".format(it) }
-                if (!actualDigest.equals(expectedDigest.substringAfter(":"), ignoreCase = true)) {
-                    partial.delete()
-                    return@withContext Result.failure()
-                }
+            }
+            val actualDigest = digest.digest().joinToString("") { "%02x".format(it) }
+            if (!actualDigest.equals(expectedDigest.substringAfter(":"), ignoreCase = true)) {
+                partial.delete()
+                android.util.Log.e("LineCallUpdater", "Release $tag APK SHA-256 digest mismatch; refusing installation.")
+                return@withContext Result.failure()
             }
 
             val candidateCode = LineCallUpdateManager.archiveVersionCode(applicationContext, partial)
