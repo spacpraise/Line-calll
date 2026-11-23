@@ -196,7 +196,7 @@ class LineCallSupabaseClient(context: Context) {
       }
       execute(
         Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user?redirect_to=${java.net.URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")}")
           .headers(userHeaders())
           .put(JSONObject().put("email", cleanEmail).toString().toRequestBody(jsonType))
           .build()
@@ -293,6 +293,27 @@ class LineCallSupabaseClient(context: Context) {
       )
       response.optString("token_hash").takeIf { it.isNotBlank() }
         ?: throw IllegalStateException("The email and phone number could not be matched.")
+    }
+  }
+
+  suspend fun verifyAuthCallback(tokenHash: String, type: String): Result<UserAccount> = withContext(Dispatchers.IO) {
+    runCatching {
+      check(isConfigured) { "Supabase is not configured." }
+      require(type in setOf("email_change", "signup", "magiclink", "invite", "email")) {
+        "Unsupported authentication link type."
+      }
+      val session = execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/verify")
+          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+          .post(
+            JSONObject().put("type", type).put("token_hash", tokenHash)
+              .toString().toRequestBody(jsonType)
+          )
+          .build()
+      )
+      storeSession(session)
+      getOrCreateProfileBlocking(getAuthenticatedUserBlocking())
     }
   }
 
