@@ -2,4 +2,5 @@
 <full-backup-content>
     <!-- Back up only the Room database. Auth tokens and device-specific preferences stay local. -->
     <include domain="database" path="linecall_database" />
+    <exclude domain="sharedpref" path="line_call_secure_session.xml" />
 </full-backup-content>
