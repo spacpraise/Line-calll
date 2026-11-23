@@ -278,10 +278,10 @@ class LineCallSupabaseClient(context: Context) {
     )
   }
 
-  suspend fun requestPasswordRecovery(email: String, phoneNumber: String): Result<String> = withContext(Dispatchers.IO) {
+  suspend fun requestPasswordRecovery(email: String, phoneNumber: String): Result<Unit> = withContext(Dispatchers.IO) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
-      val response = execute(
+      execute(
         Request.Builder()
           .url("${BackendConfig.SUPABASE_URL}/functions/v1/password-recovery")
           .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
@@ -291,8 +291,21 @@ class LineCallSupabaseClient(context: Context) {
           )
           .build()
       )
-      response.optString("token_hash").takeIf { it.isNotBlank() }
-        ?: throw IllegalStateException("The email and phone number could not be matched.")
+      Unit
+    }
+  }
+
+  suspend fun acceptAuthSession(accessToken: String, refreshToken: String, expiresIn: Long): Result<UserAccount> = withContext(Dispatchers.IO) {
+    runCatching {
+      check(isConfigured) { "Supabase is not configured." }
+      require(accessToken.isNotBlank() && refreshToken.isNotBlank()) { "The authentication session is incomplete." }
+      storeSession(
+        JSONObject()
+          .put("access_token", accessToken)
+          .put("refresh_token", refreshToken)
+          .put("expires_in", expiresIn.coerceAtLeast(60L))
+      )
+      getOrCreateProfileBlocking(getAuthenticatedUserBlocking())
     }
   }
 
@@ -321,17 +334,23 @@ class LineCallSupabaseClient(context: Context) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
       require(newPassword.length >= 8) { "Use at least 8 characters for your new password." }
-      val session = execute(
-        Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/verify")
-          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-          .post(
-            JSONObject().put("type", "recovery").put("token_hash", tokenHash)
-              .toString().toRequestBody(jsonType)
-          )
-          .build()
-      )
-      storeSession(session)
+      if (tokenHash.isNotBlank()) {
+        val session = execute(
+          Request.Builder()
+            .url("${BackendConfig.SUPABASE_URL}/auth/v1/verify")
+            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+            .post(
+              JSONObject().put("type", "recovery").put("token_hash", tokenHash)
+                .toString().toRequestBody(jsonType)
+            )
+            .build()
+        )
+        storeSession(session)
+      } else {
+        check(!secureStore.get("access_token").isNullOrBlank()) {
+          "The password reset session is missing. Open the recovery email link again."
+        }
+      }
       execute(
         Request.Builder()
           .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
