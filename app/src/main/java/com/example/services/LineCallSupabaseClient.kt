@@ -1,6 +1,7 @@
 package com.example.services
 
 import android.content.Context
+import android.net.Uri
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -27,6 +28,8 @@ import javax.crypto.spec.GCMParameterSpec
 data class AccountLookupResult(val exists: Boolean, val displayName: String = "", val avatarUrl: String? = null)
 
 data class RealtimeCredentials(val supabaseUrl: String, val anonKey: String, val accessToken: String)
+
+data class AuthCallbackResult(val isPasswordRecovery: Boolean, val recoveryTokenHash: String? = null)
 
 class LineCallSupabaseClient(context: Context) {
   private val http = OkHttpClient.Builder().build()
@@ -296,21 +299,72 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
+  /** Handles Supabase token-hash and implicit-token callbacks delivered by Android. */
+  suspend fun handleAuthCallback(callbackUrl: String): Result<AuthCallbackResult> = withContext(Dispatchers.IO) {
+    runCatching {
+      val callback = Uri.parse(callbackUrl)
+      require(callback.scheme == "linecall" && callback.host == "auth" && callback.path == "/callback") {
+        "This is not a valid Line Call authentication link."
+      }
+      val fragment = Uri.parse("https://linecall.invalid/callback?${callback.fragment.orEmpty()}")
+      fun parameter(name: String): String? =
+        callback.getQueryParameter(name)?.takeIf { it.isNotBlank() }
+          ?: fragment.getQueryParameter(name)?.takeIf { it.isNotBlank() }
+
+      val type = parameter("type").orEmpty().lowercase()
+      val tokenHash = parameter("token_hash")
+      if (!tokenHash.isNullOrBlank()) {
+        if (type == "recovery") return@runCatching AuthCallbackResult(true, tokenHash)
+        require(type == "signup" || type == "email_change" || type == "invite") {
+          "This email link has an unsupported or missing confirmation type."
+        }
+        val session = execute(
+          Request.Builder()
+            .url("${BackendConfig.SUPABASE_URL}/auth/v1/verify")
+            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+            .post(JSONObject().put("type", type).put("token_hash", tokenHash).toString().toRequestBody(jsonType))
+            .build()
+        )
+        if (session.has("access_token") && session.has("refresh_token")) storeSession(session)
+        return@runCatching AuthCallbackResult(false)
+      }
+
+      val accessToken = parameter("access_token")
+      val refreshToken = parameter("refresh_token")
+      require(!accessToken.isNullOrBlank() && !refreshToken.isNullOrBlank()) {
+        "The authentication link is incomplete or has expired. Request a new email."
+      }
+      val expiresIn = parameter("expires_in")?.toLongOrNull() ?: 3600L
+      val expiresAt = parameter("expires_at")?.toLongOrNull() ?: (System.currentTimeMillis() / 1000 + expiresIn)
+      storeSession(
+        JSONObject().put("access_token", accessToken).put("refresh_token", refreshToken)
+          .put("expires_in", expiresIn).put("expires_at", expiresAt)
+      )
+      AuthCallbackResult(isPasswordRecovery = type == "recovery")
+    }
+  }
+
   suspend fun completePasswordRecovery(tokenHash: String, newPassword: String): Result<Unit> = withContext(Dispatchers.IO) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
       require(newPassword.length >= 8) { "Use at least 8 characters for your new password." }
-      val session = execute(
-        Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/verify")
-          .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
-          .post(
-            JSONObject().put("type", "recovery").put("token_hash", tokenHash)
-              .toString().toRequestBody(jsonType)
-          )
-          .build()
-      )
-      storeSession(session)
+      if (tokenHash.isNotBlank()) {
+        val session = execute(
+          Request.Builder()
+            .url("${BackendConfig.SUPABASE_URL}/auth/v1/verify")
+            .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
+            .post(
+              JSONObject().put("type", "recovery").put("token_hash", tokenHash)
+                .toString().toRequestBody(jsonType)
+            )
+            .build()
+        )
+        storeSession(session)
+      } else {
+        check(!secureStore.get("access_token").isNullOrBlank()) {
+          "The recovery session is missing. Open the latest password-reset email and try again."
+        }
+      }
       execute(
         Request.Builder()
           .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
