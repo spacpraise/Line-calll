@@ -405,6 +405,38 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }
 
+  fun handleAuthCallback(callbackUrl: String) {
+    viewModelScope.launch {
+      _isAuthBusy.value = true
+      _authError.value = null
+      supabase.handleAuthCallback(callbackUrl).onSuccess { result ->
+        if (result.isPasswordRecovery) {
+          _recoveryTokenHash.value = result.recoveryTokenHash.orEmpty()
+          _newPassword.value = ""
+          _confirmNewPassword.value = ""
+          _currentScreen.value = ScreenState.RESET_PASSWORD
+        } else {
+          supabase.refreshAuthenticatedProfile().onSuccess { user ->
+            authService.updateCurrentUser(user)
+            userProfileService.setUser(user)
+            _emailInput.value = user.email
+            _phoneInput.value = user.phoneNumber
+            _displayNameInput.value = user.displayName
+            _currentScreen.value = ScreenState.MAIN_APP
+            _authNotice.value = "Your email has been confirmed."
+          }.onFailure {
+            _authError.value = it.message ?: "Your email was confirmed, but your session could not be restored. Please sign in."
+            _currentScreen.value = ScreenState.LOGIN
+          }
+        }
+      }.onFailure {
+        _authError.value = it.message ?: "This authentication link is invalid or has expired."
+        _currentScreen.value = ScreenState.LOGIN
+      }
+      _isAuthBusy.value = false
+    }
+  }
+
   fun updateRecoveryEmail(value: String) { _recoveryEmail.value = value; _authError.value = null }
   fun updateRecoveryPhone(value: String) { _recoveryPhone.value = value; _authError.value = null }
   fun updateNewPassword(value: String) { _newPassword.value = value; _authError.value = null }
