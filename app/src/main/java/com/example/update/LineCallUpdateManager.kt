@@ -40,6 +40,7 @@ private const val UPDATE_PREFS = "line_call_update_state"
 private const val PENDING_APK = "pending_apk"
 private const val PENDING_VERSION = "pending_version"
 private const val PENDING_NOTES = "pending_notes"
+private const val PENDING_SHA256 = "pending_sha256"
 
 object LineCallUpdateManager {
     fun schedule(context: Context) {
@@ -72,6 +73,11 @@ object LineCallUpdateManager {
             clearPending(context)
             return false
         }
+        val expectedDigest = prefs.getString(PENDING_SHA256, null)
+        if (expectedDigest.isNullOrBlank() || !expectedDigest.matches(Regex("^[0-9a-fA-F]{64}$"))) {
+            clearPending(context)
+            return false
+        }
         val installed = installedVersionCode(context)
         val candidate = archiveVersionCode(context, apk) ?: return false
         if (installed >= candidate) {
@@ -93,6 +99,14 @@ object LineCallUpdateManager {
         if (!hasPendingUpdate(context)) return false
         val prefs = context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
         val apk = File(prefs.getString(PENDING_APK, "") ?: return false)
+        val expectedDigest = prefs.getString(PENDING_SHA256, null)
+        if (expectedDigest.isNullOrBlank() || !expectedDigest.matches(Regex("^[0-9a-fA-F]{64}$")) ||
+            !sha256(apk).equals(expectedDigest, ignoreCase = true)
+        ) {
+            clearPending(context)
+            android.util.Log.e("LineCallUpdater", "Saved APK digest is missing or invalid; refusing installation.")
+            return false
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !context.packageManager.canRequestPackageInstalls()
         ) {
@@ -120,11 +134,13 @@ object LineCallUpdateManager {
         }
     }
 
-    internal fun savePending(context: Context, apk: File, version: String, notes: String) {
+    internal fun savePending(context: Context, apk: File, version: String, notes: String, sha256: String) {
+        require(sha256.matches(Regex("^[0-9a-fA-F]{64}$"))) { "A verified SHA-256 digest is required." }
         context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE).edit()
             .putString(PENDING_APK, apk.absolutePath)
             .putString(PENDING_VERSION, version)
             .putString(PENDING_NOTES, notes)
+            .putString(PENDING_SHA256, sha256.lowercase())
             .apply()
         showUpdateNotification(context, version, notes)
     }
@@ -132,7 +148,7 @@ object LineCallUpdateManager {
     internal fun clearPending(context: Context) {
         val prefs = context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
         prefs.getString(PENDING_APK, null)?.let { File(it).delete() }
-        prefs.edit().remove(PENDING_APK).remove(PENDING_VERSION).remove(PENDING_NOTES).apply()
+        prefs.edit().remove(PENDING_APK).remove(PENDING_VERSION).remove(PENDING_NOTES).remove(PENDING_SHA256).apply()
         NotificationManagerCompat.from(context).cancel(UPDATE_NOTIFICATION_ID)
     }
 
@@ -162,6 +178,19 @@ object LineCallUpdateManager {
             .setOnlyAlertOnce(true)
             .build()
         try { NotificationManagerCompat.from(context).notify(UPDATE_NOTIFICATION_ID, notification) } catch (_: SecurityException) { }
+    }
+
+    internal fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     @Suppress("DEPRECATION")
@@ -242,6 +271,11 @@ class ReleaseCheckWorker(
                 android.util.Log.w("LineCallUpdater", "Release $tag has no downloadable APK asset; retrying the update check.")
                 return@withContext Result.retry()
             }
+            if (!expectedDigest.matches(Regex("(?i)^sha256:[0-9a-f]{64}$"))) {
+                android.util.Log.e("LineCallUpdater", "Release $tag APK has no valid SHA-256 digest; refusing to download or install it.")
+                return@withContext Result.success()
+            }
+            val expectedSha256 = expectedDigest.substringAfter(":").lowercase()
 
             val directory = File(applicationContext.filesDir, "updates").apply { mkdirs() }
             val finalApk = File(directory, apkName)
@@ -258,21 +292,11 @@ class ReleaseCheckWorker(
                 }
             } finally { download.disconnect() }
 
-            if (expectedDigest.startsWith("sha256:", ignoreCase = true)) {
-                val digest = MessageDigest.getInstance("SHA-256")
-                partial.inputStream().use { input ->
-                    val buffer = ByteArray(8192)
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        digest.update(buffer, 0, count)
-                    }
-                }
-                val actualDigest = digest.digest().joinToString("") { "%02x".format(it) }
-                if (!actualDigest.equals(expectedDigest.substringAfter(":"), ignoreCase = true)) {
-                    partial.delete()
-                    return@withContext Result.failure()
-                }
+            val actualDigest = LineCallUpdateManager.sha256(partial)
+            if (!actualDigest.equals(expectedSha256, ignoreCase = true)) {
+                partial.delete()
+                android.util.Log.e("LineCallUpdater", "Release $tag APK SHA-256 digest mismatch; refusing installation.")
+                return@withContext Result.success()
             }
 
             val candidateCode = LineCallUpdateManager.archiveVersionCode(applicationContext, partial)
@@ -287,7 +311,7 @@ class ReleaseCheckWorker(
                 partial.delete()
             }
             val notes = release.optString("body").take(4000)
-            LineCallUpdateManager.savePending(applicationContext, finalApk, tag, notes)
+            LineCallUpdateManager.savePending(applicationContext, finalApk, tag, notes, expectedSha256)
             Result.success()
         } catch (_: Exception) {
             Result.retry()

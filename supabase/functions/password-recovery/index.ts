@@ -21,8 +21,9 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const url = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !serviceKey) return json({ error: "Password recovery is temporarily unavailable." }, 503);
+  if (!url || !anonKey || !serviceKey) return json({ error: "Password recovery is temporarily unavailable." }, 503);
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "Invalid request." }, 400); }
@@ -55,18 +56,23 @@ Deno.serve(async (req: Request) => {
       .from("profiles").select("id").eq("email", email).eq("phone_number", phone).limit(2);
     if (profileError || !matches || matches.length !== 1) return genericFailure();
 
-    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-      type: "recovery",
-      email,
+    // Only after both email and phone match, ask Supabase Auth to send its
+    // standard recovery email. The redirect returns to the app's custom-scheme
+    // callback after the user opens the email link.
+    const authClient = createClient(url, anonKey, {
+      // The native Android app consumes the access/refresh tokens from the
+      // callback fragment; a server-side PKCE verifier cannot be handed to it.
+      auth: { flowType: "implicit", persistSession: false, autoRefreshToken: false },
     });
-    const tokenHash = linkData?.properties?.hashed_token;
-    if (linkError || !tokenHash) {
-      console.error("password-recovery token generation failed", linkError?.message);
-      return genericFailure();
+    const { error: emailError } = await authClient.auth.resetPasswordForEmail(email, {
+      redirectTo: "linecall://auth/callback",
+    });
+    if (emailError) {
+      console.error("password-recovery email dispatch failed", emailError.message);
+      return json({ error: "Could not send the recovery email. Please try again." }, 503);
     }
 
-    // The app receives only a short-lived recovery token after BOTH identifiers match.
-    return json({ token_hash: tokenHash });
+    return json({ sent: true });
   } catch (error) {
     console.error("password-recovery failed", error instanceof Error ? error.message : "unknown");
     return json({ error: "Password recovery is temporarily unavailable." }, 503);

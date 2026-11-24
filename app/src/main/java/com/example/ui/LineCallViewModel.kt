@@ -405,6 +405,70 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }
 
+  fun handleAuthCallback(uri: Uri) {
+    val fragmentParams = uri.fragment?.let { Uri.parse("https://linecall.invalid/?$it") }
+    fun parameter(name: String): String? =
+      uri.getQueryParameter(name)?.takeIf { it.isNotBlank() }
+        ?: fragmentParams?.getQueryParameter(name)?.takeIf { it.isNotBlank() }
+
+    val callbackError = parameter("error_description") ?: parameter("error")
+    if (!callbackError.isNullOrBlank()) {
+      _authError.value = callbackError.replace('+', ' ')
+      _currentScreen.value = ScreenState.LOGIN
+      return
+    }
+
+    val type = parameter("type")?.lowercase()
+    val tokenHash = parameter("token_hash").orEmpty()
+    val accessToken = parameter("access_token").orEmpty()
+    val refreshToken = parameter("refresh_token").orEmpty()
+    if (type.isNullOrBlank() || (tokenHash.isBlank() && (accessToken.isBlank() || refreshToken.isBlank()))) {
+      _authError.value = "This authentication link is incomplete or expired. Request a new link and try again."
+      _currentScreen.value = ScreenState.LOGIN
+      return
+    }
+    if (type !in setOf("recovery", "email_change", "signup", "magiclink", "invite", "email")) {
+      _authError.value = "This authentication link type is not supported."
+      _currentScreen.value = ScreenState.LOGIN
+      return
+    }
+
+    viewModelScope.launch {
+      _isAuthBusy.value = true
+      val result: Result<UserAccount?> = when {
+        tokenHash.isNotBlank() && type == "recovery" -> Result.success(null)
+        tokenHash.isNotBlank() -> supabase.verifyAuthCallback(tokenHash, type).map { it as UserAccount? }
+        else -> supabase.acceptAuthSession(
+          accessToken, refreshToken, parameter("expires_in")?.toLongOrNull() ?: 3600L
+        ).map { it as UserAccount? }
+      }
+      result.onSuccess { user ->
+        if (type == "recovery") {
+          _recoveryTokenHash.value = tokenHash
+          _newPassword.value = ""
+          _confirmNewPassword.value = ""
+          _authError.value = null
+          _authNotice.value = null
+          _currentScreen.value = ScreenState.RESET_PASSWORD
+        } else if (user != null) {
+          authService.updateCurrentUser(user)
+          userProfileService.setUser(user)
+          _emailInput.value = user.email
+          _phoneInput.value = user.phoneNumber
+          _displayNameInput.value = user.displayName
+          _authError.value = null
+          _authNotice.value = "Your email has been confirmed."
+          _currentScreen.value = ScreenState.MAIN_APP
+          startIncomingCallPollingIfForeground()
+        }
+      }.onFailure { error ->
+        _authError.value = error.message ?: "This authentication link is invalid or has expired."
+        _currentScreen.value = ScreenState.LOGIN
+      }
+      _isAuthBusy.value = false
+    }
+  }
+
   fun updateRecoveryEmail(value: String) { _recoveryEmail.value = value; _authError.value = null }
   fun updateRecoveryPhone(value: String) { _recoveryPhone.value = value; _authError.value = null }
   fun updateNewPassword(value: String) { _newPassword.value = value; _authError.value = null }
@@ -424,13 +488,13 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     viewModelScope.launch {
       _isAuthBusy.value = true
       val result = supabase.requestPasswordRecovery(email, phone)
-      result.onSuccess { token ->
-        _recoveryTokenHash.value = token
+      result.onSuccess {
+        _recoveryTokenHash.value = ""
         _newPassword.value = ""
         _confirmNewPassword.value = ""
         _authError.value = null
-        _currentScreen.value = ScreenState.RESET_PASSWORD
-      }.onFailure { _authError.value = it.message ?: "The email and phone number could not be matched." }
+        _authNotice.value = "If the email and phone number match, a password reset link has been sent. Open it on this device to continue."
+      }.onFailure { _authError.value = it.message ?: "Could not send a password reset email. Please try again." }
       _isAuthBusy.value = false
     }
   }

@@ -165,6 +165,7 @@ fun ForgotPasswordScreen(
   email: String,
   phoneNumber: String,
   error: String?,
+  notice: String?,
   busy: Boolean,
   onEmailChanged: (String) -> Unit,
   onPhoneChanged: (String) -> Unit,
@@ -200,6 +201,7 @@ fun ForgotPasswordScreen(
         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); if (!busy) onSubmit() })
       )
       if (error != null) Text(error, color = CallRed, style = MaterialTheme.typography.bodySmall)
+      if (notice != null) Text(notice, color = CallGreen, style = MaterialTheme.typography.bodySmall)
       Button(
         onClick = { focusManager.clearFocus(force = true); onSubmit() },
         enabled = !busy && email.contains("@") && phoneNumber.trim().startsWith("+"),

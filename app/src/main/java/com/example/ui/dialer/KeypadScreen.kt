@@ -103,39 +103,44 @@ fun KeypadScreen(
     modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 2.dp),
     horizontalAlignment = Alignment.CenterHorizontally
   ) {
-    // Suggestions are shown only after the first digit and scroll independently.
-    if (enteredNumber.isNotBlank() && (matchingContacts.isNotEmpty() || matchingHistory.isNotEmpty())) {
-      Column(Modifier.fillMaxWidth().height(124.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        matchingContacts.forEach { contact ->
-          Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
-            fieldValue = TextFieldValue(contact.phoneNumber, TextRange(contact.phoneNumber.length))
-            onNumberChanged(contact.phoneNumber)
-          }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-              Text(contact.avatarInitials, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-              Text(contact.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-              Text(contact.phoneNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+    // Reserve a stable suggestions slot so the number display and keypad never jump.
+    Box(Modifier.fillMaxWidth().height(124.dp)) {
+      if (enteredNumber.isNotBlank() && (matchingContacts.isNotEmpty() || matchingHistory.isNotEmpty())) {
+        Column(
+          Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+          matchingContacts.forEach { contact ->
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+              fieldValue = TextFieldValue(contact.phoneNumber, TextRange(contact.phoneNumber.length))
+              onNumberChanged(contact.phoneNumber)
+            }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+              Box(Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                Text(contact.avatarInitials, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+              }
+              Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                Text(contact.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(contact.phoneNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+              }
             }
           }
-        }
-        matchingHistory.forEach { record ->
-          Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
-            fieldValue = TextFieldValue(record.phoneNumber, TextRange(record.phoneNumber.length))
-            onNumberChanged(record.phoneNumber)
-          }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-              Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
-            }
-            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-              Text(record.contactName ?: "Recent number", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-              Text(record.phoneNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+          matchingHistory.forEach { record ->
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+              fieldValue = TextFieldValue(record.phoneNumber, TextRange(record.phoneNumber.length))
+              onNumberChanged(record.phoneNumber)
+            }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+              Box(Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
+              }
+              Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                Text(record.contactName ?: "Recent number", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(record.phoneNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+              }
             }
           }
         }
       }
-    } else { Spacer(Modifier.height(2.dp)) }
+    }
     // Keep a fixed number-display slot; hiding the text must not move the keypad.
     Box(Modifier.fillMaxWidth().height(42.dp), contentAlignment = Alignment.Center) {
       BasicTextField(
@@ -143,7 +148,7 @@ fun KeypadScreen(
         onValueChange = { fieldValue = it; onNumberChanged(it.text) },
         readOnly = true, singleLine = true, cursorBrush = SolidColor(CallGreen),
         textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center),
-        modifier = Modifier.fillMaxWidth().focusRequester(numberFieldFocusRequester).graphicsLayer { alpha = if (enteredNumber.isNotBlank()) 0f else 1f }.testTag("dialer_number_display"),
+        modifier = Modifier.fillMaxWidth().focusRequester(numberFieldFocusRequester).testTag("dialer_number_display"),
         decorationBox = { inner -> Box(contentAlignment = Alignment.Center) {
           if (fieldValue.text.isEmpty()) Text("Enter phone number", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp)
           inner()

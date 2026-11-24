@@ -3,8 +3,10 @@
     <cloud-backup>
         <!-- Android Auto Backup copies the call-history and contact database to the user's Google backup. -->
         <include domain="database" path="linecall_database" />
+        <exclude domain="sharedpref" path="line_call_secure_session.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="database" path="linecall_database" />
+        <exclude domain="sharedpref" path="line_call_secure_session.xml" />
     </device-transfer>
 </data-extraction-rules>
