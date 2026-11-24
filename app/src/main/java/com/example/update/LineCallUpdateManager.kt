@@ -74,9 +74,7 @@ object LineCallUpdateManager {
             return false
         }
         val expectedDigest = prefs.getString(PENDING_SHA256, null)
-        if (expectedDigest.isNullOrBlank() || !expectedDigest.matches(Regex("^[0-9a-fA-F]{64}$")) ||
-            !sha256(apk).equals(expectedDigest, ignoreCase = true)
-        ) {
+        if (expectedDigest.isNullOrBlank() || !expectedDigest.matches(Regex("^[0-9a-fA-F]{64}$"))) {
             clearPending(context)
             return false
         }
@@ -101,6 +99,14 @@ object LineCallUpdateManager {
         if (!hasPendingUpdate(context)) return false
         val prefs = context.getSharedPreferences(UPDATE_PREFS, Context.MODE_PRIVATE)
         val apk = File(prefs.getString(PENDING_APK, "") ?: return false)
+        val expectedDigest = prefs.getString(PENDING_SHA256, null)
+        if (expectedDigest.isNullOrBlank() || !expectedDigest.matches(Regex("^[0-9a-fA-F]{64}$")) ||
+            !sha256(apk).equals(expectedDigest, ignoreCase = true)
+        ) {
+            clearPending(context)
+            android.util.Log.e("LineCallUpdater", "Saved APK digest is missing or invalid; refusing installation.")
+            return false
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !context.packageManager.canRequestPackageInstalls()
         ) {
