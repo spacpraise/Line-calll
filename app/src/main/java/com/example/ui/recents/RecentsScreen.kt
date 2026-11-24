@@ -1,7 +1,15 @@
 package com.example.ui.recents
 
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,32 +19,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalView
-import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.CallMade
 import androidx.compose.material.icons.automirrored.rounded.CallMissed
 import androidx.compose.material.icons.automirrored.rounded.CallReceived
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,28 +48,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.CallRecord
 import com.example.data.model.CallType
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
- * Recents screen matching Samsung One UI Phone Recents (Images 5 & 6):
- * - Missed calls banner card: "2 missed calls from Sunny Wife. [Call back]" with close 'X'
- * - "Today" section header
- * - Unified dark card container with directional arrow icons (green outgoing/incoming, red missed)
- * - Right-aligned time
- * - Filter bottom sheet supporting filters from Image 5 (Call time, Call type)
+ * Recents, redesigned around a WhatsApp/Telegram calling pattern rather than a
+ * system phone-app call log: each row leads with the caller's identity (avatar,
+ * name, number) instead of a direction arrow, consecutive calls from the same
+ * number collapse into one row with a count badge, and swiping a row calls back
+ * immediately instead of requiring a tap-in first.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,23 +93,32 @@ fun RecentsScreen(
   var showFilterSheet by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
 
-  // Find missed calls for banner
-  val missedCalls = remember(callHistory) {
-    callHistory.filter { it.type == CallType.MISSED }
-  }
+  val missedCalls = remember(callHistory) { callHistory.filter { it.type == CallType.MISSED } }
 
   val filteredHistory = remember(callHistory, filterType) {
-    if (filterType == null) callHistory
-    else callHistory.filter { it.type == filterType }
+    if (filterType == null) callHistory else callHistory.filter { it.type == filterType }
+  }
+
+  // Collapse consecutive calls from the same number into one group, newest first.
+  // A different caller in between starts a new group, so history of A, B, A stays
+  // three groups rather than merging the two A's across the gap.
+  val groupedHistory = remember(filteredHistory) {
+    val groups = mutableListOf<MutableList<CallRecord>>()
+    for (record in filteredHistory) {
+      val lastGroup = groups.lastOrNull()
+      if (lastGroup != null && lastGroup.first().phoneNumber == record.phoneNumber) {
+        lastGroup.add(record)
+      } else {
+        groups.add(mutableListOf(record))
+      }
+    }
+    groups
   }
 
   LazyColumn(
-    modifier = modifier
-      .fillMaxSize()
-      .padding(horizontal = 16.dp),
+    modifier = modifier.fillMaxSize().padding(horizontal = 16.dp),
     contentPadding = PaddingValues(bottom = 96.dp)
   ) {
-    // 1. Missed Calls Top Banner (Image 6)
     if (!missedCallBannerDismissed && missedCalls.isNotEmpty()) {
       val latestMissed = missedCalls.first()
       val caller = latestMissed.contactName ?: latestMissed.phoneNumber
@@ -113,53 +128,34 @@ fun RecentsScreen(
         Card(
           shape = RoundedCornerShape(24.dp),
           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .testTag("missed_call_banner_card")
+          modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("missed_call_banner_card")
         ) {
           Box(modifier = Modifier.padding(16.dp)) {
             IconButton(
               onClick = onDismissMissedBanner,
-              modifier = Modifier
-                .size(24.dp)
-                .align(Alignment.TopEnd)
+              modifier = Modifier.size(24.dp).align(Alignment.TopEnd)
             ) {
-              Icon(
-                imageVector = Icons.Rounded.Close,
-                contentDescription = "Dismiss",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp)
-              )
+              Icon(Icons.Rounded.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
             }
-
-            Column(
-              horizontalAlignment = Alignment.CenterHorizontally,
-              modifier = Modifier.fillMaxWidth()
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
               Spacer(modifier = Modifier.height(4.dp))
               Text(
-                text = "$missedCount missed calls from $caller.",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 15.sp
-                ),
+                text = "$missedCount missed calls from $caller",
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
               )
-
               Spacer(modifier = Modifier.height(14.dp))
-
               Surface(
                 onClick = { onCallRecord(latestMissed) },
                 shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.outline,
+                color = CallGreen,
                 modifier = Modifier.testTag("callback_banner_btn")
               ) {
                 Text(
                   text = "Call back",
                   style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                  color = MaterialTheme.colorScheme.onSurface,
+                  color = Color.White,
                   modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp)
                 )
               }
@@ -169,20 +165,14 @@ fun RecentsScreen(
       }
     }
 
-    // Active filter pill indicator
     if (filterType != null) {
       item {
         Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+          modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
-          Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
-          ) {
+          Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
             Row(
               modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
               verticalAlignment = Alignment.CenterVertically,
@@ -197,15 +187,23 @@ fun RecentsScreen(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = "Clear filter",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                  .size(14.dp)
-                  .clickable { onFilterSelected(null) }
+                modifier = Modifier.size(14.dp).clickable { onFilterSelected(null) }
               )
             }
           }
-
           TextButton(onClick = onClearHistory) {
             Text("Clear all", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+          }
+        }
+      }
+    } else if (filteredHistory.isNotEmpty()) {
+      item {
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+          horizontalArrangement = Arrangement.End
+        ) {
+          TextButton(onClick = { showFilterSheet = true }) {
+            Text("Filter", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
           }
         }
       }
@@ -214,141 +212,90 @@ fun RecentsScreen(
     if (filteredHistory.isEmpty()) {
       item {
         Column(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 80.dp),
+          modifier = Modifier.fillMaxWidth().padding(top = 80.dp),
           horizontalAlignment = Alignment.CenterHorizontally
         ) {
           Box(
-            modifier = Modifier
-              .size(68.dp)
-              .clip(CircleShape)
-              .background(MaterialTheme.colorScheme.surface),
+            modifier = Modifier.size(68.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center
           ) {
-            Icon(
-              imageVector = Icons.Rounded.History,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.onSurfaceVariant,
-              modifier = Modifier.size(32.dp)
-            )
+            Icon(Icons.Rounded.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
           }
           Spacer(modifier = Modifier.height(14.dp))
           Text(
-            text = "No Recent Calls",
+            text = "No recent calls",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurface
+          )
+          Text(
+            text = "Calls you make or receive will show up here",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
           )
         }
       }
     } else {
-      // "Today" Section Header (Image 6)
       item {
         Text(
-          text = "Today",
+          text = "Recent",
           style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 6.dp)
         )
       }
 
-      // Keep each call record independently lazy; long histories remain responsive.
-      items(
-        items = filteredHistory,
-        key = { it.id }
-      ) { record ->
+      items(items = groupedHistory, key = { it.first().id }) { group ->
         Surface(
           shape = RoundedCornerShape(16.dp),
           color = MaterialTheme.colorScheme.surface,
           modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
         ) {
-          OneUiCallRecordRow(
-            record = record,
-            onClick = { onCallRecord(record) }
-          )
+          RecentCallRow(group = group, onClick = { onCallRecord(group.first()) })
         }
       }
     }
   }
 
-  // Filter Bottom Sheet (Image 5)
   if (showFilterSheet) {
     ModalBottomSheet(
       onDismissRequest = { showFilterSheet = false },
       sheetState = sheetState,
       containerColor = MaterialTheme.colorScheme.surfaceVariant
     ) {
-      Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 20.dp, vertical = 10.dp)
-      ) {
+      Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
         Text(
-          text = "Filters",
+          text = "Filter calls",
           style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
           color = MaterialTheme.colorScheme.onSurface
         )
-
         Spacer(modifier = Modifier.height(14.dp))
-
-        Text(
-          text = "Call type",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-          FilterPill(
-            label = "All calls",
-            isSelected = filterType == null,
-            onClick = {
-              onFilterSelected(null)
-              showFilterSheet = false
-            }
-          )
-          FilterPill(
-            label = "Missed",
-            isSelected = filterType == CallType.MISSED,
-            onClick = {
-              onFilterSelected(CallType.MISSED)
-              showFilterSheet = false
-            }
-          )
-          FilterPill(
-            label = "Outgoing",
-            isSelected = filterType == CallType.OUTGOING,
-            onClick = {
-              onFilterSelected(CallType.OUTGOING)
-              showFilterSheet = false
-            }
-          )
-          FilterPill(
-            label = "Incoming",
-            isSelected = filterType == CallType.INCOMING,
-            onClick = {
-              onFilterSelected(CallType.INCOMING)
-              showFilterSheet = false
-            }
-          )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          FilterPill(label = "All", isSelected = filterType == null, onClick = { onFilterSelected(null); showFilterSheet = false })
+          FilterPill(label = "Missed", isSelected = filterType == CallType.MISSED, onClick = { onFilterSelected(CallType.MISSED); showFilterSheet = false })
+          FilterPill(label = "Outgoing", isSelected = filterType == CallType.OUTGOING, onClick = { onFilterSelected(CallType.OUTGOING); showFilterSheet = false })
+          FilterPill(label = "Incoming", isSelected = filterType == CallType.INCOMING, onClick = { onFilterSelected(CallType.INCOMING); showFilterSheet = false })
         }
-
         Spacer(modifier = Modifier.height(24.dp))
       }
     }
   }
 }
 
+private val avatarColors = listOf(
+  Color(0xFFFCA5A5), Color(0xFF86EFAC), Color(0xFF93C5FD), Color(0xFFFDE047), Color(0xFFF472B6)
+)
+
 @Composable
-fun OneUiCallRecordRow(
-  record: CallRecord,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
+private fun RecentCallRow(group: List<CallRecord>, onClick: () -> Unit, modifier: Modifier = Modifier) {
+  val record = group.first()
   val view = LocalView.current
+  val density = LocalDensity.current
+  val scope = rememberCoroutineScope()
+  val offsetX = remember { Animatable(0f) }
+  val callThreshold = with(density) { 72.dp.toPx() }
+  val revealProgress = (offsetX.value / callThreshold).coerceIn(0f, 1f)
+
   val interaction = remember { MutableInteractionSource() }
   val pressed by interaction.collectIsPressedAsState()
   val pressScale by animateFloatAsState(
@@ -357,94 +304,110 @@ fun OneUiCallRecordRow(
     label = "recent_row_press"
   )
 
-  Row(
-    modifier = modifier
-      .fillMaxWidth()
-      .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
-      .clickable(
-        interactionSource = interaction,
-        indication = null,
-        onClick = {
-          view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-          onClick()
-        }
-      )
-      .padding(horizontal = 16.dp, vertical = 14.dp)
-      .testTag("recent_row_${record.phoneNumber}"),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.SpaceBetween
-  ) {
-    Row(
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(14.dp),
-      modifier = Modifier.weight(1f)
-    ) {
-      // Directional arrow icon (green outgoing/incoming, red missed)
-      when (record.type) {
-        CallType.OUTGOING -> {
-          Icon(
-            imageVector = Icons.AutoMirrored.Rounded.CallMade,
-            contentDescription = "Outgoing",
-            tint = CallGreen,
-            modifier = Modifier.size(16.dp)
-          )
-        }
-        CallType.INCOMING -> {
-          Icon(
-            imageVector = Icons.AutoMirrored.Rounded.CallReceived,
-            contentDescription = "Incoming",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp)
-          )
-        }
-        CallType.MISSED -> {
-          Icon(
-            imageVector = Icons.AutoMirrored.Rounded.CallMissed,
-            contentDescription = "Missed",
-            tint = CallRed,
-            modifier = Modifier.size(16.dp)
-          )
-        }
-      }
+  val initials = (record.contactName?.trim()?.takeIf { it.isNotBlank() }
+    ?.split(Regex("\\s+"))?.take(2)?.mapNotNull { it.firstOrNull()?.toString() }?.joinToString("")
+    ?: record.phoneNumber.filter { it.isLetterOrDigit() }.take(2)).ifBlank { "?" }.uppercase()
+  val avatarColor = avatarColors[(record.phoneNumber.hashCode().mod(avatarColors.size)).let { if (it < 0) it + avatarColors.size else it }]
 
-      // Contact name and count (Image 6)
-      val nameText = record.contactName ?: record.phoneNumber
-      Text(
-        text = nameText,
-        style = MaterialTheme.typography.bodyLarge.copy(
-          fontWeight = FontWeight.Medium,
-          color = if (record.type == CallType.MISSED) CallRed else MaterialTheme.colorScheme.onSurface
-        ),
-        maxLines = 1,
-        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+  Box(modifier = modifier.fillMaxWidth()) {
+    // Call-back affordance revealed as the row is swiped right.
+    Row(
+      modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp),
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      Icon(
+        imageVector = Icons.Rounded.Phone,
+        contentDescription = "Call back",
+        tint = CallGreen.copy(alpha = revealProgress),
+        modifier = Modifier.size(22.dp).graphicsLayer { scaleX = 0.7f + 0.3f * revealProgress; scaleY = 0.7f + 0.3f * revealProgress }
       )
     }
 
-    // Right-aligned time (e.g. 10:01 pm)
-    Text(
-      text = record.formattedTime.substringAfterLast(", "),
-      style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-      color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+        .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+        .background(MaterialTheme.colorScheme.surface)
+        .pointerInputDragToCall(offsetX, callThreshold, scope, view, onClick)
+        .clickable(
+          interactionSource = interaction,
+          indication = null,
+          onClick = { view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK); onClick() }
+        )
+        .padding(horizontal = 14.dp, vertical = 11.dp)
+        .testTag("recent_row_${record.phoneNumber}"),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+      Box(
+        modifier = Modifier.size(46.dp).clip(CircleShape).background(avatarColor),
+        contentAlignment = Alignment.Center
+      ) {
+        Text(initials, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+      }
+
+      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+          Text(
+            text = record.contactName ?: record.phoneNumber,
+            style = MaterialTheme.typography.bodyLarge.copy(
+              fontWeight = FontWeight.SemiBold,
+              color = if (record.type == CallType.MISSED) CallRed else MaterialTheme.colorScheme.onSurface
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+          )
+          if (group.size > 1) {
+            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+              Text(
+                text = "×${group.size}",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+              )
+            }
+          }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+          val (icon, tint) = when (record.type) {
+            CallType.OUTGOING -> Icons.AutoMirrored.Rounded.CallMade to CallGreen
+            CallType.INCOMING -> Icons.AutoMirrored.Rounded.CallReceived to MaterialTheme.colorScheme.onSurfaceVariant
+            CallType.MISSED -> Icons.AutoMirrored.Rounded.CallMissed to CallRed
+          }
+          Icon(icon, contentDescription = record.type.name.lowercase(), tint = tint, modifier = Modifier.size(13.dp))
+          Text(record.formattedTime, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+
+      IconButton(onClick = { view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK); onClick() }, modifier = Modifier.testTag("recent_row_call_${record.phoneNumber}")) {
+        Icon(Icons.Rounded.Phone, contentDescription = "Call ${record.contactName ?: record.phoneNumber}", tint = CallGreen, modifier = Modifier.size(20.dp))
+      }
+    }
   }
 }
 
+private fun Modifier.pointerInputDragToCall(
+  offsetX: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
+  threshold: Float,
+  scope: kotlinx.coroutines.CoroutineScope,
+  view: android.view.View,
+  onComplete: () -> Unit
+): Modifier = this.then(
+  Modifier.pointerInputDetect(offsetX, threshold, scope, view, onComplete)
+)
+
 @Composable
-private fun FilterPill(
-  label: String,
-  isSelected: Boolean,
-  onClick: () -> Unit
-) {
+private fun FilterPill(label: String, isSelected: Boolean, onClick: () -> Unit) {
   Surface(
     onClick = onClick,
     shape = RoundedCornerShape(16.dp),
-    color = if (isSelected) CallGreen else Color(0xFF26282E)
+    color = if (isSelected) CallGreen else MaterialTheme.colorScheme.surfaceVariant
   ) {
     Text(
       text = label,
-      style = MaterialTheme.typography.labelMedium.copy(
-        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-      ),
+      style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal),
       color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
       modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
     )
