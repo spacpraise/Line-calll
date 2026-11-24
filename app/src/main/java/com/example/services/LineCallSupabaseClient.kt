@@ -15,6 +15,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.net.URLEncoder
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -199,7 +200,7 @@ class LineCallSupabaseClient(context: Context) {
       }
       execute(
         Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user?redirect_to=${URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, Charsets.UTF_8.name())}")
           .headers(userHeaders())
           .put(JSONObject().put("email", cleanEmail).toString().toRequestBody(jsonType))
           .build()
