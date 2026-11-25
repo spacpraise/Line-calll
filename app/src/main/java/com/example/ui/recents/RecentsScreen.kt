@@ -1,10 +1,9 @@
 package com.example.ui.recents
 
 import android.view.HapticFeedbackConstants
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -294,6 +293,7 @@ private fun RecentCallRow(group: List<CallRecord>, onClick: () -> Unit, modifier
   val scope = rememberCoroutineScope()
   val offsetX = remember { Animatable(0f) }
   val callThreshold = with(density) { 72.dp.toPx() }
+  val maxDrag = with(density) { 96.dp.toPx() }
   val revealProgress = (offsetX.value / callThreshold).coerceIn(0f, 1f)
 
   val interaction = remember { MutableInteractionSource() }
@@ -329,7 +329,31 @@ private fun RecentCallRow(group: List<CallRecord>, onClick: () -> Unit, modifier
         .offset { IntOffset(offsetX.value.roundToInt(), 0) }
         .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
         .background(MaterialTheme.colorScheme.surface)
-        .pointerInputDragToCall(offsetX, callThreshold, scope, view, onClick)
+        .pointerInput(record.id) {
+          detectHorizontalDragGestures(
+            onDragEnd = {
+              val completed = offsetX.value >= callThreshold
+              scope.launch {
+                offsetX.animateTo(0f, animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f))
+              }
+              if (completed) {
+                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                onClick()
+              }
+            },
+            onDragCancel = {
+              scope.launch { offsetX.animateTo(0f, animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)) }
+            },
+            onHorizontalDrag = { change, dragAmount ->
+              change.consume()
+              val next = (offsetX.value + dragAmount).coerceIn(0f, maxDrag)
+              if (offsetX.value < callThreshold && next >= callThreshold) {
+                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+              }
+              scope.launch { offsetX.snapTo(next) }
+            }
+          )
+        }
         .clickable(
           interactionSource = interaction,
           indication = null,
@@ -387,16 +411,6 @@ private fun RecentCallRow(group: List<CallRecord>, onClick: () -> Unit, modifier
     }
   }
 }
-
-private fun Modifier.pointerInputDragToCall(
-  offsetX: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
-  threshold: Float,
-  scope: kotlinx.coroutines.CoroutineScope,
-  view: android.view.View,
-  onComplete: () -> Unit
-): Modifier = this.then(
-  Modifier.pointerInputDetect(offsetX, threshold, scope, view, onComplete)
-)
 
 @Composable
 private fun FilterPill(label: String, isSelected: Boolean, onClick: () -> Unit) {
