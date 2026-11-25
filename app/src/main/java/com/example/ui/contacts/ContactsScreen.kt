@@ -1,8 +1,13 @@
 package com.example.ui.contacts
 
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,30 +21,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalView
-import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -54,6 +45,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -65,12 +58,14 @@ import com.example.data.model.UserAccount
 import com.example.ui.theme.getFavoriteGradient
 
 /**
- * Contacts and Favourites Screen strictly implementing Samsung One UI Phone design (Images 1 & 4):
- * - Banner tip: "Your favourite contacts now appear as cards..."
- * - "★ Favourites" section with 3-column pastel gradient cards
- * - "My profile" pill card
- * - "Groups" pill card
- * - Alphabetical contact list items inside dark rounded containers
+ * Contacts, redesigned around a WhatsApp/Telegram identity-first pattern:
+ * - Your own profile sits as a slim top row, not a mid-list pill card, since
+ *   it's "you", not a contact you're browsing.
+ * - Favourites keep the pastel gradient card grid (already close to the
+ *   WhatsApp/Telegram feel) with consistent avatar-initial styling shared
+ *   with the regular contact rows and Recents.
+ * - No placeholder display name is ever shown: a signed-in user with no name
+ *   set sees "Add your name" as an actionable prompt instead of fake data.
  */
 @Composable
 fun ContactsScreen(
@@ -102,9 +97,60 @@ fun ContactsScreen(
       .padding(horizontal = 16.dp),
     contentPadding = PaddingValues(bottom = 96.dp) // Clearance for floating bottom nav
   ) {
+    // Your own profile, as a slim top-of-list row -- it's "you", not a
+    // contact you're browsing, so it doesn't share visual weight with the
+    // favourites grid or the contact list below it.
+    if (searchQuery.isEmpty()) {
+      item {
+        Surface(
+          onClick = onProfileClick,
+          shape = RoundedCornerShape(16.dp),
+          color = MaterialTheme.colorScheme.surface,
+          modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp).testTag("my_profile_pill_card")
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+          ) {
+            val initial = currentUser?.displayName?.trim()?.firstOrNull()?.uppercaseChar()
+            Box(
+              modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFF818CF8)),
+              contentAlignment = Alignment.Center
+            ) {
+              Text(
+                text = initial?.toString() ?: "+",
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold
+              )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                text = currentUser?.displayName?.trim()?.takeIf { it.isNotBlank() } ?: "Add your name",
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+              )
+              Text(
+                text = currentUser?.phoneNumber?.takeIf { it.isNotBlank() } ?: "Set up your profile",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            }
+            Icon(
+              imageVector = Icons.Rounded.ChevronRight,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+              modifier = Modifier.size(20.dp)
+            )
+          }
+        }
+      }
+    }
+
     item {
       Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
       ) {
         listOf("all" to "All", "registered" to "Registered", "online" to "Online").forEach { (filter, label) ->
@@ -124,44 +170,27 @@ fun ContactsScreen(
         }
       }
     }
-    // 1. Dismissable Banner Card (Image 1)
-    if (showBannerTip && favorites.isNotEmpty()) {
+
+    if (showBannerTip && favorites.isNotEmpty() && searchQuery.isEmpty()) {
       item {
         Card(
           shape = RoundedCornerShape(22.dp),
           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
+          modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
         ) {
           Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
             Text(
-              text = "Your favourite contacts now appear as cards. You can change to list view in the More menu.",
+              text = "Your favourite contacts appear as cards here. Tap one to call instantly.",
               style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
               color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(10.dp))
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.End,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
               Text(
-                text = "View as list",
+                text = "Got it",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                  .clickable { showBannerTip = false }
-                  .padding(horizontal = 8.dp, vertical = 4.dp)
-              )
-              Spacer(modifier = Modifier.width(16.dp))
-              Text(
-                text = "OK",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                  .clickable { showBannerTip = false }
-                  .padding(horizontal = 8.dp, vertical = 4.dp)
+                modifier = Modifier.clickable { showBannerTip = false }.padding(horizontal = 8.dp, vertical = 4.dp)
               )
             }
           }
@@ -169,7 +198,6 @@ fun ContactsScreen(
       }
     }
 
-    // 2. "★ Favourites" Header & Grid (Image 1 & 4)
     if (favorites.isNotEmpty() && searchQuery.isEmpty()) {
       item {
         Row(
@@ -177,45 +205,27 @@ fun ContactsScreen(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp)
         ) {
-          Icon(
-            imageVector = Icons.Rounded.Star,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(16.dp)
-          )
+          Icon(Icons.Rounded.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
           Text(
             text = "Favourites",
-            style = MaterialTheme.typography.titleMedium.copy(
-              fontWeight = FontWeight.Bold,
-              fontSize = 15.sp
-            ),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
             color = MaterialTheme.colorScheme.onSurface
           )
         }
       }
 
-      // Favourites 3-column card grid
       item {
         val chunked = favorites.chunked(3)
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
           chunked.forEach { rowItems ->
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-              rowItems.forEachIndexed { index, contact ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+              rowItems.forEach { contact ->
                 Box(modifier = Modifier.weight(1f)) {
-                  FavoriteCard(
-                    contact = contact,
-                    onClick = { onContactClick(contact) }
-                  )
+                  FavoriteCard(contact = contact, onClick = { onContactClick(contact) })
                 }
               }
-              // Fill remaining columns if last row has less than 3
               if (rowItems.size < 3) {
-                repeat(3 - rowItems.size) {
-                  Spacer(modifier = Modifier.weight(1f))
-                }
+                repeat(3 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
               }
             }
           }
@@ -224,82 +234,28 @@ fun ContactsScreen(
       }
     }
 
-    // 3. "My profile" pill card (Image 4)
     if (searchQuery.isEmpty()) {
       item {
-        Text(
-          text = "My profile",
-          style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 6.dp)
-        )
-
-        Surface(
-          onClick = onProfileClick,
-          shape = RoundedCornerShape(22.dp),
-          color = MaterialTheme.colorScheme.surface,
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("my_profile_pill_card")
-        ) {
-          Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-          ) {
-            Box(
-              modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF818CF8)), // Soft indigo avatar
-              contentAlignment = Alignment.Center
-            ) {
-              Icon(
-                imageVector = Icons.Rounded.Person,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-              )
-            }
-            Text(
-              text = currentUser?.displayName?.ifBlank { "Omolayo" } ?: "Omolayo",
-              style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-              color = MaterialTheme.colorScheme.onSurface
-            )
-          }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // "Groups" pill card (Image 4)
         Surface(
           onClick = { },
-          shape = RoundedCornerShape(22.dp),
+          shape = RoundedCornerShape(16.dp),
           color = MaterialTheme.colorScheme.surface,
-          modifier = Modifier.fillMaxWidth()
+          modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
         ) {
           Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
           ) {
             Box(
-              modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF374151)),
+              modifier = Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF374151)),
               contentAlignment = Alignment.Center
             ) {
-              Icon(
-                imageVector = Icons.Rounded.Group,
-                contentDescription = null,
-                tint = Color(0xFFD1D5DB),
-                modifier = Modifier.size(22.dp)
-              )
+              Icon(Icons.Rounded.Group, contentDescription = null, tint = Color(0xFFD1D5DB), modifier = Modifier.size(20.dp))
             }
             Text(
               text = "Groups",
-              style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+              style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
               color = MaterialTheme.colorScheme.onSurface
             )
           }
@@ -326,8 +282,6 @@ fun ContactsScreen(
       }
     }
 
-    // Render each contact as its own lazy item so large address books do not
-    // compose every row at once.
     val listToRender = if (searchQuery.isEmpty()) regularContacts else filteredContacts
     if (listToRender.isEmpty()) {
       item {
@@ -354,28 +308,25 @@ fun ContactsScreen(
           color = MaterialTheme.colorScheme.surface,
           modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
         ) {
-          ContactListRow(
-            contact = contact,
-            onClick = { onContactClick(contact) }
-          )
+          ContactListRow(contact = contact, onClick = { onContactClick(contact) })
         }
       }
     }
   }
 }
 
-/**
- * Pastel Favourites Card matching Image 1:
- * - Rounded square/rectangle with soft pastel gradient
- * - Large initial in a translucent white circular ring
- * - Name in white text at bottom
- */
+private val avatarColors = listOf(
+  Color(0xFFFCA5A5), Color(0xFF86EFAC), Color(0xFF93C5FD), Color(0xFFFDE047), Color(0xFFF472B6)
+)
+
+private fun contactInitials(contact: Contact): String {
+  val fromName = contact.name.trim().takeIf { it.isNotBlank() }
+    ?.split(Regex("\\s+"))?.take(2)?.mapNotNull { it.firstOrNull()?.toString() }?.joinToString("")
+  return (fromName ?: contact.avatarInitials.takeIf { it.isNotBlank() } ?: "?").uppercase()
+}
+
 @Composable
-fun FavoriteCard(
-  contact: Contact,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
+fun FavoriteCard(contact: Contact, onClick: () -> Unit, modifier: Modifier = Modifier) {
   Box(
     modifier = modifier
       .fillMaxWidth()
@@ -393,32 +344,19 @@ fun FavoriteCard(
       modifier = Modifier.fillMaxSize()
     ) {
       Spacer(modifier = Modifier.height(2.dp))
-
-      // Avatar circle with white stroke
       Box(
-        modifier = Modifier
-          .size(54.dp)
-          .clip(CircleShape)
-          .border(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
+        modifier = Modifier.size(54.dp).clip(CircleShape).border(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
         contentAlignment = Alignment.Center
       ) {
         Text(
-          text = contact.avatarInitials.take(1),
-          style = MaterialTheme.typography.titleLarge.copy(
-            fontWeight = FontWeight.Bold,
-            fontSize = 24.sp
-          ),
+          text = contactInitials(contact).take(1),
+          style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 24.sp),
           color = Color.White
         )
       }
-
-      // Name at bottom
       Text(
         text = contact.name,
-        style = MaterialTheme.typography.labelMedium.copy(
-          fontWeight = FontWeight.Bold,
-          fontSize = 12.sp
-        ),
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
         color = Color.White,
         textAlign = TextAlign.Center,
         maxLines = 2,
@@ -441,11 +379,7 @@ fun FavoriteCard(
 }
 
 @Composable
-fun ContactListRow(
-  contact: Contact,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
+fun ContactListRow(contact: Contact, onClick: () -> Unit, modifier: Modifier = Modifier) {
   val view = LocalView.current
   val interaction = remember { MutableInteractionSource() }
   val pressed by interaction.collectIsPressedAsState()
@@ -455,14 +389,8 @@ fun ContactListRow(
     label = "contact_row_press"
   )
 
-  val avatarColors = listOf(
-    Color(0xFFFCA5A5), // Soft peach/salmon
-    Color(0xFF86EFAC), // Soft green
-    Color(0xFF93C5FD), // Soft blue
-    Color(0xFFFDE047), // Soft yellow
-    Color(0xFFF472B6)  // Soft pink
-  )
-  val avatarColor = avatarColors[contact.id.toInt().mod(avatarColors.size)]
+  val avatarColor = avatarColors[(contact.id.hashCode().mod(avatarColors.size)).let { if (it < 0) it + avatarColors.size else it }]
+  val initials = contactInitials(contact)
 
   Row(
     modifier = modifier
@@ -471,10 +399,7 @@ fun ContactListRow(
       .clickable(
         interactionSource = interaction,
         indication = null,
-        onClick = {
-          view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-          onClick()
-        }
+        onClick = { view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK); onClick() }
       )
       .padding(horizontal = 16.dp, vertical = 12.dp)
       .testTag("contact_row_${contact.name}"),
@@ -482,18 +407,10 @@ fun ContactListRow(
     horizontalArrangement = Arrangement.spacedBy(14.dp)
   ) {
     Box(
-      modifier = Modifier
-        .size(40.dp)
-        .clip(CircleShape)
-        .background(avatarColor),
+      modifier = Modifier.size(42.dp).clip(CircleShape).background(avatarColor),
       contentAlignment = Alignment.Center
     ) {
-      Icon(
-        imageVector = Icons.Rounded.Person,
-        contentDescription = null,
-        tint = Color.White,
-        modifier = Modifier.size(24.dp)
-      )
+      Text(initials, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 
     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -513,12 +430,7 @@ fun ContactListRow(
       )
     }
     if (contact.isRegistered) {
-      Icon(
-        imageVector = Icons.Rounded.CheckCircle,
-        contentDescription = "Registered Line Call account",
-        tint = Color(0xFF22C55E),
-        modifier = Modifier.size(18.dp)
-      )
+      Icon(Icons.Rounded.CheckCircle, contentDescription = "Registered Line Call account", tint = Color(0xFF22C55E), modifier = Modifier.size(18.dp))
     }
     when (contact.presence) {
       "online" -> Box(Modifier.size(9.dp).clip(CircleShape).background(Color(0xFF22C55E)))
