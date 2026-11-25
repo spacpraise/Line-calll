@@ -81,6 +81,7 @@ import com.example.data.model.CallSessionState
 import com.example.services.CallNetworkSnapshot
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
+import com.example.ui.theme.IconSize
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -345,7 +346,7 @@ private fun HoldSwipeUpAction(
         imageVector = icon,
         contentDescription = "$label call",
         tint = Color.White,
-        modifier = Modifier.size(34.dp)
+        modifier = Modifier.size(IconSize.Prominent + 2.dp)
       )
     }
     Text(
@@ -544,7 +545,7 @@ fun ActiveCallScreen(
                 modifier = Modifier.fillMaxWidth().height(56.dp).testTag("recall_call_button")
               ) {
                 Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                  Icon(Icons.Rounded.Phone, contentDescription = null, tint = Color.White)
+                  Icon(Icons.Rounded.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(IconSize.Standard))
                   Text("Call again", modifier = Modifier.padding(start = 10.dp), color = Color.White,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                 }
@@ -594,7 +595,7 @@ fun ActiveCallScreen(
                 modifier = Modifier.fillMaxWidth(0.78f).height(58.dp).testTag("end_call_button")
               ) {
                 Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                  Icon(Icons.Rounded.CallEnd, contentDescription = "End call", tint = Color.White, modifier = Modifier.size(25.dp))
+                  Icon(Icons.Rounded.CallEnd, contentDescription = "End call", tint = Color.White, modifier = Modifier.size(IconSize.Standard + 3.dp))
                   Text("End call", modifier = Modifier.padding(start = 10.dp),
                     color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 }
@@ -671,7 +672,8 @@ fun ActiveCallScreen(
                 Icon(
                   imageVector = if (route.id == selectedAudioRouteId) Icons.Rounded.CheckCircle else Icons.Rounded.VolumeUp,
                   contentDescription = null,
-                  tint = MaterialTheme.colorScheme.onSurface
+                  tint = MaterialTheme.colorScheme.onSurface,
+                  modifier = Modifier.size(IconSize.Standard)
                 )
                 Column(modifier = Modifier.weight(1f)) {
                   Text(route.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
@@ -722,7 +724,7 @@ private fun ActiveCallControl(
           imageVector = icon,
           contentDescription = label,
           tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
-          modifier = Modifier.size(27.dp)
+          modifier = Modifier.size(IconSize.Standard + 5.dp)
         )
       }
     }
