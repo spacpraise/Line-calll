@@ -64,13 +64,14 @@ import com.example.data.model.UserAccount
 import com.example.ui.BackendNoticeState
 import com.example.ui.MainTab
 import com.example.ui.theme.CallGreen
+import com.example.ui.theme.IconSize
 import com.example.ui.theme.NotificationOrange
 
 /**
- * Top header matching Samsung One UI Phone / Contacts app:
- * - In Keypad: clean top bar with Search and 3-dots More menu (with orange dot)
- * - In Contacts: large "Phone" title + contact count subtitle, with +, Search, 3-dots More menu
- * - In Recents: Filter icon, Search, 3-dots More menu
+ * Top header shared across the app's three main tabs. Icon sizes come from
+ * IconSize so the top bar's action icons read as the same visual weight as
+ * the icons used in Recents, Contacts, Settings and the call screens,
+ * instead of each screen's icons being a few dp off from one another.
  */
 @Composable
 fun OneUiTopBar(
@@ -97,7 +98,6 @@ fun OneUiTopBar(
       verticalAlignment = Alignment.CenterVertically
     ) {
       if (currentTab == MainTab.CONTACTS) {
-        // Large "Phone" + Subtitle "XXXX contacts" as in Image 1
         Column {
           Text(
             text = "Phone",
@@ -114,7 +114,6 @@ fun OneUiTopBar(
           )
         }
       } else {
-        // Line Call Brand Pill or empty spacer
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -133,7 +132,6 @@ fun OneUiTopBar(
         }
       }
 
-      // Top Action Icons
       Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -149,7 +147,7 @@ fun OneUiTopBar(
               imageVector = Icons.Rounded.Add,
               contentDescription = "Add Contact",
               tint = MaterialTheme.colorScheme.onSurface,
-              modifier = Modifier.size(24.dp)
+              modifier = Modifier.size(IconSize.Standard)
             )
           }
         } else if (currentTab == MainTab.RECENTS) {
@@ -161,7 +159,7 @@ fun OneUiTopBar(
               imageVector = Icons.Rounded.FilterList,
               contentDescription = "Filters",
               tint = MaterialTheme.colorScheme.onSurface,
-              modifier = Modifier.size(22.dp)
+              modifier = Modifier.size(IconSize.Standard)
             )
           }
         }
@@ -176,11 +174,10 @@ fun OneUiTopBar(
             imageVector = Icons.Rounded.Search,
             contentDescription = "Search",
             tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(IconSize.Standard)
           )
         }
 
-        // More Menu with Orange Notification Dot (Image 1, 2, 4, 6)
         Box {
           IconButton(
             onClick = { showMenu = true },
@@ -193,9 +190,8 @@ fun OneUiTopBar(
                 imageVector = Icons.Rounded.MoreVert,
                 contentDescription = "More",
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(IconSize.Standard)
               )
-              // Distinct orange indicator dot
               Box(
                 modifier = Modifier
                   .size(6.dp)
@@ -235,11 +231,8 @@ fun OneUiTopBar(
 }
 
 /**
- * Floating Dark Pill Navigation Bar exactly matching Samsung One UI phone screenshots (Images 1, 2, 4, 6):
- * - Floats gracefully above the bottom system navigation insets
- * - Pill container: RoundedCornerShape(32.dp) with MaterialTheme.colorScheme.surfaceVariant background
- * - 3 Tabs: Keypad, Recents, Contacts
- * - Selected tab highlighted by an active inner pill (MaterialTheme.colorScheme.secondaryContainer)
+ * Floating bottom navigation pill. Tab icons use IconSize.Standard so the
+ * nav bar's visual weight matches the top bar's action icons.
  */
 @Composable
 fun OneUiFloatingBottomNav(
@@ -332,7 +325,7 @@ private fun OneUiNavTabItem(
         imageVector = icon,
         contentDescription = label,
         tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.size(20.dp)
+        modifier = Modifier.size(IconSize.Standard - 2.dp)
       )
       Spacer(modifier = Modifier.height(2.dp))
       Text(
