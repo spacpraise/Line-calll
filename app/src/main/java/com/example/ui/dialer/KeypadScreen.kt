@@ -1,7 +1,6 @@
 package com.example.ui.dialer
 
 import android.view.HapticFeedbackConstants
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +58,7 @@ import com.example.data.model.CallRecord
 import com.example.data.model.Contact
 import com.example.data.model.Country
 import com.example.ui.theme.CallGreen
+import com.example.ui.theme.IconSize
 
 @Composable
 fun KeypadScreen(
@@ -130,7 +130,7 @@ fun KeypadScreen(
               onNumberChanged(record.phoneNumber)
             }.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
               Box(Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
+                Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(IconSize.Standard - 5.dp))
               }
               Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text(record.contactName ?: "Recent number", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -208,7 +208,7 @@ fun KeypadScreen(
         modifier = Modifier.padding(top = 1.dp).size(76.dp).testTag("call_action_button")
       ) {
         Box(contentAlignment = Alignment.Center) {
-          Icon(Icons.Rounded.Phone, contentDescription = "Call", tint = Color.White, modifier = Modifier.size(36.dp))
+          Icon(Icons.Rounded.Phone, contentDescription = "Call", tint = Color.White, modifier = Modifier.size(IconSize.Prominent + 4.dp))
         }
       }
     }
@@ -246,8 +246,21 @@ private fun DialDigit(
     contentAlignment = Alignment.Center
   ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-      Text(digit, color = MaterialTheme.colorScheme.onSurface, fontSize = 34.sp, fontWeight = FontWeight.Medium)
-      if (sub.isNotEmpty()) Text(sub, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, letterSpacing = 1.sp)
+      Text(digit, color = MaterialTheme.colorScheme.onSurface, fontSize = 32.sp, fontWeight = FontWeight.Normal)
+      // Letter subtext is a legacy phone-keypad convention (T9 texting) that
+      // modern calling apps like WhatsApp/Telegram either drop or treat as a
+      // quiet footnote, not a co-equal label next to the digit. Kept, since
+      // some users still rely on it, but pushed further down in size/weight/
+      // color so the digit is unambiguously the primary thing being tapped.
+      if (sub.isNotEmpty()) {
+        Text(
+          sub,
+          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+          fontSize = 9.sp,
+          letterSpacing = 1.2.sp,
+          fontWeight = FontWeight.Normal
+        )
+      }
     }
   }
 }
