@@ -61,6 +61,7 @@ import coil.compose.AsyncImage
 import com.example.data.model.UserAccount
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
+import com.example.ui.theme.IconSize
 import com.example.ui.theme.AppThemeMode
 
 @Composable
@@ -96,7 +97,7 @@ fun SettingsScreen(
         verticalAlignment = Alignment.CenterVertically
       ) {
         IconButton(onClick = onBack) {
-          Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+          Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", modifier = Modifier.size(IconSize.Standard))
         }
         Text("Settings", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
           color = MaterialTheme.colorScheme.onBackground)
@@ -118,10 +119,13 @@ fun SettingsScreen(
                 modifier = Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
               ) {
+                val initial = currentUser?.displayName?.trim()?.firstOrNull()?.uppercaseChar()
+                  ?: currentUser?.email?.trim()?.firstOrNull()?.uppercaseChar()
                 Text(
-                  currentUser?.displayName?.take(2)?.uppercase()
-                    ?: currentUser?.email?.take(2)?.uppercase() ?: "LC",
-                  color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold
+                  initial?.toString() ?: "+",
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  style = MaterialTheme.typography.titleLarge,
+                  fontWeight = FontWeight.Bold
                 )
                 if (!currentUser?.avatarUrl.isNullOrBlank()) {
                   AsyncImage(
@@ -133,8 +137,13 @@ fun SettingsScreen(
               }
               Spacer(Modifier.width(14.dp))
               Column(modifier = Modifier.weight(1f)) {
-                Text(currentUser?.displayName?.ifBlank { "Line Call user" } ?: "Line Call user",
-                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                // No placeholder identity is ever shown here -- a user who
+                // hasn't set a name yet sees an actionable prompt, not a
+                // made-up or generic stand-in name.
+                Text(
+                  currentUser?.displayName?.trim()?.takeIf { it.isNotBlank() } ?: "Add your name",
+                  style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
                 Text("Your Line Call profile", style = MaterialTheme.typography.bodySmall,
                   color = MaterialTheme.colorScheme.secondary)
               }
@@ -145,7 +154,7 @@ fun SettingsScreen(
               shape = RoundedCornerShape(14.dp),
               colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-              Icon(Icons.Rounded.CameraAlt, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+              Icon(Icons.Rounded.CameraAlt, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(IconSize.Standard))
               Spacer(Modifier.width(8.dp))
               Text(if (currentUser?.avatarUrl.isNullOrBlank()) "Add profile photo" else "Change profile photo",
                 color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
@@ -270,7 +279,7 @@ fun SettingsScreen(
         ) {
           Column {
             Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Rounded.Email, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+              Icon(Icons.Rounded.Email, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(IconSize.Standard))
               Spacer(Modifier.width(14.dp))
               Column {
                 Text("Account email", fontWeight = FontWeight.SemiBold)
@@ -280,7 +289,7 @@ fun SettingsScreen(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
             Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+              Icon(Icons.Rounded.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(IconSize.Standard))
               Spacer(Modifier.width(14.dp))
               Column {
                 Text("Phone number", fontWeight = FontWeight.SemiBold)
@@ -292,7 +301,7 @@ fun SettingsScreen(
         }
 
         TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-          Icon(Icons.Rounded.ExitToApp, contentDescription = null, tint = CallRed)
+          Icon(Icons.Rounded.ExitToApp, contentDescription = null, tint = CallRed, modifier = Modifier.size(IconSize.Standard))
           Spacer(Modifier.width(8.dp))
           Text("Sign out", color = CallRed, fontWeight = FontWeight.SemiBold)
         }
@@ -376,7 +385,7 @@ private fun ProfileDetailRow(
       if (trailing != null) Text(trailing, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
     }
     TextButton(onClick = onEdit) {
-      Icon(Icons.Rounded.Edit, contentDescription = null, tint = CallGreen, modifier = Modifier.size(18.dp))
+      Icon(Icons.Rounded.Edit, contentDescription = null, tint = CallGreen, modifier = Modifier.size(IconSize.Inline + 2.dp))
       Spacer(Modifier.width(4.dp))
       Text("Edit", color = CallGreen)
     }
