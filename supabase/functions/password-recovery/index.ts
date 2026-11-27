@@ -55,24 +55,34 @@ Deno.serve(async (req: Request) => {
     const { data: matches, error: profileError } = await admin
       .from("profiles").select("id").eq("email", email).eq("phone_number", phone).limit(2);
     if (profileError || !matches || matches.length !== 1) return genericFailure();
+    const matchedUserId = matches[0].id as string;
 
-    // Only after both email and phone match, ask Supabase Auth to send its
-    // standard recovery email. The redirect returns to the app's custom-scheme
-    // callback after the user opens the email link.
-    const authClient = createClient(url, anonKey, {
-      // The native Android app consumes the access/refresh tokens from the
-      // callback fragment; a server-side PKCE verifier cannot be handed to it.
-      auth: { flowType: "implicit", persistSession: false, autoRefreshToken: false },
+    // Build-phase behavior: the account stays completely untouched here (no
+    // deletion, no row changes) -- this only proves the submitted email and
+    // phone belong to the SAME existing profile row. Once that is confirmed,
+    // mint a short-lived recovery token for that exact user id with the
+    // admin API and hand the raw token back to the app directly, instead of
+    // emailing a link. The app immediately exchanges this token at
+    // /auth/v1/verify (type=recovery), the same path the email link would
+    // have used, landing the user on the existing "choose a new password"
+    // screen with their existing account, contacts and call history intact.
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
     });
-    const { error: emailError } = await authClient.auth.resetPasswordForEmail(email, {
-      redirectTo: "linecall://auth/callback",
-    });
-    if (emailError) {
-      console.error("password-recovery email dispatch failed", emailError.message);
-      return json({ error: "Could not send the recovery email. Please try again." }, 503);
+    if (linkError || !linkData?.properties?.hashed_token) {
+      console.error("password-recovery link generation failed", linkError?.message);
+      return genericFailure();
+    }
+    // Defensive check: the generated link must belong to the same matched
+    // profile row we just verified, never a different account that happens
+    // to share an unrelated field.
+    if (linkData.user?.id && linkData.user.id !== matchedUserId) {
+      console.error("password-recovery matched-user mismatch", { matchedUserId, generatedFor: linkData.user.id });
+      return genericFailure();
     }
 
-    return json({ sent: true });
+    return json({ matched: true, token_hash: linkData.properties.hashed_token });
   } catch (error) {
     console.error("password-recovery failed", error instanceof Error ? error.message : "unknown");
     return json({ error: "Password recovery is temporarily unavailable." }, 503);
