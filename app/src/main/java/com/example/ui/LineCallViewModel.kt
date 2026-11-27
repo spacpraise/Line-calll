@@ -152,8 +152,6 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   val confirmNewPassword: StateFlow<String> = _confirmNewPassword.asStateFlow()
 
   private var isCompletingRegistration = false
-  private var emailChangeAwaitingConfirmation = false
-  private var emailBeforeChange = ""
 
   private val _phoneInput = MutableStateFlow("")
   val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
@@ -378,6 +376,7 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   fun updatePasswordInput(value: String) { _passwordInput.value = value; _authError.value = null }
   fun updateConfirmPasswordInput(value: String) { _confirmPasswordInput.value = value; _authError.value = null }
 
+  /** Accepts either an email address or an E.164 phone number typed into the single login field. */
   fun signIn() {
     val identifier = _loginIdentifier.value.trim()
     val password = _passwordInput.value
@@ -474,6 +473,12 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   fun updateNewPassword(value: String) { _newPassword.value = value; _authError.value = null }
   fun updateConfirmNewPassword(value: String) { _confirmNewPassword.value = value; _authError.value = null }
 
+  /**
+   * On a verified email+phone match for the SAME existing account, this goes
+   * straight to the in-app new-password screen -- no email is sent, and
+   * nothing about the account (id, contacts, call history) is touched until
+   * the user actually saves a new password in completePasswordRecovery().
+   */
   fun requestPasswordRecovery() {
     val email = _recoveryEmail.value.trim()
     val phone = _recoveryPhone.value.trim()
@@ -488,17 +493,19 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     viewModelScope.launch {
       _isAuthBusy.value = true
       val result = supabase.requestPasswordRecovery(email, phone)
-      result.onSuccess {
-        _recoveryTokenHash.value = ""
+      result.onSuccess { match ->
+        _recoveryTokenHash.value = match.tokenHash
         _newPassword.value = ""
         _confirmNewPassword.value = ""
         _authError.value = null
-        _authNotice.value = "If the email and phone number match, a password reset link has been sent. Open it on this device to continue."
-      }.onFailure { _authError.value = it.message ?: "Could not send a password reset email. Please try again." }
+        _authNotice.value = null
+        _currentScreen.value = ScreenState.RESET_PASSWORD
+      }.onFailure { _authError.value = it.message ?: "Could not verify these account details. Please try again." }
       _isAuthBusy.value = false
     }
   }
 
+  /** Sets the new password for the SAME existing account, then enters the app already signed in. */
   fun completePasswordRecovery() {
     val password = _newPassword.value
     if (password.length < 8) {
@@ -521,7 +528,14 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
         _loginIdentifier.value = ""
         _passwordInput.value = ""
         _authError.value = null
-        _currentScreen.value = ScreenState.LOGIN
+        userProfileService.refreshCurrentUser().onSuccess { user ->
+          _emailInput.value = user.email
+          _phoneInput.value = user.phoneNumber
+          _displayNameInput.value = user.displayName
+        }
+        // Same account, same data: go straight into the app already signed in.
+        _currentScreen.value = ScreenState.MAIN_APP
+        startIncomingCallPollingIfForeground()
       }.onFailure { _authError.value = it.message ?: "Could not reset your password. Please try again." }
       _isAuthBusy.value = false
     }
@@ -611,21 +625,22 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
     }
   }
 
+  /** Build-phase behavior: applies immediately, no confirmation link, same as a phone-number change. */
   fun updateProfileEmail(email: String) {
     viewModelScope.launch {
-      emailBeforeChange = userProfileService.currentUser.value?.email.orEmpty()
       val result = userProfileService.updateEmail(email)
-      result.onSuccess {
-        emailChangeAwaitingConfirmation = true
+      result.onSuccess { user ->
+        _emailInput.value = user.email
+        _loginIdentifier.value = user.email
         _backendNotice.value = BackendNoticeState(
-          title = "Confirm your new email",
-          message = "A confirmation link has been sent to the new email address. Your Line Call email will change after you confirm it. Until then, keep signing in with your current email.",
+          title = "Email updated",
+          message = "Your account email is now ${user.email}.",
           targetNumber = "",
           targetName = null
         )
       }.onFailure {
         _backendNotice.value = BackendNoticeState(
-          title = "Email change not requested",
+          title = "Email not updated",
           message = it.message ?: "Your email address could not be changed.",
           targetNumber = "",
           targetName = null
@@ -635,18 +650,9 @@ class LineCallViewModel(application: Application) : AndroidViewModel(application
   }
 
   fun refreshProfileAfterAppResume() {
-    if (!emailChangeAwaitingConfirmation) return
-    viewModelScope.launch {
-      userProfileService.refreshCurrentUser().onSuccess { refreshed ->
-        if (refreshed.email.isNotBlank()) {
-          _emailInput.value = refreshed.email
-          _loginIdentifier.value = refreshed.email
-        }
-        if (refreshed.email.isNotBlank() && !refreshed.email.equals(emailBeforeChange, ignoreCase = true)) {
-          emailChangeAwaitingConfirmation = false
-        }
-      }
-    }
+    // Email changes now apply immediately and no longer need a post-resume
+    // confirmation check; kept as a no-op entry point in case a future
+    // verification step needs to resume work after the app returns to the foreground.
   }
 
   fun updateProfileAvatar(uri: Uri) {
