@@ -26,7 +26,6 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
@@ -64,7 +63,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.CallGreen
 import com.example.ui.theme.CallRed
+import com.example.ui.theme.IconSize
 
+/**
+ * Single sign-in screen that accepts either an email address or a phone
+ * number typed into one combined field (no separate tabs or toggles) --
+ * the Supabase layer underneath already detects which was typed by whether
+ * it contains "@".
+ */
 @Composable
 fun LoginScreen(
   identifier: String,
@@ -73,6 +79,7 @@ fun LoginScreen(
   password: String,
   error: String?,
   busy: Boolean,
+  onIdentifierChanged: (String) -> Unit,
   onPasswordChanged: (String) -> Unit,
   onLogin: () -> Unit,
   onSwitchAccount: () -> Unit,
@@ -80,11 +87,6 @@ fun LoginScreen(
 ) {
   val focusManager = LocalFocusManager.current
   var passwordVisible by remember { mutableStateOf(false) }
-  val maskedEmail = remember(identifier) {
-    val parts = identifier.trim().split("@", limit = 2)
-    if (parts.size != 2) identifier
-    else (if (parts[0].length <= 2) parts[0].take(1) + "•••" else parts[0].take(2) + "••••") + "@" + parts[1]
-  }
   Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(
       Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
@@ -107,22 +109,40 @@ fun LoginScreen(
       }
       Spacer(Modifier.height(22.dp))
       Text("Log in to your account", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 27.sp), color = MaterialTheme.colorScheme.onSurface)
-      Spacer(Modifier.height(8.dp))
-      Text(displayName.ifBlank { identifier.substringBefore("@").replaceFirstChar { it.uppercase() } }, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
-      Spacer(Modifier.height(5.dp))
-      Text(maskedEmail, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+      if (displayName.isNotBlank()) {
+        Spacer(Modifier.height(8.dp))
+        Text(displayName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+      }
       Spacer(Modifier.height(34.dp))
       Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          Text("Email or phone number", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+          OutlinedTextField(
+            value = identifier, onValueChange = onIdentifierChanged,
+            modifier = Modifier.fillMaxWidth().testTag("login_identifier_input"), singleLine = true,
+            placeholder = { Text("name@example.com or +2348012345678", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            leadingIcon = {
+              Icon(
+                if (identifier.contains("@")) Icons.Rounded.Email else Icons.Rounded.Phone,
+                contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(IconSize.Standard)
+              )
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+            shape = RoundedCornerShape(15.dp),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CallGreen, unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+              focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface, cursorColor = CallGreen)
+          )
           Text("Password", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
           OutlinedTextField(
             value = password, onValueChange = onPasswordChanged,
             modifier = Modifier.fillMaxWidth().testTag("login_password_input"), singleLine = true,
             placeholder = { Text("Enter your password", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-            leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(IconSize.Standard)) },
             trailingIcon = { IconButton(onClick = { passwordVisible = !passwordVisible }) {
               Icon(if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                contentDescription = if (passwordVisible) "Hide password" else "Show password", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                contentDescription = if (passwordVisible) "Hide password" else "Show password", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(IconSize.Standard))
             } },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -143,7 +163,7 @@ fun LoginScreen(
       }
       Spacer(Modifier.height(20.dp))
       Button(onClick = { focusManager.clearFocus(force = true); onLogin() },
-        enabled = !busy && password.isNotBlank(),
+        enabled = !busy && identifier.isNotBlank() && password.isNotBlank(),
         modifier = Modifier.fillMaxWidth().height(56.dp).testTag("login_submit_btn"),
         shape = RoundedCornerShape(17.dp),
         colors = ButtonDefaults.buttonColors(containerColor = CallGreen, contentColor = Color.White,
@@ -153,7 +173,7 @@ fun LoginScreen(
       }
       Spacer(Modifier.height(16.dp))
       TextButton(onClick = onSwitchAccount, modifier = Modifier.testTag("switch_account_button")) {
-        Text("Switch account", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+        Text("Create a new account instead", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
       }
     }
   }
@@ -184,20 +204,20 @@ fun ForgotPasswordScreen(
       }
       Text("Reset your password", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
       Text(
-        "Enter both the email address and phone number registered to your Line Call account. Both must match before you can choose a new password.",
+        "Enter both the email address and phone number registered to your Line Call account. When they match, you'll go straight to choosing a new password for your existing account.",
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
       )
       OutlinedTextField(
         value = email, onValueChange = onEmailChanged, modifier = Modifier.fillMaxWidth().testTag("recovery_email_input"),
         label = { Text("Registered email address") }, placeholder = { Text("name@example.com") },
         singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-        leadingIcon = { Icon(Icons.Rounded.Email, contentDescription = null) }, shape = RoundedCornerShape(14.dp)
+        leadingIcon = { Icon(Icons.Rounded.Email, contentDescription = null, modifier = Modifier.size(IconSize.Standard)) }, shape = RoundedCornerShape(14.dp)
       )
       OutlinedTextField(
         value = phoneNumber, onValueChange = onPhoneChanged, modifier = Modifier.fillMaxWidth().testTag("recovery_phone_input"),
         label = { Text("Registered phone number") }, placeholder = { Text("+2348012345678") },
         singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
-        leadingIcon = { Icon(Icons.Rounded.Phone, contentDescription = null) }, shape = RoundedCornerShape(14.dp),
+        leadingIcon = { Icon(Icons.Rounded.Phone, contentDescription = null, modifier = Modifier.size(IconSize.Standard)) }, shape = RoundedCornerShape(14.dp),
         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true); if (!busy) onSubmit() })
       )
       if (error != null) Text(error, color = CallRed, style = MaterialTheme.typography.bodySmall)
@@ -234,13 +254,13 @@ fun NewPasswordScreen(
       verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
       Text("Create a new password", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
-      Text("Your email and phone number matched. Choose a new password to finish resetting your account.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Text("Your email and phone number matched your existing account. Choose a new password to continue -- your contacts and call history stay exactly as they were.", color = MaterialTheme.colorScheme.onSurfaceVariant)
       OutlinedTextField(
         value = password, onValueChange = onPasswordChanged, modifier = Modifier.fillMaxWidth().testTag("new_password_input"),
         label = { Text("New password (at least 8 characters)") }, singleLine = true,
         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = { IconButton(onClick = { passwordVisible = !passwordVisible }) {
-          Icon(if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = "Toggle password visibility")
+          Icon(if (passwordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = "Toggle password visibility", modifier = Modifier.size(IconSize.Standard))
         } },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
         shape = RoundedCornerShape(14.dp)
