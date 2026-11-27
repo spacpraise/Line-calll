@@ -28,6 +28,9 @@ data class AccountLookupResult(val exists: Boolean, val displayName: String = ""
 
 data class RealtimeCredentials(val supabaseUrl: String, val anonKey: String, val accessToken: String)
 
+/** A verified email+phone match for the SAME existing account, ready to set a new password. */
+data class PasswordRecoveryMatch(val tokenHash: String)
+
 class LineCallSupabaseClient(context: Context) {
   private val http = OkHttpClient.Builder().build()
   private val secureStore = SecureSessionStore(context.applicationContext)
@@ -74,6 +77,10 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
+  /**
+   * Accepts either an email address or an E.164 phone number in [identifier],
+   * matching whichever the account was registered or last set with.
+   */
   suspend fun signInWithPassword(identifier: String, password: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
@@ -88,7 +95,7 @@ class LineCallSupabaseClient(context: Context) {
         )
       } else {
         require(clean.startsWith("+") && clean.drop(1).matches(Regex("^[1-9][0-9]{6,14}$"))) {
-          "Enter your phone number with its international country code, for example +2348012345678."
+          "Enter your email address, or your phone number with its country code, for example +2348012345678."
         }
         execute(
           Request.Builder()
@@ -188,20 +195,35 @@ class LineCallSupabaseClient(context: Context) {
     }
   }
 
-  suspend fun requestEmailChange(newEmail: String): Result<Unit> = withContext(Dispatchers.IO) {
+  /**
+   * Build-phase behavior: email changes apply immediately, matching how phone
+   * number changes already work. No confirmation link is required, since
+   * this account pool has no verification step for now.
+   */
+  suspend fun requestEmailChange(newEmail: String): Result<UserAccount> = withContext(Dispatchers.IO) {
     runCatching {
       val cleanEmail = newEmail.trim().lowercase()
       require(android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
         "Enter a valid email address."
       }
+      // Supabase Auth's own "Confirm email" / "Secure email change" project
+      // settings can still require confirmation independently of this call;
+      // those are controlled from the Supabase dashboard, not from here.
       execute(
         Request.Builder()
-          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user?redirect_to=${java.net.URLEncoder.encode(BackendConfig.AUTH_REDIRECT_URL, "UTF-8")}")
+          .url("${BackendConfig.SUPABASE_URL}/auth/v1/user")
           .headers(userHeaders())
           .put(JSONObject().put("email", cleanEmail).toString().toRequestBody(jsonType))
           .build()
       )
-      Unit
+      execute(
+        Request.Builder()
+          .url("${BackendConfig.SUPABASE_URL}/rest/v1/profiles?id=eq.${getAuthenticatedUserBlocking().getString("id")}")
+          .headers(userHeaders())
+          .patch(JSONObject().put("email", cleanEmail).toString().toRequestBody(jsonType))
+          .build()
+      )
+      getOrCreateProfileBlocking(getAuthenticatedUserBlocking())
     }
   }
 
@@ -278,10 +300,18 @@ class LineCallSupabaseClient(context: Context) {
     )
   }
 
-  suspend fun requestPasswordRecovery(email: String, phoneNumber: String): Result<Unit> = withContext(Dispatchers.IO) {
+  /**
+   * Confirms the given email and phone number belong to the SAME existing
+   * account, with no email sent and nothing about the account changed. On a
+   * match, returns a recovery token the app exchanges immediately (via
+   * [verifyAuthCallback]-style /auth/v1/verify) so the user lands directly on
+   * the in-app "choose a new password" screen -- no email round-trip, and the
+   * account's id, contacts and call history are untouched throughout.
+   */
+  suspend fun requestPasswordRecovery(email: String, phoneNumber: String): Result<PasswordRecoveryMatch> = withContext(Dispatchers.IO) {
     runCatching {
       check(isConfigured) { "Supabase is not configured." }
-      execute(
+      val response = execute(
         Request.Builder()
           .url("${BackendConfig.SUPABASE_URL}/functions/v1/password-recovery")
           .header("apikey", BackendConfig.SUPABASE_ANON_KEY)
@@ -291,7 +321,9 @@ class LineCallSupabaseClient(context: Context) {
           )
           .build()
       )
-      Unit
+      val tokenHash = response.optString("token_hash").takeIf { it.isNotBlank() }
+        ?: throw IllegalStateException("Could not verify these account details. Please try again.")
+      PasswordRecoveryMatch(tokenHash)
     }
   }
 
@@ -348,7 +380,7 @@ class LineCallSupabaseClient(context: Context) {
         storeSession(session)
       } else {
         check(!secureStore.get("access_token").isNullOrBlank()) {
-          "The password reset session is missing. Open the recovery email link again."
+          "The password reset session is missing. Start the reset again."
         }
       }
       execute(
@@ -358,7 +390,8 @@ class LineCallSupabaseClient(context: Context) {
           .put(JSONObject().put("password", newPassword).toString().toRequestBody(jsonType))
           .build()
       )
-      secureStore.clear()
+      // Keep the session signed in: the user set a new password for their
+      // existing account and should land in the app, not back at login.
     }
   }
 
