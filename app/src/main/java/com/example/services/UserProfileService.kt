@@ -66,8 +66,12 @@ class UserProfileService(
   suspend fun updatePhoneNumber(e164PhoneNumber: String): Result<UserAccount> =
     registerPhoneNumber(e164PhoneNumber)
 
-  suspend fun updateEmail(newEmail: String): Result<Unit> =
-    supabase.requestEmailChange(newEmail)
+  /** Build-phase behavior: applies immediately, no confirmation link, same as phone-number updates. */
+  suspend fun updateEmail(newEmail: String): Result<UserAccount> {
+    val result = supabase.requestEmailChange(newEmail)
+    result.onSuccess(::setUser)
+    return result
+  }
 
   suspend fun updateAvatar(jpegBytes: ByteArray): Result<UserAccount> {
     val current = _currentUser.value
