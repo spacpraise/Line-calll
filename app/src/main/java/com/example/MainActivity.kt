@@ -476,6 +476,7 @@ fun LineCallApp(
           password = passwordInput,
           error = authError,
           busy = isAuthBusy,
+          onIdentifierChanged = { viewModel.updateLoginIdentifier(it) },
           onPasswordChanged = { viewModel.updatePasswordInput(it) },
           onLogin = { viewModel.signIn() },
           onSwitchAccount = {
